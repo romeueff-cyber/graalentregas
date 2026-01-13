@@ -153,10 +153,10 @@ export default function NewDeliveryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pedidoDia">Pedido do Dia *</Label>
+              <Label htmlFor="pedidoDia">Número do Pedido *</Label>
               <Input
                 id="pedidoDia"
-                placeholder="Descreva o pedido"
+                placeholder="Ex: 12345"
                 value={pedidoDia}
                 onChange={(e) => setPedidoDia(e.target.value)}
                 className="h-12"
