@@ -1,21 +1,29 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ArrowLeft, MapPin, Camera, Calendar, User, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import type { CollectionPeriod } from '@/types/database';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '200px'
+  height: '200px',
 };
 
 export default function NewDeliveryPage() {
@@ -29,40 +37,40 @@ export default function NewDeliveryPage() {
   const [periodoRecolha, setPeriodoRecolha] = useState<CollectionPeriod>('MANHA');
   const [dataPrevistaRecolha, setDataPrevistaRecolha] = useState('');
   const [observacoes, setObservacoes] = useState('');
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
   const [photo, setPhoto] = useState<string | null>(null);
+  const [mapScriptError, setMapScriptError] = useState<Error | null>(null);
+
+  const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    id: 'google-map-script'
-  });
-
   // Get current location on mount
-  useState(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          toast.error('Não foi possível obter sua localização');
-        },
-        { enableHighAccuracy: true }
-      );
-    }
-  });
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        toast.error('Não foi possível obter sua localização');
+      },
+      { enableHighAccuracy: true }
+    );
+  }, []);
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
       setLocation({
         lat: e.latLng.lat(),
-        lng: e.latLng.lng()
+        lng: e.latLng.lng(),
       });
     }
   };
@@ -97,7 +105,7 @@ export default function NewDeliveryPage() {
         foto_local_path: photo || null,
         foto_url: null,
         latitude: location.lat,
-        longitude: location.lng
+        longitude: location.lng,
       });
 
       navigate('/');
@@ -113,11 +121,7 @@ export default function NewDeliveryPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 glass border-b px-4 py-3 safe-area-top">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Nova Entrega</h1>
@@ -211,30 +215,64 @@ export default function NewDeliveryPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg overflow-hidden border">
-              {isLoaded ? (
-                <GoogleMap
-                  mapContainerStyle={mapContainerStyle}
-                  center={location || { lat: -23.5505, lng: -46.6333 }}
-                  zoom={16}
-                  onClick={handleMapClick}
-                  options={{
-                    disableDefaultUI: true,
-                    zoomControl: true
-                  }}
-                >
-                  {location && (
-                    <Marker position={location} />
-                  )}
-                </GoogleMap>
-              ) : (
-                <div className="h-[200px] flex items-center justify-center bg-muted">
-                  <LoadingSpinner text="Carregando mapa..." />
+              {!hasApiKey ? (
+                <GoogleMapsInlineSetup onApiKeySubmit={saveApiKey} />
+              ) : mapScriptError ? (
+                <div className="h-[200px] flex flex-col items-center justify-center bg-muted p-3 text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Erro ao carregar mapa
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {mapScriptError.message}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={clearApiKey}>
+                    Configurar chave
+                  </Button>
                 </div>
+              ) : (
+                <LoadScript
+                  key={apiKey}
+                  id="google-map-script"
+                  googleMapsApiKey={apiKey}
+                  language="pt-BR"
+                  region="BR"
+                  onError={(err) => setMapScriptError(err)}
+                  loadingElement={
+                    <div className="h-[200px] flex items-center justify-center bg-muted">
+                      <LoadingSpinner text="Carregando mapa..." />
+                    </div>
+                  }
+                >
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={location || { lat: -23.5505, lng: -46.6333 }}
+                    zoom={16}
+                    onClick={handleMapClick}
+                    options={{
+                      disableDefaultUI: true,
+                      zoomControl: true,
+                    }}
+                  >
+                    {location && <Marker position={location} />}
+                  </GoogleMap>
+                </LoadScript>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Toque no mapa para ajustar a localização
-            </p>
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Toque no mapa para ajustar a localização
+              </p>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="px-0"
+                onClick={clearApiKey}
+              >
+                Configurar chave
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -308,13 +346,10 @@ export default function NewDeliveryPage() {
           className="w-full h-14 text-base font-semibold bg-gradient-primary"
           disabled={isSubmitting}
         >
-          {isSubmitting ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            'Registrar Entrega'
-          )}
+          {isSubmitting ? <LoadingSpinner size="sm" /> : 'Registrar Entrega'}
         </Button>
       </form>
     </div>
   );
 }
+
