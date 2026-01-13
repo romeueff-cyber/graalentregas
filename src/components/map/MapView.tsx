@@ -77,13 +77,15 @@ export function MapView({
     setMap(null);
   }, []);
 
-  // Center map on driver location ONLY on first load
+  // Center map on driver location ONLY on first load (when map is ready)
   useEffect(() => {
     if (map && driverLocation && !initialCenterDone.current) {
-      map.panTo({ lat: driverLocation.latitude, lng: driverLocation.longitude });
+      map.setCenter({ lat: driverLocation.latitude, lng: driverLocation.longitude });
       initialCenterDone.current = true;
     }
-  }, [map, driverLocation]);
+    // Only run when map becomes available, ignore driverLocation updates
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]);
 
   const openRoute = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
