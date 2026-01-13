@@ -3,9 +3,6 @@ project_id = "dsrfakzwbirytxtfxydz"
 [functions.create-user]
 verify_jwt = false
 
-[functions.setup-admin]
-verify_jwt = false
-
 [functions.manage-user]
 verify_jwt = false
 
