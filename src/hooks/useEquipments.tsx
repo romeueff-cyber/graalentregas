@@ -18,26 +18,41 @@ export function useEquipments() {
 
     try {
       if (isOnline()) {
-        // Fetch from server
+        // Fetch from server (avoid PostgREST join that depends on FK constraints)
         const { data, error } = await supabase
           .from('equipments')
-          .select(`
-            *,
-            profiles!equipments_created_by_user_id_fkey (name)
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
 
+        const creatorIds = Array.from(
+          new Set((data || []).map((e: any) => e.created_by_user_id).filter(Boolean))
+        );
+
+        let profilesById = new Map<string, string>();
+        if (creatorIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', creatorIds);
+
+          if (profilesError) throw profilesError;
+
+          profilesById = new Map(
+            (profilesData || []).map((p: any) => [p.id as string, p.name as string])
+          );
+        }
+
         const equipmentsWithCreator: EquipmentWithCreator[] = (data || []).map((e: any) => ({
           ...e,
-          creator_name: e.profiles?.name || 'Desconhecido'
+          creator_name: profilesById.get(e.created_by_user_id) || 'Desconhecido',
         }));
 
         setEquipments(equipmentsWithCreator);
-        
-        // Save to local storage for offline use
-        await equipmentStorage.save(equipmentsWithCreator as Equipment[]);
+
+        // Save raw equipments (without creator_name) to local storage for offline use
+        await equipmentStorage.save((data || []) as Equipment[]);
       } else {
         // Load from local storage
         const localData = await equipmentStorage.getAll();
