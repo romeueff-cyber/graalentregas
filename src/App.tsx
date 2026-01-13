@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
+import { AdminRoute } from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import NewDeliveryPage from "./pages/NewDeliveryPage";
@@ -28,8 +29,8 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/new-delivery" element={<NewDeliveryPage />} />
             <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
-            <Route path="/users" element={<UsersManagementPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/users" element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
+            <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="/install" element={<InstallPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

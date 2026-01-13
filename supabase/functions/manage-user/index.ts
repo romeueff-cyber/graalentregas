@@ -6,6 +6,81 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Input validation helpers
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MAX_NAME_LENGTH = 100
+const MAX_EMAIL_LENGTH = 255
+const MIN_PASSWORD_LENGTH = 8
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const VALID_ACTIONS = ['update', 'deactivate', 'activate', 'delete']
+
+function validateEmail(email: string): { valid: boolean; error?: string } {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, error: 'Email is required' }
+  }
+  const trimmedEmail = email.trim()
+  if (trimmedEmail.length > MAX_EMAIL_LENGTH) {
+    return { valid: false, error: `Email must be less than ${MAX_EMAIL_LENGTH} characters` }
+  }
+  if (!EMAIL_REGEX.test(trimmedEmail)) {
+    return { valid: false, error: 'Invalid email format' }
+  }
+  return { valid: true }
+}
+
+function validatePassword(password: string): { valid: boolean; error?: string } {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password is required' }
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' }
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' }
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' }
+  }
+  return { valid: true }
+}
+
+function validateName(name: string): { valid: boolean; error?: string } {
+  if (!name || typeof name !== 'string') {
+    return { valid: false, error: 'Name is required' }
+  }
+  const trimmedName = name.trim()
+  if (trimmedName.length < 2) {
+    return { valid: false, error: 'Name must be at least 2 characters' }
+  }
+  if (trimmedName.length > MAX_NAME_LENGTH) {
+    return { valid: false, error: `Name must be less than ${MAX_NAME_LENGTH} characters` }
+  }
+  return { valid: true }
+}
+
+function validateUserId(userId: string): { valid: boolean; error?: string } {
+  if (!userId || typeof userId !== 'string') {
+    return { valid: false, error: 'User ID is required' }
+  }
+  if (!UUID_REGEX.test(userId)) {
+    return { valid: false, error: 'Invalid user ID format' }
+  }
+  return { valid: true }
+}
+
+function validateAction(action: string): { valid: boolean; error?: string } {
+  if (!action || typeof action !== 'string') {
+    return { valid: false, error: 'Action is required' }
+  }
+  if (!VALID_ACTIONS.includes(action)) {
+    return { valid: false, error: `Invalid action. Valid actions: ${VALID_ACTIONS.join(', ')}` }
+  }
+  return { valid: true }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -61,9 +136,20 @@ serve(async (req) => {
     // Parse request body
     const { action, userId, name, email, password } = await req.json()
 
-    if (!action || !userId) {
+    // Validate action
+    const actionValidation = validateAction(action)
+    if (!actionValidation.valid) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: action, userId' }),
+        JSON.stringify({ error: actionValidation.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate userId
+    const userIdValidation = validateUserId(userId)
+    if (!userIdValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: userIdValidation.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -85,23 +171,57 @@ serve(async (req) => {
 
     switch (action) {
       case 'update': {
+        // Validate optional fields if provided
+        if (email) {
+          const emailValidation = validateEmail(email)
+          if (!emailValidation.valid) {
+            return new Response(
+              JSON.stringify({ error: emailValidation.error }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        if (password) {
+          const passwordValidation = validatePassword(password)
+          if (!passwordValidation.valid) {
+            return new Response(
+              JSON.stringify({ error: passwordValidation.error }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        if (name) {
+          const nameValidation = validateName(name)
+          if (!nameValidation.valid) {
+            return new Response(
+              JSON.stringify({ error: nameValidation.error }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
         // Update user data
         const updateData: { email?: string; password?: string; user_metadata?: { name: string } } = {}
         
-        if (email) {
-          updateData.email = email
+        const trimmedEmail = email?.trim()
+        const trimmedName = name?.trim()
+
+        if (trimmedEmail) {
+          updateData.email = trimmedEmail
         }
         
         if (password) {
           updateData.password = password
         }
         
-        if (name) {
-          updateData.user_metadata = { name }
+        if (trimmedName) {
+          updateData.user_metadata = { name: trimmedName }
         }
 
         // Update auth user if email or password changed
-        if (email || password) {
+        if (trimmedEmail || password) {
           const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
             updateData
@@ -117,10 +237,10 @@ serve(async (req) => {
         }
 
         // Update profile if name or email changed
-        if (name || email) {
+        if (trimmedName || trimmedEmail) {
           const profileUpdate: { name?: string; email?: string } = {}
-          if (name) profileUpdate.name = name
-          if (email) profileUpdate.email = email
+          if (trimmedName) profileUpdate.name = trimmedName
+          if (trimmedEmail) profileUpdate.email = trimmedEmail
 
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
@@ -204,7 +324,7 @@ serve(async (req) => {
 
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid action. Valid actions: update, deactivate, activate, delete' }),
+          JSON.stringify({ error: `Invalid action. Valid actions: ${VALID_ACTIONS.join(', ')}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
