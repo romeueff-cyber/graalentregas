@@ -61,12 +61,13 @@ export default function MainMapPage() {
 
   const handleConfirmCollection = async (equipment: EquipmentWithCreator) => {
     await confirmCollection(equipment.id);
-    // Update selected equipment to reflect new status
-    setSelectedEquipment((prev) =>
-      prev && prev.id === equipment.id
-        ? { ...prev, status: 'RECOLHIDO', data_real_recolha: new Date().toISOString() }
-        : prev
-    );
+    // Update selected equipment to reflect new status immediately
+    const updatedEquipment = {
+      ...equipment,
+      status: 'RECOLHIDO' as const,
+      data_real_recolha: new Date().toISOString()
+    };
+    setSelectedEquipment(updatedEquipment);
   };
 
   // Count by status
