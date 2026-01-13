@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
@@ -7,15 +7,15 @@ import { MapView } from '@/components/map/MapView';
 import { Button } from '@/components/ui/button';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
-import { 
-  Plus, 
-  Menu, 
-  LogOut, 
-  Settings, 
+import {
+  Plus,
+  Menu,
+  LogOut,
+  Settings,
   Users,
   List,
   Map as MapIcon,
-  Beer
+  Beer,
 } from 'lucide-react';
 import {
   Sheet,
@@ -23,7 +23,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from '@/components/ui/sheet';
 import type { EquipmentWithCreator } from '@/types/database';
 
 export default function MainMapPage() {
@@ -31,7 +31,7 @@ export default function MainMapPage() {
   const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
   const { equipments, isLoading, isSyncing, isOnline } = useEquipments();
   const { location: driverLocation } = useDriverLocation();
-  
+
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentWithCreator | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
@@ -41,8 +41,7 @@ export default function MainMapPage() {
   }
 
   if (!user) {
-    navigate('/auth');
-    return null;
+    return <Navigate to="/auth" replace />;
   }
 
   const handleEquipmentClick = (equipment: EquipmentWithCreator) => {
@@ -57,6 +56,7 @@ export default function MainMapPage() {
     await signOut();
     navigate('/auth');
   };
+
 
   // Count by status
   const statusCounts = {
