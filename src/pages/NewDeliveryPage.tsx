@@ -108,10 +108,12 @@ export default function NewDeliveryPage() {
         longitude: location.lng,
       });
 
-      navigate('/');
+      // Small delay to ensure state propagates before navigation
+      setTimeout(() => {
+        navigate('/');
+      }, 100);
     } catch (error) {
       console.error('Error creating delivery:', error);
-    } finally {
       setIsSubmitting(false);
     }
   };
