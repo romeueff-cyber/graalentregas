@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       equipments: {
         Row: {
+          cliente_ira_avisar: boolean
           created_at: string | null
           created_by_user_id: string
           data_entrega: string | null
@@ -35,6 +36,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cliente_ira_avisar?: boolean
           created_at?: string | null
           created_by_user_id: string
           data_entrega?: string | null
@@ -54,6 +56,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cliente_ira_avisar?: boolean
           created_at?: string | null
           created_by_user_id?: string
           data_entrega?: string | null
@@ -139,6 +142,7 @@ export type Database = {
       confirm_collection: {
         Args: { _equipment_id: string }
         Returns: {
+          cliente_ira_avisar: boolean
           created_at: string | null
           created_by_user_id: string
           data_entrega: string | null
@@ -174,7 +178,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "entregador"
-      collection_period: "MANHA" | "TARDE" | "NOITE"
+      collection_period:
+        | "DIA_TODO"
+        | "MANHA"
+        | "TARDE"
+        | "NOITE"
+        | "CLIENTE_IRA_AVISAR"
       equipment_status: "ENTREGUE" | "LIBERADO_PARA_RECOLHA" | "RECOLHIDO"
       sync_status: "synced" | "pending"
     }
@@ -305,7 +314,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "entregador"],
-      collection_period: ["MANHA", "TARDE", "NOITE"],
+      collection_period: [
+        "DIA_TODO",
+        "MANHA",
+        "TARDE",
+        "NOITE",
+        "CLIENTE_IRA_AVISAR",
+      ],
       equipment_status: ["ENTREGUE", "LIBERADO_PARA_RECOLHA", "RECOLHIDO"],
       sync_status: ["synced", "pending"],
     },

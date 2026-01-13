@@ -2,7 +2,7 @@ export type AppRole = 'admin' | 'entregador';
 
 export type EquipmentStatus = 'ENTREGUE' | 'LIBERADO_PARA_RECOLHA' | 'RECOLHIDO';
 
-export type CollectionPeriod = 'MANHA' | 'TARDE' | 'NOITE';
+export type CollectionPeriod = 'DIA_TODO' | 'MANHA' | 'TARDE' | 'NOITE' | 'CLIENTE_IRA_AVISAR';
 
 export type SyncStatus = 'synced' | 'pending';
 
@@ -37,6 +37,7 @@ export interface Equipment {
   created_at: string;
   updated_at: string;
   sync_status: SyncStatus;
+  cliente_ira_avisar: boolean;
 }
 
 export interface Settings {

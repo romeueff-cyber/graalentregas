@@ -16,6 +16,8 @@ interface MapViewProps {
   selectedEquipment?: EquipmentWithCreator | null;
   onCloseInfoWindow?: () => void;
   onConfirmCollection?: (equipment: EquipmentWithCreator) => void;
+  onDelete?: (equipment: EquipmentWithCreator) => Promise<void>;
+  isAdmin?: boolean;
 }
 
 const mapContainerStyle = {
@@ -41,6 +43,8 @@ export function MapView({
   selectedEquipment,
   onCloseInfoWindow,
   onConfirmCollection,
+  onDelete,
+  isAdmin = false,
 }: MapViewProps) {
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -212,6 +216,8 @@ export function MapView({
         open={dialogOpen}
         onOpenChange={handleDialogClose}
         onConfirmCollection={onConfirmCollection ? handleConfirmCollection : undefined}
+        onDelete={onDelete}
+        isAdmin={isAdmin}
       />
     </>
   );

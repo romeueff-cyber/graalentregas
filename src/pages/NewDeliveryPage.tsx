@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -34,9 +35,10 @@ export default function NewDeliveryPage() {
   // Form state
   const [nomeCliente, setNomeCliente] = useState('');
   const [pedidoDia, setPedidoDia] = useState('');
-  const [periodoRecolha, setPeriodoRecolha] = useState<CollectionPeriod>('MANHA');
+  const [periodoRecolha, setPeriodoRecolha] = useState<CollectionPeriod>('DIA_TODO');
   const [dataPrevistaRecolha, setDataPrevistaRecolha] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  const [clienteIraAvisar, setClienteIraAvisar] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
     null
   );
@@ -89,8 +91,14 @@ export default function NewDeliveryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!nomeCliente || !pedidoDia || !dataPrevistaRecolha || !location) {
+    // If client will notify, date and period are not required
+    if (!nomeCliente || !pedidoDia || !location) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    if (!clienteIraAvisar && !dataPrevistaRecolha) {
+      toast.error('Preencha a data prevista ou marque "Cliente irá avisar"');
       return;
     }
 
@@ -99,13 +107,16 @@ export default function NewDeliveryPage() {
       await createEquipment({
         nome_cliente: nomeCliente,
         pedido_dia: pedidoDia,
-        periodo_recolha: periodoRecolha,
-        data_prevista_recolha: dataPrevistaRecolha,
+        periodo_recolha: clienteIraAvisar ? 'CLIENTE_IRA_AVISAR' : periodoRecolha,
+        data_prevista_recolha: clienteIraAvisar 
+          ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 year from now as placeholder
+          : dataPrevistaRecolha,
         observacoes: observacoes || null,
         foto_local_path: photo || null,
         foto_url: null,
         latitude: location.lat,
         longitude: location.lng,
+        cliente_ira_avisar: clienteIraAvisar,
       });
 
       // Small delay to ensure state propagates before navigation
@@ -174,8 +185,23 @@ export default function NewDeliveryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="dataPrevistaRecolha">Data Prevista *</Label>
+            {/* Cliente irá avisar checkbox */}
+            <div className="flex items-center space-x-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <Checkbox
+                id="clienteIraAvisar"
+                checked={clienteIraAvisar}
+                onCheckedChange={(checked) => setClienteIraAvisar(checked === true)}
+              />
+              <Label 
+                htmlFor="clienteIraAvisar" 
+                className="text-sm font-medium text-amber-800 cursor-pointer"
+              >
+                Cliente irá avisar
+              </Label>
+            </div>
+
+            <div className={`space-y-2 ${clienteIraAvisar ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Label htmlFor="dataPrevistaRecolha">Data Prevista {!clienteIraAvisar && '*'}</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -184,20 +210,23 @@ export default function NewDeliveryPage() {
                   value={dataPrevistaRecolha}
                   onChange={(e) => setDataPrevistaRecolha(e.target.value)}
                   className="h-12 pl-10"
+                  disabled={clienteIraAvisar}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Período *</Label>
+            <div className={`space-y-2 ${clienteIraAvisar ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Label>Período {!clienteIraAvisar && '*'}</Label>
               <Select
                 value={periodoRecolha}
                 onValueChange={(v) => setPeriodoRecolha(v as CollectionPeriod)}
+                disabled={clienteIraAvisar}
               >
                 <SelectTrigger className="h-12">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="DIA_TODO">Dia Todo</SelectItem>
                   <SelectItem value="MANHA">Manhã</SelectItem>
                   <SelectItem value="TARDE">Tarde</SelectItem>
                   <SelectItem value="NOITE">Noite</SelectItem>
