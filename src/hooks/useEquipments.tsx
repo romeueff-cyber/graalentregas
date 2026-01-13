@@ -205,12 +205,31 @@ export function useEquipments() {
     }
   };
 
-  // Confirm collection
+  // Confirm collection using database function
   const confirmCollection = async (id: string) => {
-    await updateEquipment(id, {
-      status: 'RECOLHIDO',
-      data_real_recolha: new Date().toISOString()
-    });
+    try {
+      if (isOnline()) {
+        const { data, error } = await supabase.rpc('confirm_collection', {
+          _equipment_id: id
+        });
+
+        if (error) throw error;
+        toast.success('Recolha confirmada!');
+      } else {
+        // Offline: queue update locally
+        await updateEquipment(id, {
+          status: 'RECOLHIDO',
+          data_real_recolha: new Date().toISOString()
+        });
+        return;
+      }
+
+      await fetchEquipments();
+    } catch (error: any) {
+      console.error('Error confirming collection:', error);
+      toast.error('Erro ao confirmar recolha: ' + error.message);
+      throw error;
+    }
   };
 
   // Filter visible equipments (collected items within visibility period)

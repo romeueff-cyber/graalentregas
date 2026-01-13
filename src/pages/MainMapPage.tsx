@@ -60,14 +60,17 @@ export default function MainMapPage() {
   };
 
   const handleConfirmCollection = async (equipment: EquipmentWithCreator) => {
-    await confirmCollection(equipment.id);
-    // Update selected equipment to reflect new status immediately
-    const updatedEquipment = {
-      ...equipment,
-      status: 'RECOLHIDO' as const,
-      data_real_recolha: new Date().toISOString()
-    };
-    setSelectedEquipment(updatedEquipment);
+    try {
+      await confirmCollection(equipment.id);
+      // Update selected equipment to reflect new status immediately
+      setSelectedEquipment({
+        ...equipment,
+        status: 'RECOLHIDO',
+        data_real_recolha: new Date().toISOString()
+      });
+    } catch (error) {
+      // Error already handled in hook
+    }
   };
 
   // Count by status
