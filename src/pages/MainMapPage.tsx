@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
@@ -16,8 +16,6 @@ import {
   List,
   Map as MapIcon,
   Beer,
-  Filter,
-  X,
 } from 'lucide-react';
 import {
   Sheet,
@@ -26,17 +24,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import type { EquipmentWithCreator, EquipmentStatus } from '@/types/database';
-
-type FilterType = 'all' | 'cliente_ira_avisar' | EquipmentStatus;
+import type { EquipmentWithCreator } from '@/types/database';
 
 export default function MainMapPage() {
   const navigate = useNavigate();
@@ -49,24 +37,6 @@ export default function MainMapPage() {
     useState<EquipmentWithCreator | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-
-  // Filter equipments based on active filter
-  const filteredEquipments = useMemo(() => {
-    if (activeFilter === 'all') return equipments;
-    if (activeFilter === 'cliente_ira_avisar') {
-      return equipments.filter((e) => e.cliente_ira_avisar);
-    }
-    return equipments.filter((e) => e.status === activeFilter);
-  }, [equipments, activeFilter]);
-
-  const filterLabels: Record<FilterType, string> = {
-    all: 'Todos',
-    cliente_ira_avisar: 'Cliente irá Avisar',
-    ENTREGUE: 'Entregue',
-    LIBERADO_PARA_RECOLHA: 'Liberado',
-    RECOLHIDO: 'Recolhido',
-  };
 
   if (authLoading || isLoading) {
     return <FullPageLoader />;
@@ -235,7 +205,7 @@ export default function MainMapPage() {
       <div className="flex-1 relative">
         {viewMode === 'map' ? (
           <MapView
-            equipments={filteredEquipments}
+            equipments={equipments}
             driverLocation={driverLocation}
             onEquipmentClick={handleEquipmentClick}
             selectedEquipment={selectedEquipment}
@@ -246,25 +216,18 @@ export default function MainMapPage() {
           />
         ) : (
           <div className="h-full overflow-auto p-4 space-y-3">
-            {filteredEquipments.length === 0 ? (
+            {equipments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <p className="text-muted-foreground mb-2">
-                  {activeFilter === 'all' 
-                    ? 'Nenhuma entrega registrada' 
-                    : `Nenhuma entrega com filtro "${filterLabels[activeFilter]}"`}
+                  Nenhuma entrega registrada
                 </p>
-                {activeFilter !== 'all' && (
-                  <Button variant="outline" className="mb-2" onClick={() => setActiveFilter('all')}>
-                    Limpar Filtro
-                  </Button>
-                )}
                 <Button onClick={() => navigate('/new-delivery')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Entrega
                 </Button>
               </div>
             ) : (
-              filteredEquipments.map((equipment) => (
+              equipments.map((equipment) => (
                 <div
                   key={equipment.id}
                   className="bg-card rounded-lg p-4 border shadow-sm cursor-pointer card-interactive"
@@ -279,13 +242,11 @@ export default function MainMapPage() {
                     </div>
                     <div
                       className={`w-3 h-3 rounded-full ${
-                        equipment.cliente_ira_avisar
-                          ? 'bg-amber-500'
-                          : equipment.status === 'ENTREGUE'
-                            ? 'bg-destructive'
-                            : equipment.status === 'LIBERADO_PARA_RECOLHA'
-                              ? 'bg-status-ready'
-                              : 'bg-status-collected'
+                        equipment.status === 'ENTREGUE'
+                          ? 'bg-destructive'
+                          : equipment.status === 'LIBERADO_PARA_RECOLHA'
+                            ? 'bg-status-ready'
+                            : 'bg-status-collected'
                       }`}
                     />
                   </div>
@@ -297,60 +258,11 @@ export default function MainMapPage() {
 
         {/* FAB - New Delivery */}
         <Button
-          className="fixed bottom-20 right-6 w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90 z-10"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90"
           onClick={() => navigate('/new-delivery')}
         >
           <Plus className="w-6 h-6" />
         </Button>
-      </div>
-
-      {/* Footer Filter Bar */}
-      <div className="glass border-t px-4 py-3 safe-area-bottom z-20">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-          <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as FilterType)}>
-            <SelectTrigger className="h-9 flex-1 text-sm">
-              <SelectValue placeholder="Filtrar por..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="cliente_ira_avisar">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  Cliente irá Avisar
-                </span>
-              </SelectItem>
-              <SelectItem value="ENTREGUE">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-destructive" />
-                  Entregue
-                </span>
-              </SelectItem>
-              <SelectItem value="LIBERADO_PARA_RECOLHA">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-status-ready" />
-                  Liberado
-                </span>
-              </SelectItem>
-              <SelectItem value="RECOLHIDO">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-status-collected" />
-                  Recolhido
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          {activeFilter !== 'all' && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-9 px-2"
-              onClick={() => setActiveFilter('all')}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );
