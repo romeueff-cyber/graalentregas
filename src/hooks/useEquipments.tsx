@@ -1,0 +1,263 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { equipmentStorage, settingsStorage, isOnline } from '@/lib/offline-storage';
+import type { Equipment, EquipmentWithCreator, Settings } from '@/types/database';
+import { useAuth } from './useAuth';
+import { toast } from 'sonner';
+
+export function useEquipments() {
+  const { user } = useAuth();
+  const [equipments, setEquipments] = useState<EquipmentWithCreator[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Fetch equipments from server or local storage
+  const fetchEquipments = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      if (isOnline()) {
+        // Fetch from server
+        const { data, error } = await supabase
+          .from('equipments')
+          .select(`
+            *,
+            profiles!equipments_created_by_user_id_fkey (name)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const equipmentsWithCreator: EquipmentWithCreator[] = (data || []).map((e: any) => ({
+          ...e,
+          creator_name: e.profiles?.name || 'Desconhecido'
+        }));
+
+        setEquipments(equipmentsWithCreator);
+        
+        // Save to local storage for offline use
+        await equipmentStorage.save(equipmentsWithCreator as Equipment[]);
+      } else {
+        // Load from local storage
+        const localData = await equipmentStorage.getAll();
+        setEquipments(localData);
+      }
+    } catch (error) {
+      console.error('Error fetching equipments:', error);
+      
+      // Try to load from local storage on error
+      const localData = await equipmentStorage.getAll();
+      if (localData.length > 0) {
+        setEquipments(localData);
+        toast.info('Usando dados offline');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  // Fetch settings
+  const fetchSettings = useCallback(async () => {
+    try {
+      if (isOnline()) {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        
+        setSettings(data as Settings);
+        await settingsStorage.save(data as Settings);
+      } else {
+        const localSettings = await settingsStorage.get();
+        if (localSettings) {
+          setSettings(localSettings);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      const localSettings = await settingsStorage.get();
+      if (localSettings) {
+        setSettings(localSettings);
+      }
+    }
+  }, []);
+
+  // Sync pending equipments
+  const syncPending = useCallback(async () => {
+    if (!isOnline() || !user) return;
+
+    setIsSyncing(true);
+    try {
+      const pending = await equipmentStorage.getPending();
+      
+      for (const equipment of pending) {
+        const { error } = await supabase
+          .from('equipments')
+          .upsert(equipment);
+
+        if (!error) {
+          await equipmentStorage.removePending(equipment.id);
+        }
+      }
+
+      if (pending.length > 0) {
+        toast.success(`${pending.length} registro(s) sincronizado(s)`);
+        await fetchEquipments();
+      }
+    } catch (error) {
+      console.error('Error syncing:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user, fetchEquipments]);
+
+  // Create equipment
+  const createEquipment = async (data: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'data_entrega' | 'data_real_recolha' | 'status' | 'sync_status' | 'created_by_user_id'>) => {
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const newEquipment: Equipment = {
+      id: crypto.randomUUID(),
+      ...data,
+      data_entrega: new Date().toISOString(),
+      data_real_recolha: null,
+      status: 'ENTREGUE',
+      sync_status: isOnline() ? 'synced' : 'pending',
+      created_by_user_id: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      if (isOnline()) {
+        const { error } = await supabase
+          .from('equipments')
+          .insert(newEquipment);
+
+        if (error) throw error;
+        toast.success('Entrega registrada com sucesso!');
+      } else {
+        await equipmentStorage.addPending(newEquipment);
+        await equipmentStorage.updateLocal(newEquipment);
+        toast.info('Entrega salva offline. Será sincronizada quando houver internet.');
+      }
+
+      await fetchEquipments();
+      return newEquipment;
+    } catch (error: any) {
+      console.error('Error creating equipment:', error);
+      toast.error('Erro ao registrar entrega: ' + error.message);
+      throw error;
+    }
+  };
+
+  // Update equipment
+  const updateEquipment = async (id: string, data: Partial<Equipment>) => {
+    try {
+      const syncStatus: 'synced' | 'pending' = isOnline() ? 'synced' : 'pending';
+      const updatedData = {
+        ...data,
+        updated_at: new Date().toISOString(),
+        sync_status: syncStatus
+      };
+
+      if (isOnline()) {
+        const { error } = await supabase
+          .from('equipments')
+          .update(updatedData)
+          .eq('id', id);
+
+        if (error) throw error;
+        toast.success('Registro atualizado!');
+      } else {
+        const equipments = await equipmentStorage.getAll();
+        const equipment = equipments.find(e => e.id === id);
+        if (equipment) {
+          const updated = { ...equipment, ...updatedData } as Equipment;
+          await equipmentStorage.updateLocal(updated);
+          await equipmentStorage.addPending(updated);
+        }
+        toast.info('Atualização salva offline.');
+      }
+
+      await fetchEquipments();
+    } catch (error: any) {
+      console.error('Error updating equipment:', error);
+      toast.error('Erro ao atualizar: ' + error.message);
+      throw error;
+    }
+  };
+
+  // Confirm collection
+  const confirmCollection = async (id: string) => {
+    await updateEquipment(id, {
+      status: 'RECOLHIDO',
+      data_real_recolha: new Date().toISOString()
+    });
+  };
+
+  // Filter visible equipments (collected items within visibility period)
+  const getVisibleEquipments = useCallback(() => {
+    const diasExibir = settings?.dias_exibir_recolhido || 7;
+    const now = new Date();
+
+    return equipments.filter(equipment => {
+      if (equipment.status !== 'RECOLHIDO') {
+        return true;
+      }
+
+      // Check if collected within visibility period
+      if (equipment.data_real_recolha) {
+        const collectedDate = new Date(equipment.data_real_recolha);
+        const diffDays = Math.floor((now.getTime() - collectedDate.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays <= diasExibir;
+      }
+
+      return true;
+    });
+  }, [equipments, settings]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (user) {
+      fetchEquipments();
+      fetchSettings();
+    }
+  }, [user, fetchEquipments, fetchSettings]);
+
+  // Listen for online status changes
+  useEffect(() => {
+    const handleOnline = () => {
+      toast.success('Conexão restaurada');
+      syncPending();
+    };
+
+    const handleOffline = () => {
+      toast.warning('Sem conexão. Modo offline ativado.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncPending]);
+
+  return {
+    equipments: getVisibleEquipments(),
+    allEquipments: equipments,
+    settings,
+    isLoading,
+    isSyncing,
+    isOnline: isOnline(),
+    fetchEquipments,
+    createEquipment,
+    updateEquipment,
+    confirmCollection,
+    syncPending
+  };
+}
