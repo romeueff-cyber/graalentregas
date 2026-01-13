@@ -87,9 +87,11 @@ export default function UsersManagementPage() {
       toast.success('Entregador criado com sucesso!');
     },
     onError: (error: any) => {
-      if (error.message.includes('already') || error.message.includes('exists')) {
-        toast.error('Este email já está cadastrado');
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('already') || msg.includes('exists') || msg.includes('email_exists') || msg.includes('registered')) {
+        toast.error('Este email já está cadastrado. Use outro email.');
       } else {
+        console.error('Erro ao criar usuário:', error);
         toast.error('Erro ao criar usuário: ' + error.message);
       }
     }
