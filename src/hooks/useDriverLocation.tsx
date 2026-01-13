@@ -98,10 +98,11 @@ export function useDriverLocation(): UseDriverLocationResult {
     };
   }, [watchId]);
 
-  // Auto-start tracking
+  // Auto-start tracking only once on mount
   useEffect(() => {
     startTracking();
     return () => stopTracking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
