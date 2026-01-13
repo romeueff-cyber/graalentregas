@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PeriodBadge } from '@/components/ui/period-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { GoogleMapsSetup } from './GoogleMapsSetup';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { Navigation, ExternalLink } from 'lucide-react';
 
 interface MapViewProps {
@@ -40,11 +42,12 @@ export function MapView({
   selectedEquipment,
   onCloseInfoWindow
 }: MapViewProps) {
+  const { apiKey, hasApiKey, saveApiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowOpen, setInfoWindowOpen] = useState(false);
 
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: apiKey,
     id: 'google-map-script'
   });
 
@@ -121,10 +124,24 @@ export function MapView({
     onCloseInfoWindow?.();
   };
 
+  // Show setup if no API key
+  if (!hasApiKey) {
+    return <GoogleMapsSetup onApiKeySubmit={saveApiKey} />;
+  }
+
   if (loadError) {
     return (
-      <div className="flex items-center justify-center h-full bg-muted rounded-lg">
-        <p className="text-muted-foreground">Erro ao carregar mapa</p>
+      <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 text-center">
+        <p className="text-muted-foreground mb-2">Erro ao carregar mapa</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Verifique se a chave da API está correta e se a Maps JavaScript API está ativada.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => {
+          localStorage.removeItem('graal_google_maps_key');
+          window.location.reload();
+        }}>
+          Inserir outra chave
+        </Button>
       </div>
     );
   }
