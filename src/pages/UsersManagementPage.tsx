@@ -7,10 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check } from 'lucide-react';
+import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const userSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -20,6 +30,8 @@ const userSchema = z.object({
 
 const editSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').optional().or(z.literal('')),
 });
 
 interface UserData {
@@ -28,6 +40,7 @@ interface UserData {
   email: string;
   created_at: string | null;
   role: string | null;
+  banned_until: string | null;
 }
 
 export default function UsersManagementPage() {
@@ -39,16 +52,23 @@ export default function UsersManagementPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
   
   // Edit state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [editErrors, setEditErrors] = useState<{ name?: string }>({});
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editErrors, setEditErrors] = useState<{ name?: string; email?: string; password?: string }>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch all users
+  // Deactivate confirmation
+  const [userToToggle, setUserToToggle] = useState<UserData | null>(null);
+
+  // Fetch all users with banned status
   const { data: users = [], isLoading, error: queryError } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
@@ -75,15 +95,21 @@ export default function UsersManagementPage() {
         throw rolesError;
       }
 
+      // Fetch user auth data to get banned status
+      const response = await supabase.functions.invoke('list-users', {});
+      const authUsers = response.data?.users || [];
+
       // Combine data
       const usersWithRoles: UserData[] = profiles.map(profile => {
         const userRole = roles.find(r => r.user_id === profile.id);
+        const authUser = authUsers.find((u: any) => u.id === profile.id);
         return {
           id: profile.id,
           name: profile.name,
           email: profile.email,
           created_at: profile.created_at,
-          role: userRole?.role || null
+          role: userRole?.role || null,
+          banned_until: authUser?.banned_until || null
         };
       });
 
@@ -131,23 +157,72 @@ export default function UsersManagementPage() {
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, name }: { userId: string; name: string }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ name })
-        .eq('id', userId);
+    mutationFn: async ({ userId, name, email, password }: { userId: string; name: string; email: string; password?: string }) => {
+      const response = await supabase.functions.invoke('manage-user', {
+        body: { 
+          action: 'update',
+          userId,
+          name,
+          email,
+          password: password || undefined
+        }
+      });
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao atualizar usuário');
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setEditingUserId(null);
       setEditName('');
+      setEditEmail('');
+      setEditPassword('');
       toast.success('Usuário atualizado com sucesso!');
     },
     onError: (error: any) => {
-      console.error('Erro ao atualizar usuário:', error);
-      toast.error('Erro ao atualizar usuário: ' + error.message);
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('already') || msg.includes('exists') || msg.includes('email_exists') || msg.includes('registered')) {
+        toast.error('Este email já está em uso por outro usuário.');
+      } else {
+        console.error('Erro ao atualizar usuário:', error);
+        toast.error('Erro ao atualizar usuário: ' + error.message);
+      }
+    }
+  });
+
+  // Toggle user status mutation
+  const toggleUserStatusMutation = useMutation({
+    mutationFn: async ({ userId, action }: { userId: string; action: 'activate' | 'deactivate' }) => {
+      const response = await supabase.functions.invoke('manage-user', {
+        body: { action, userId }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao alterar status do usuário');
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success(variables.action === 'deactivate' ? 'Usuário inativado com sucesso!' : 'Usuário ativado com sucesso!');
+      setUserToToggle(null);
+    },
+    onError: (error: any) => {
+      console.error('Erro ao alterar status do usuário:', error);
+      toast.error('Erro ao alterar status do usuário: ' + error.message);
+      setUserToToggle(null);
     }
   });
 
@@ -178,21 +253,33 @@ export default function UsersManagementPage() {
   const handleStartEdit = (user: UserData) => {
     setEditingUserId(user.id);
     setEditName(user.name);
+    setEditEmail(user.email);
+    setEditPassword('');
     setEditErrors({});
   };
 
   const handleCancelEdit = () => {
     setEditingUserId(null);
     setEditName('');
+    setEditEmail('');
+    setEditPassword('');
     setEditErrors({});
   };
 
   const handleSaveEdit = async (userId: string) => {
-    const result = editSchema.safeParse({ name: editName });
+    const validationData = {
+      name: editName,
+      email: editEmail,
+      password: editPassword || undefined
+    };
+
+    const result = editSchema.safeParse(validationData);
     if (!result.success) {
-      const fieldErrors: { name?: string } = {};
+      const fieldErrors: { name?: string; email?: string; password?: string } = {};
       result.error.errors.forEach(err => {
         if (err.path[0] === 'name') fieldErrors.name = err.message;
+        if (err.path[0] === 'email') fieldErrors.email = err.message;
+        if (err.path[0] === 'password') fieldErrors.password = err.message;
       });
       setEditErrors(fieldErrors);
       return;
@@ -200,10 +287,30 @@ export default function UsersManagementPage() {
 
     setIsSaving(true);
     try {
-      await updateUserMutation.mutateAsync({ userId, name: editName });
+      await updateUserMutation.mutateAsync({ 
+        userId, 
+        name: editName, 
+        email: editEmail,
+        password: editPassword || undefined
+      });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleToggleStatus = (user: UserData) => {
+    setUserToToggle(user);
+  };
+
+  const confirmToggleStatus = () => {
+    if (!userToToggle) return;
+    const action = userToToggle.banned_until ? 'activate' : 'deactivate';
+    toggleUserStatusMutation.mutate({ userId: userToToggle.id, action });
+  };
+
+  const isUserBanned = (user: UserData) => {
+    if (!user.banned_until) return false;
+    return new Date(user.banned_until) > new Date();
   };
 
   if (authLoading) {
@@ -289,12 +396,21 @@ export default function UsersManagementPage() {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 h-12"
+                      className="pl-10 pr-10 h-12"
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
                   </div>
                   {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                 </div>
@@ -350,85 +466,182 @@ export default function UsersManagementPage() {
             </Card>
           )}
           
-          {users.map((userData: UserData) => (
-            <Card key={userData.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                {editingUserId === userData.id ? (
-                  // Edit Mode
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor={`edit-name-${userData.id}`}>Nome</Label>
-                      <Input
-                        id={`edit-name-${userData.id}`}
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="h-10"
-                      />
-                      {editErrors.name && <p className="text-sm text-destructive">{editErrors.name}</p>}
+          {users.map((userData: UserData) => {
+            const isBanned = isUserBanned(userData);
+            
+            return (
+              <Card key={userData.id} className={`overflow-hidden ${isBanned ? 'opacity-60' : ''}`}>
+                <CardContent className="p-4">
+                  {editingUserId === userData.id ? (
+                    // Edit Mode
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-name-${userData.id}`}>Nome</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id={`edit-name-${userData.id}`}
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="h-10 pl-9"
+                          />
+                        </div>
+                        {editErrors.name && <p className="text-sm text-destructive">{editErrors.name}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-email-${userData.id}`}>Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id={`edit-email-${userData.id}`}
+                            type="email"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            className="h-10 pl-9"
+                          />
+                        </div>
+                        {editErrors.email && <p className="text-sm text-destructive">{editErrors.email}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-password-${userData.id}`}>Nova Senha (deixe vazio para manter)</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id={`edit-password-${userData.id}`}
+                            type={showEditPassword ? 'text' : 'password'}
+                            value={editPassword}
+                            onChange={(e) => setEditPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="h-10 pl-9 pr-9"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                          >
+                            {showEditPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </Button>
+                        </div>
+                        {editErrors.password && <p className="text-sm text-destructive">{editErrors.password}</p>}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          disabled={isSaving}
+                          className="flex-1"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Cancelar
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEdit(userData.id)}
+                          disabled={isSaving}
+                          className="flex-1"
+                        >
+                          {isSaving ? <LoadingSpinner size="sm" /> : (
+                            <>
+                              <Check className="w-4 h-4 mr-1" />
+                              Salvar
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        disabled={isSaving}
-                        className="flex-1"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Cancelar
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSaveEdit(userData.id)}
-                        disabled={isSaving}
-                        className="flex-1"
-                      >
-                        {isSaving ? <LoadingSpinner size="sm" /> : (
+                  ) : (
+                    // View Mode
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isBanned ? 'bg-destructive/10' : 'bg-secondary'}`}>
+                          <User className={`w-5 h-5 ${isBanned ? 'text-destructive' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{userData.name}</p>
+                            {isBanned && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
+                                Inativo
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{userData.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          userData.role === 'admin' 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'bg-secondary text-secondary-foreground'
+                        }`}>
+                          {userData.role === 'admin' ? 'Admin' : 'Entregador'}
+                        </span>
+                        {userData.role !== 'admin' && (
                           <>
-                            <Check className="w-4 h-4 mr-1" />
-                            Salvar
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleStartEdit(userData)}
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleToggleStatus(userData)}
+                              title={isBanned ? 'Ativar' : 'Inativar'}
+                              className={isBanned ? 'text-green-600 hover:text-green-700' : 'text-destructive hover:text-destructive'}
+                            >
+                              {isBanned ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                            </Button>
                           </>
                         )}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  // View Mode
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{userData.name}</p>
-                        <p className="text-sm text-muted-foreground">{userData.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        userData.role === 'admin' 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'bg-secondary text-secondary-foreground'
-                      }`}>
-                        {userData.role === 'admin' ? 'Admin' : 'Entregador'}
-                      </span>
-                      {userData.role !== 'admin' && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleStartEdit(userData)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!userToToggle} onOpenChange={() => setUserToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToToggle && isUserBanned(userToToggle) ? 'Ativar Usuário' : 'Inativar Usuário'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToToggle && isUserBanned(userToToggle) 
+                ? `Tem certeza que deseja ativar o usuário "${userToToggle?.name}"? Ele poderá acessar o sistema novamente.`
+                : `Tem certeza que deseja inativar o usuário "${userToToggle?.name}"? Ele não poderá mais acessar o sistema.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmToggleStatus}
+              className={userToToggle && isUserBanned(userToToggle) ? '' : 'bg-destructive hover:bg-destructive/90'}
+            >
+              {toggleUserStatusMutation.isPending ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                userToToggle && isUserBanned(userToToggle) ? 'Ativar' : 'Inativar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
