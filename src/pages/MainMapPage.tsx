@@ -29,7 +29,7 @@ import type { EquipmentWithCreator } from '@/types/database';
 export default function MainMapPage() {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
-  const { equipments, isLoading, isSyncing, isOnline, confirmCollection } =
+  const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
 
@@ -68,6 +68,15 @@ export default function MainMapPage() {
         status: 'RECOLHIDO',
         data_real_recolha: new Date().toISOString()
       });
+    } catch (error) {
+      // Error already handled in hook
+    }
+  };
+
+  const handleDeleteEquipment = async (equipment: EquipmentWithCreator) => {
+    try {
+      await deleteEquipment(equipment.id);
+      setSelectedEquipment(null);
     } catch (error) {
       // Error already handled in hook
     }
@@ -202,6 +211,8 @@ export default function MainMapPage() {
             selectedEquipment={selectedEquipment}
             onCloseInfoWindow={() => setSelectedEquipment(null)}
             onConfirmCollection={handleConfirmCollection}
+            onDelete={isAdmin ? handleDeleteEquipment : undefined}
+            isAdmin={isAdmin}
           />
         ) : (
           <div className="h-full overflow-auto p-4 space-y-3">

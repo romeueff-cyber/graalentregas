@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.list-users]
 verify_jwt = false
+
+[functions.delete-equipment]
+verify_jwt = false

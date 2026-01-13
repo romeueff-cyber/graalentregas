@@ -232,6 +232,25 @@ export function useEquipments() {
     }
   };
 
+  // Delete equipment (admin only via edge function)
+  const deleteEquipment = async (id: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-equipment', {
+        body: { equipmentId: id }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success('Entrega excluída com sucesso!');
+      await fetchEquipments();
+    } catch (error: any) {
+      console.error('Error deleting equipment:', error);
+      toast.error('Erro ao excluir entrega: ' + error.message);
+      throw error;
+    }
+  };
+
   // Filter visible equipments (collected items within visibility period)
   const getVisibleEquipments = useCallback(() => {
     const diasExibir = settings?.dias_exibir_recolhido || 7;
@@ -292,6 +311,7 @@ export function useEquipments() {
     createEquipment,
     updateEquipment,
     confirmCollection,
+    deleteEquipment,
     syncPending
   };
 }
