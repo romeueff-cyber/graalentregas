@@ -54,7 +54,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
           overflow: 'hidden',
           textOverflow: 'ellipsis'
         }}>
-          {equipment.nome_cliente}
+          {equipment.pedido_dia} - {equipment.nome_cliente}
         </div>
         <div style={{ 
           fontSize: '11px', 
