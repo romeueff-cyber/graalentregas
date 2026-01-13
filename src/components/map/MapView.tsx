@@ -49,12 +49,26 @@ export function MapView({
   const [scriptError, setScriptError] = useState<Error | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
-  // Track if the map has been initially centered
-  const initialCenterDone = useRef(false);
+  const [mapCenter, setMapCenter] =
+    useState<google.maps.LatLngLiteral>(defaultCenter);
+  const hasSetInitialCenter = useRef(false);
 
   useEffect(() => {
     setScriptError(null);
   }, [apiKey]);
+
+  // Define initial center once (avoid recentering on driverLocation updates)
+  useEffect(() => {
+    if (!driverLocation || hasSetInitialCenter.current) return;
+
+    const center = { lat: driverLocation.latitude, lng: driverLocation.longitude };
+    setMapCenter(center);
+
+    // If the map is already loaded, apply it immediately
+    if (map) map.setCenter(center);
+
+    hasSetInitialCenter.current = true;
+  }, [driverLocation, map]);
 
   const mapOptions = useMemo<google.maps.MapOptions>(
     () => ({
@@ -76,16 +90,6 @@ export function MapView({
   const onUnmount = useCallback(() => {
     setMap(null);
   }, []);
-
-  // Center map on driver location ONLY on first load (when map is ready)
-  useEffect(() => {
-    if (map && driverLocation && !initialCenterDone.current) {
-      map.setCenter({ lat: driverLocation.latitude, lng: driverLocation.longitude });
-      initialCenterDone.current = true;
-    }
-    // Only run when map becomes available, ignore driverLocation updates
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]);
 
   const openRoute = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -132,11 +136,7 @@ export function MapView({
     );
   }
 
-  // Initial center uses driver location if available
-  const initialCenter =
-    driverLocation && !initialCenterDone.current
-      ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
-      : defaultCenter;
+  // Map center is controlled by state above to avoid unexpected recentering.
 
   const canUseGoogle = typeof google !== 'undefined';
 
@@ -181,7 +181,7 @@ export function MapView({
     >
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
-        center={initialCenter}
+        center={mapCenter}
         zoom={14}
         onLoad={onLoad}
         onUnmount={onUnmount}
