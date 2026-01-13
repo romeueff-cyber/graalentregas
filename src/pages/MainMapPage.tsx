@@ -120,7 +120,7 @@ export default function MainMapPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
       <div className="glass border-b px-4 py-3 safe-area-top z-20">
         <div className="flex items-center justify-between">
@@ -305,7 +305,7 @@ export default function MainMapPage() {
       </div>
 
       {/* Footer Filter Bar */}
-      <div className="flex-shrink-0 glass border-t px-4 py-3 safe-area-bottom z-20">
+      <div className="glass border-t px-4 py-3 safe-area-bottom z-20">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as FilterType)}>
