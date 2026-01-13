@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
 import type { DriverLocation } from '@/lib/offline-storage';
@@ -26,49 +26,11 @@ const defaultCenter = {
   lng: -46.6333 // São Paulo
 };
 
-const mapOptions: google.maps.MapOptions = {
-  disableDefaultUI: true,
-  zoomControl: true,
-  mapTypeControl: false,
-  streetViewControl: false,
-  fullscreenControl: false,
-  styles: [
-    {
-      featureType: 'poi',
-      elementType: 'labels',
-      stylers: [{ visibility: 'off' }]
-    }
-  ]
-};
-
-// Marker icon colors based on status
-const getMarkerIcon = (status: string): google.maps.Symbol => {
-  let color = '#6b7280'; // Gray for collected
-  
-  if (status === 'ENTREGUE') {
-    color = '#ef4444'; // Red
-  } else if (status === 'LIBERADO_PARA_RECOLHA') {
-    color = '#22c55e'; // Green
-  }
-
-  return {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 12,
-    fillColor: color,
-    fillOpacity: 1,
-    strokeColor: '#ffffff',
-    strokeWeight: 3
-  };
-};
-
-const driverMarkerIcon: google.maps.Symbol = {
-  path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-  scale: 8,
-  fillColor: '#3b82f6',
-  fillOpacity: 1,
-  strokeColor: '#ffffff',
-  strokeWeight: 2,
-  rotation: 0
+// Status colors for markers
+const statusColors = {
+  ENTREGUE: '#ef4444', // Red
+  LIBERADO_PARA_RECOLHA: '#22c55e', // Green
+  RECOLHIDO: '#6b7280' // Gray
 };
 
 export function MapView({ 
@@ -85,6 +47,48 @@ export function MapView({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
     id: 'google-map-script'
   });
+
+  // Create marker icons after API loads
+  const getMarkerIcon = useCallback((status: string): google.maps.Symbol | undefined => {
+    if (!isLoaded || typeof google === 'undefined') return undefined;
+    
+    const color = statusColors[status as keyof typeof statusColors] || '#6b7280';
+    
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 12,
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 3
+    };
+  }, [isLoaded]);
+
+  const driverMarkerIcon = useMemo((): google.maps.Symbol | undefined => {
+    if (!isLoaded || typeof google === 'undefined') return undefined;
+    
+    return {
+      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      scale: 8,
+      fillColor: '#3b82f6',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      rotation: 0
+    };
+  }, [isLoaded]);
+
+  const mapOptions = useMemo((): google.maps.MapOptions | undefined => {
+    if (!isLoaded || typeof google === 'undefined') return undefined;
+    
+    return {
+      disableDefaultUI: true,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false
+    };
+  }, [isLoaded]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
@@ -147,7 +151,7 @@ export function MapView({
       options={mapOptions}
     >
       {/* Driver marker */}
-      {driverLocation && (
+      {driverLocation && driverMarkerIcon && (
         <Marker
           position={{ lat: driverLocation.latitude, lng: driverLocation.longitude }}
           icon={driverMarkerIcon}
