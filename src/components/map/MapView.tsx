@@ -220,63 +220,148 @@ export function MapView({
             }}
             onCloseClick={handleInfoWindowClose}
           >
-            <div className="p-3 min-w-[220px] max-w-[280px]">
-              <h3 className="font-semibold text-foreground mb-1">
+            <div style={{ 
+              padding: '12px', 
+              minWidth: '220px', 
+              maxWidth: '280px',
+              backgroundColor: 'white',
+              color: '#1f2937',
+              fontFamily: 'system-ui, sans-serif'
+            }}>
+              <h3 style={{ 
+                fontWeight: 600, 
+                fontSize: '14px', 
+                marginBottom: '4px',
+                color: '#1f2937'
+              }}>
                 {selectedEquipment.nome_cliente}
               </h3>
-              <p className="text-xs text-muted-foreground mb-2">
-                {selectedEquipment.pedido_dia}
+              <p style={{ 
+                fontSize: '12px', 
+                color: '#6b7280', 
+                marginBottom: '8px' 
+              }}>
+                Pedido: {selectedEquipment.pedido_dia}
               </p>
 
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <StatusBadge status={selectedEquipment.status} />
-                <PeriodBadge period={selectedEquipment.periodo_recolha} />
+              <div style={{ 
+                display: 'flex', 
+                gap: '6px', 
+                marginBottom: '8px',
+                flexWrap: 'wrap'
+              }}>
+                <span style={{
+                  fontSize: '10px',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: selectedEquipment.status === 'ENTREGUE' 
+                    ? '#fee2e2' 
+                    : selectedEquipment.status === 'LIBERADO_PARA_RECOLHA'
+                      ? '#dcfce7'
+                      : '#f3f4f6',
+                  color: selectedEquipment.status === 'ENTREGUE'
+                    ? '#dc2626'
+                    : selectedEquipment.status === 'LIBERADO_PARA_RECOLHA'
+                      ? '#16a34a'
+                      : '#6b7280',
+                  fontWeight: 500
+                }}>
+                  {selectedEquipment.status === 'ENTREGUE' 
+                    ? 'Entregue' 
+                    : selectedEquipment.status === 'LIBERADO_PARA_RECOLHA'
+                      ? 'Liberado'
+                      : 'Recolhido'}
+                </span>
+                <span style={{
+                  fontSize: '10px',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#e0e7ff',
+                  color: '#4338ca',
+                  fontWeight: 500
+                }}>
+                  {selectedEquipment.periodo_recolha}
+                </span>
               </div>
 
-              <p className="text-xs text-muted-foreground mb-3">
+              <p style={{ 
+                fontSize: '11px', 
+                color: '#6b7280', 
+                marginBottom: '8px' 
+              }}>
                 Entregador: {selectedEquipment.creator_name || 'Desconhecido'}
               </p>
 
               {selectedEquipment.observacoes && (
-                <p className="text-xs text-muted-foreground mb-3 italic">
+                <p style={{ 
+                  fontSize: '11px', 
+                  color: '#9ca3af', 
+                  marginBottom: '12px',
+                  fontStyle: 'italic'
+                }}>
                   {selectedEquipment.observacoes}
                 </p>
               )}
 
-              <div className="flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full gap-2"
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
                   onClick={() =>
                     openRoute(
                       selectedEquipment.latitude,
                       selectedEquipment.longitude
                     )
                   }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    cursor: 'pointer'
+                  }}
                 >
-                  <Navigation className="w-4 h-4" />
+                  <Navigation style={{ width: '14px', height: '14px' }} />
                   Obter rota
-                  <ExternalLink className="w-3 h-3" />
-                </Button>
+                  <ExternalLink style={{ width: '12px', height: '12px' }} />
+                </button>
 
                 {/* Show confirm collection button only if not already collected */}
                 {selectedEquipment.status !== 'RECOLHIDO' && onConfirmCollection && (
-                  <Button
-                    size="sm"
-                    className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                  <button
                     onClick={handleConfirmCollection}
                     disabled={isConfirming}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: isConfirming ? '#9ca3af' : '#16a34a',
+                      color: 'white',
+                      cursor: isConfirming ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {isConfirming ? (
-                      <LoadingSpinner size="sm" />
+                      'Confirmando...'
                     ) : (
                       <>
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 style={{ width: '14px', height: '14px' }} />
                         Confirmar Recolha
                       </>
                     )}
-                  </Button>
+                  </button>
                 )}
               </div>
             </div>
