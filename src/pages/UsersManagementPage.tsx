@@ -59,33 +59,24 @@ export default function UsersManagementPage() {
     enabled: isAdmin
   });
 
-  // Create user mutation
+  // Create user mutation using edge function
   const createUserMutation = useMutation({
     mutationFn: async ({ name, email, password }: { name: string; email: string; password: string }) => {
-      // Create user via auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}/`
-        }
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('create-user', {
+        body: { name, email, password }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Erro ao criar usuário');
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao criar usuário');
+      }
 
-      // Add role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: 'entregador'
-        });
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
 
-      if (roleError) throw roleError;
-
-      return authData.user;
+      return response.data.user;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -96,7 +87,7 @@ export default function UsersManagementPage() {
       toast.success('Entregador criado com sucesso!');
     },
     onError: (error: any) => {
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('already') || error.message.includes('exists')) {
         toast.error('Este email já está cadastrado');
       } else {
         toast.error('Erro ao criar usuário: ' + error.message);
