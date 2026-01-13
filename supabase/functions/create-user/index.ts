@@ -6,6 +6,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Input validation helpers
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MAX_NAME_LENGTH = 100
+const MAX_EMAIL_LENGTH = 255
+const MIN_PASSWORD_LENGTH = 8
+
+function validateEmail(email: string): { valid: boolean; error?: string } {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, error: 'Email is required' }
+  }
+  const trimmedEmail = email.trim()
+  if (trimmedEmail.length > MAX_EMAIL_LENGTH) {
+    return { valid: false, error: `Email must be less than ${MAX_EMAIL_LENGTH} characters` }
+  }
+  if (!EMAIL_REGEX.test(trimmedEmail)) {
+    return { valid: false, error: 'Invalid email format' }
+  }
+  return { valid: true }
+}
+
+function validatePassword(password: string): { valid: boolean; error?: string } {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password is required' }
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' }
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' }
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' }
+  }
+  return { valid: true }
+}
+
+function validateName(name: string): { valid: boolean; error?: string } {
+  if (!name || typeof name !== 'string') {
+    return { valid: false, error: 'Name is required' }
+  }
+  const trimmedName = name.trim()
+  if (trimmedName.length < 2) {
+    return { valid: false, error: 'Name must be at least 2 characters' }
+  }
+  if (trimmedName.length > MAX_NAME_LENGTH) {
+    return { valid: false, error: `Name must be less than ${MAX_NAME_LENGTH} characters` }
+  }
+  return { valid: true }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -61,19 +114,40 @@ serve(async (req) => {
     // Parse request body
     const { email, password, name } = await req.json()
 
-    if (!email || !password || !name) {
+    // Server-side input validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: email, password, name' }),
+        JSON.stringify({ error: emailValidation.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: passwordValidation.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const nameValidation = validateName(name)
+    if (!nameValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: nameValidation.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const trimmedEmail = email.trim()
+    const trimmedName = name.trim()
+
     // Create user with admin client (doesn't affect current session)
     const { data: newUserData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: trimmedEmail,
       password,
       email_confirm: true,
-      user_metadata: { name }
+      user_metadata: { name: trimmedName }
     })
 
     if (createError) {
@@ -108,7 +182,7 @@ serve(async (req) => {
         user: { 
           id: newUserData.user.id, 
           email: newUserData.user.email,
-          name 
+          name: trimmedName 
         } 
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

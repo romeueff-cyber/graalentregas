@@ -73,10 +73,7 @@ export default function SettingsPage() {
     return <FullPageLoader />;
   }
 
-  if (!isAdmin) {
-    navigate('/');
-    return null;
-  }
+  // Note: Admin check is now handled by AdminRoute wrapper in App.tsx
 
   return (
     <div className="min-h-screen bg-background pb-safe-area-bottom">
