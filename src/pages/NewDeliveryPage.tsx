@@ -253,6 +253,7 @@ export default function NewDeliveryPage() {
                     options={{
                       disableDefaultUI: true,
                       zoomControl: true,
+                      gestureHandling: 'greedy',
                     }}
                   >
                     {location && <Marker position={location} />}
