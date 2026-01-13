@@ -214,52 +214,6 @@ export default function MainMapPage() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex items-center gap-2 mt-3">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as FilterType)}>
-            <SelectTrigger className="h-8 w-48 text-xs">
-              <SelectValue placeholder="Filtrar por..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="cliente_ira_avisar">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  Cliente irá Avisar
-                </span>
-              </SelectItem>
-              <SelectItem value="ENTREGUE">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-destructive" />
-                  Entregue
-                </span>
-              </SelectItem>
-              <SelectItem value="LIBERADO_PARA_RECOLHA">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-status-ready" />
-                  Liberado
-                </span>
-              </SelectItem>
-              <SelectItem value="RECOLHIDO">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-status-collected" />
-                  Recolhido
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          {activeFilter !== 'all' && (
-            <Badge variant="secondary" className="gap-1 text-xs">
-              {filterLabels[activeFilter]}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => setActiveFilter('all')} 
-              />
-            </Badge>
-          )}
-        </div>
-
         {/* Status Summary */}
         <div className="flex gap-4 mt-3 text-xs">
           <div className="flex items-center gap-1.5">
@@ -343,11 +297,60 @@ export default function MainMapPage() {
 
         {/* FAB - New Delivery */}
         <Button
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90"
+          className="fixed bottom-20 right-6 w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90 z-10"
           onClick={() => navigate('/new-delivery')}
         >
           <Plus className="w-6 h-6" />
         </Button>
+      </div>
+
+      {/* Footer Filter Bar */}
+      <div className="glass border-t px-4 py-3 safe-area-bottom z-20">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as FilterType)}>
+            <SelectTrigger className="h-9 flex-1 text-sm">
+              <SelectValue placeholder="Filtrar por..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="cliente_ira_avisar">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  Cliente irá Avisar
+                </span>
+              </SelectItem>
+              <SelectItem value="ENTREGUE">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-destructive" />
+                  Entregue
+                </span>
+              </SelectItem>
+              <SelectItem value="LIBERADO_PARA_RECOLHA">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-status-ready" />
+                  Liberado
+                </span>
+              </SelectItem>
+              <SelectItem value="RECOLHIDO">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-status-collected" />
+                  Recolhido
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {activeFilter !== 'all' && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-9 px-2"
+              onClick={() => setActiveFilter('all')}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
