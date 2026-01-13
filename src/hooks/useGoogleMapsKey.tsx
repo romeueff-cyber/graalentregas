@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const STORAGE_KEY = 'graal_google_maps_key';
 
 export function useGoogleMapsKey() {
   const [apiKey, setApiKey] = useState<string>(() => {
-    // Check localStorage first
+    // LocalStorage overrides env (even if empty string) so the user can force re-config.
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return stored;
-    
-    // Check env variable
+    if (stored !== null) return stored;
+
     const envKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     if (envKey) return envKey;
-    
+
     return '';
   });
 
@@ -21,14 +20,15 @@ export function useGoogleMapsKey() {
   };
 
   const clearApiKey = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    // Keep an explicit empty override to avoid falling back to env key.
+    localStorage.setItem(STORAGE_KEY, '');
     setApiKey('');
   };
 
   return {
     apiKey,
-    hasApiKey: !!apiKey,
+    hasApiKey: apiKey.trim().length > 0,
     saveApiKey,
-    clearApiKey
+    clearApiKey,
   };
 }
