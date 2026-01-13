@@ -36,11 +36,12 @@ export function EquipmentDialog({
   };
 
   const handleConfirm = async () => {
-    if (!onConfirmCollection) return;
+    if (!onConfirmCollection || !equipment) return;
     setIsConfirming(true);
     try {
       await onConfirmCollection(equipment);
-      onOpenChange(false);
+      // Don't close dialog - let the parent update the equipment prop
+      // so user sees the updated status
     } finally {
       setIsConfirming(false);
     }
