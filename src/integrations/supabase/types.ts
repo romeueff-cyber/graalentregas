@@ -136,6 +136,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_collection: {
+        Args: { _equipment_id: string }
+        Returns: {
+          created_at: string | null
+          created_by_user_id: string
+          data_entrega: string | null
+          data_prevista_recolha: string
+          data_real_recolha: string | null
+          foto_local_path: string | null
+          foto_url: string | null
+          id: string
+          latitude: number
+          longitude: number
+          nome_cliente: string
+          observacoes: string | null
+          pedido_dia: string
+          periodo_recolha: Database["public"]["Enums"]["collection_period"]
+          status: Database["public"]["Enums"]["equipment_status"]
+          sync_status: Database["public"]["Enums"]["sync_status"]
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "equipments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
