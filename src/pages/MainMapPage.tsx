@@ -29,10 +29,12 @@ import type { EquipmentWithCreator } from '@/types/database';
 export default function MainMapPage() {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
-  const { equipments, isLoading, isSyncing, isOnline } = useEquipments();
+  const { equipments, isLoading, isSyncing, isOnline, confirmCollection } =
+    useEquipments();
   const { location: driverLocation } = useDriverLocation();
 
-  const [selectedEquipment, setSelectedEquipment] = useState<EquipmentWithCreator | null>(null);
+  const [selectedEquipment, setSelectedEquipment] =
+    useState<EquipmentWithCreator | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
@@ -57,12 +59,21 @@ export default function MainMapPage() {
     navigate('/auth');
   };
 
+  const handleConfirmCollection = async (equipment: EquipmentWithCreator) => {
+    await confirmCollection(equipment.id);
+    // Update selected equipment to reflect new status
+    setSelectedEquipment((prev) =>
+      prev && prev.id === equipment.id
+        ? { ...prev, status: 'RECOLHIDO', data_real_recolha: new Date().toISOString() }
+        : prev
+    );
+  };
 
   // Count by status
   const statusCounts = {
-    delivered: equipments.filter(e => e.status === 'ENTREGUE').length,
-    ready: equipments.filter(e => e.status === 'LIBERADO_PARA_RECOLHA').length,
-    collected: equipments.filter(e => e.status === 'RECOLHIDO').length
+    delivered: equipments.filter((e) => e.status === 'ENTREGUE').length,
+    ready: equipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA').length,
+    collected: equipments.filter((e) => e.status === 'RECOLHIDO').length,
   };
 
   return (
@@ -186,12 +197,15 @@ export default function MainMapPage() {
             onEquipmentClick={handleEquipmentClick}
             selectedEquipment={selectedEquipment}
             onCloseInfoWindow={() => setSelectedEquipment(null)}
+            onConfirmCollection={handleConfirmCollection}
           />
         ) : (
           <div className="h-full overflow-auto p-4 space-y-3">
             {equipments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-muted-foreground mb-2">Nenhuma entrega registrada</p>
+                <p className="text-muted-foreground mb-2">
+                  Nenhuma entrega registrada
+                </p>
                 <Button onClick={() => navigate('/new-delivery')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Entrega
@@ -207,13 +221,19 @@ export default function MainMapPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-medium">{equipment.nome_cliente}</h3>
-                      <p className="text-sm text-muted-foreground">{equipment.pedido_dia}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {equipment.pedido_dia}
+                      </p>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${
-                      equipment.status === 'ENTREGUE' ? 'bg-destructive' :
-                      equipment.status === 'LIBERADO_PARA_RECOLHA' ? 'bg-status-ready' :
-                      'bg-status-collected'
-                    }`} />
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        equipment.status === 'ENTREGUE'
+                          ? 'bg-destructive'
+                          : equipment.status === 'LIBERADO_PARA_RECOLHA'
+                            ? 'bg-status-ready'
+                            : 'bg-status-collected'
+                      }`}
+                    />
                   </div>
                 </div>
               ))
@@ -232,3 +252,4 @@ export default function MainMapPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, Marker, InfoWindow, LoadScript } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
 import type { DriverLocation } from '@/lib/offline-storage';
@@ -8,7 +8,7 @@ import { PeriodBadge } from '@/components/ui/period-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { GoogleMapsSetup } from './GoogleMapsSetup';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
-import { Navigation, ExternalLink } from 'lucide-react';
+import { Navigation, ExternalLink, CheckCircle2 } from 'lucide-react';
 
 interface MapViewProps {
   equipments: EquipmentWithCreator[];
@@ -16,6 +16,7 @@ interface MapViewProps {
   onEquipmentClick?: (equipment: EquipmentWithCreator) => void;
   selectedEquipment?: EquipmentWithCreator | null;
   onCloseInfoWindow?: () => void;
+  onConfirmCollection?: (equipment: EquipmentWithCreator) => void;
 }
 
 const mapContainerStyle = {
@@ -40,11 +41,16 @@ export function MapView({
   onEquipmentClick,
   selectedEquipment,
   onCloseInfoWindow,
+  onConfirmCollection,
 }: MapViewProps) {
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowOpen, setInfoWindowOpen] = useState(false);
   const [scriptError, setScriptError] = useState<Error | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  // Track if the map has been initially centered
+  const initialCenterDone = useRef(false);
 
   useEffect(() => {
     setScriptError(null);
@@ -57,6 +63,8 @@ export function MapView({
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
+      // Enable one-finger scrolling on mobile
+      gestureHandling: 'greedy',
     }),
     []
   );
@@ -69,9 +77,11 @@ export function MapView({
     setMap(null);
   }, []);
 
+  // Center map on driver location ONLY on first load
   useEffect(() => {
-    if (map && driverLocation) {
+    if (map && driverLocation && !initialCenterDone.current) {
       map.panTo({ lat: driverLocation.latitude, lng: driverLocation.longitude });
+      initialCenterDone.current = true;
     }
   }, [map, driverLocation]);
 
@@ -90,6 +100,17 @@ export function MapView({
     onCloseInfoWindow?.();
   };
 
+  const handleConfirmCollection = async () => {
+    if (!selectedEquipment || !onConfirmCollection) return;
+    setIsConfirming(true);
+    try {
+      await onConfirmCollection(selectedEquipment);
+      handleInfoWindowClose();
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   if (!hasApiKey) {
     return <GoogleMapsSetup onApiKeySubmit={saveApiKey} />;
   }
@@ -99,7 +120,8 @@ export function MapView({
       <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 text-center">
         <p className="text-muted-foreground mb-2">Erro ao carregar mapa</p>
         <p className="text-xs text-muted-foreground mb-4">
-          {scriptError.message || 'Verifique se a chave está correta e se a Maps JavaScript API está ativada.'}
+          {scriptError.message ||
+            'Verifique se a chave está correta e se a Maps JavaScript API está ativada.'}
         </p>
         <Button variant="outline" size="sm" onClick={clearApiKey}>
           Configurar chave
@@ -108,9 +130,11 @@ export function MapView({
     );
   }
 
-  const center = driverLocation
-    ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
-    : defaultCenter;
+  // Initial center uses driver location if available
+  const initialCenter =
+    driverLocation && !initialCenterDone.current
+      ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
+      : defaultCenter;
 
   const canUseGoogle = typeof google !== 'undefined';
 
@@ -155,21 +179,26 @@ export function MapView({
     >
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
-        center={center}
+        center={initialCenter}
         zoom={14}
         onLoad={onLoad}
         onUnmount={onUnmount}
         options={mapOptions}
       >
+        {/* Driver marker */}
         {driverLocation && driverMarkerIcon && (
           <Marker
-            position={{ lat: driverLocation.latitude, lng: driverLocation.longitude }}
+            position={{
+              lat: driverLocation.latitude,
+              lng: driverLocation.longitude,
+            }}
             icon={driverMarkerIcon}
             title="Sua localização"
             zIndex={1000}
           />
         )}
 
+        {/* Equipment markers */}
         {equipments.map((equipment) => (
           <Marker
             key={equipment.id}
@@ -180,34 +209,74 @@ export function MapView({
           />
         ))}
 
+        {/* Info Window */}
         {selectedEquipment && infoWindowOpen && (
           <InfoWindow
-            position={{ lat: selectedEquipment.latitude, lng: selectedEquipment.longitude }}
+            position={{
+              lat: selectedEquipment.latitude,
+              lng: selectedEquipment.longitude,
+            }}
             onCloseClick={handleInfoWindowClose}
           >
-            <div className="p-3 min-w-[200px]">
-              <h3 className="font-semibold text-foreground mb-2">
+            <div className="p-3 min-w-[220px] max-w-[280px]">
+              <h3 className="font-semibold text-foreground mb-1">
                 {selectedEquipment.nome_cliente}
               </h3>
+              <p className="text-xs text-muted-foreground mb-2">
+                {selectedEquipment.pedido_dia}
+              </p>
 
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <StatusBadge status={selectedEquipment.status} />
                 <PeriodBadge period={selectedEquipment.periodo_recolha} />
               </div>
 
-              <p className="text-sm text-muted-foreground mb-3">
-                Entregador: {selectedEquipment.creator_name}
+              <p className="text-xs text-muted-foreground mb-3">
+                Entregador: {selectedEquipment.creator_name || 'Desconhecido'}
               </p>
 
-              <Button
-                size="sm"
-                className="w-full gap-2"
-                onClick={() => openRoute(selectedEquipment.latitude, selectedEquipment.longitude)}
-              >
-                <Navigation className="w-4 h-4" />
-                Obter rota
-                <ExternalLink className="w-3 h-3" />
-              </Button>
+              {selectedEquipment.observacoes && (
+                <p className="text-xs text-muted-foreground mb-3 italic">
+                  {selectedEquipment.observacoes}
+                </p>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() =>
+                    openRoute(
+                      selectedEquipment.latitude,
+                      selectedEquipment.longitude
+                    )
+                  }
+                >
+                  <Navigation className="w-4 h-4" />
+                  Obter rota
+                  <ExternalLink className="w-3 h-3" />
+                </Button>
+
+                {/* Show confirm collection button only if not already collected */}
+                {selectedEquipment.status !== 'RECOLHIDO' && onConfirmCollection && (
+                  <Button
+                    size="sm"
+                    className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                    onClick={handleConfirmCollection}
+                    disabled={isConfirming}
+                  >
+                    {isConfirming ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Confirmar Recolha
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </InfoWindow>
         )}
