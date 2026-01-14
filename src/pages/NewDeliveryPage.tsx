@@ -171,6 +171,8 @@ export default function NewDeliveryPage() {
                 value={pedidoDia}
                 onChange={(e) => setPedidoDia(e.target.value)}
                 className="h-12"
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
             </div>
           </CardContent>
