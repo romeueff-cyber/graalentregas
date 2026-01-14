@@ -51,7 +51,7 @@ export default {
           delivered: "hsl(var(--status-delivered))",
           ready: "hsl(var(--status-ready))",
           collected: "hsl(var(--status-collected))",
-          waiting: "hsl(var(--status-waiting))",
+          waiting: "hsl(var(--status-waiting))", // amber color for "Aguardando"
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
