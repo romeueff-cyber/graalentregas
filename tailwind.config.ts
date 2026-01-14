@@ -51,6 +51,7 @@ export default {
           delivered: "hsl(var(--status-delivered))",
           ready: "hsl(var(--status-ready))",
           collected: "hsl(var(--status-collected))",
+          waiting: "hsl(var(--status-waiting))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

@@ -218,49 +218,49 @@ export default function MainMapPage() {
         </div>
 
         {/* Status Summary - Clickable Filters */}
-        <div className="flex gap-2 mt-3 text-xs flex-wrap">
+        <div className="flex gap-1 mt-3 text-[11px] overflow-x-auto">
           <button
             onClick={() => toggleFilter('delivered')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
               activeFilter === 'delivered'
                 ? 'bg-destructive text-destructive-foreground'
                 : 'hover:bg-secondary'
             }`}
           >
-            <div className={`w-3 h-3 rounded-full ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
             <span>{statusCounts.delivered} Entregue</span>
           </button>
           <button
             onClick={() => toggleFilter('ready')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
               activeFilter === 'ready'
                 ? 'bg-status-ready text-white'
                 : 'hover:bg-secondary'
             }`}
           >
-            <div className={`w-3 h-3 rounded-full ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
             <span>{statusCounts.ready} Liberado</span>
           </button>
           <button
             onClick={() => toggleFilter('collected')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
               activeFilter === 'collected'
                 ? 'bg-status-collected text-white'
                 : 'hover:bg-secondary'
             }`}
           >
-            <div className={`w-3 h-3 rounded-full ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
             <span>{statusCounts.collected} Recolhido</span>
           </button>
           <button
             onClick={() => toggleFilter('clienteAvisara')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
               activeFilter === 'clienteAvisara'
-                ? 'bg-amber-500 text-white'
+                ? 'bg-status-waiting text-white'
                 : 'hover:bg-secondary'
             }`}
           >
-            <div className={`w-3 h-3 rounded-full ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-amber-500'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
             <span>{statusCounts.clienteAvisara} Aguardando</span>
           </button>
         </div>

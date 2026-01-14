@@ -40,6 +40,7 @@
     --status-delivered: 0 72% 51%;
     --status-ready: 142 71% 45%;
     --status-collected: 220 10% 60%;
+    --status-waiting: 38 92% 50%;
 
     --border: 35 20% 88%;
     --input: 35 20% 88%;
@@ -97,6 +98,7 @@
     --status-delivered: 0 70% 55%;
     --status-ready: 142 70% 50%;
     --status-collected: 220 10% 50%;
+    --status-waiting: 38 92% 55%;
 
     --border: 30 15% 20%;
     --input: 30 15% 20%;
