@@ -137,6 +137,12 @@ export function EquipmentDialog({
                 <User className="w-4 h-4" />
                 <span>Entregador: {equipment.creator_name || 'Desconhecido'}</span>
               </div>
+              {equipment.data_entrega && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>Data da entrega: {new Date(equipment.data_entrega).toLocaleDateString('pt-BR')}</span>
+                </div>
+              )}
               {!isClienteAvisara && equipment.data_prevista_recolha && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
