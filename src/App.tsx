@@ -9,6 +9,7 @@ import { AdminRoute } from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import NewDeliveryPage from "./pages/NewDeliveryPage";
+import EditDeliveryPage from "./pages/EditDeliveryPage";
 import EquipmentDetailPage from "./pages/EquipmentDetailPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/new-delivery" element={<NewDeliveryPage />} />
+            <Route path="/edit-delivery/:id" element={<EditDeliveryPage />} />
             <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
             <Route path="/users" element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
