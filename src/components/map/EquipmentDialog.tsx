@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PeriodBadge } from '@/components/ui/period-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell } from 'lucide-react';
+import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell, Pencil } from 'lucide-react';
 import type { EquipmentWithCreator } from '@/types/database';
 
 interface EquipmentDialogProps {
@@ -48,11 +49,17 @@ export function EquipmentDialog({
   onDelete,
   isAdmin = false,
 }: EquipmentDialogProps) {
+  const navigate = useNavigate();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!equipment) return null;
+
+  const handleEdit = () => {
+    onOpenChange(false);
+    navigate(`/edit-delivery/${equipment.id}`);
+  };
 
   const openRoute = () => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${equipment.latitude},${equipment.longitude}`;
@@ -149,6 +156,15 @@ export function EquipmentDialog({
 
             {/* Action buttons */}
             <div className="flex flex-col gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleEdit}
+              >
+                <Pencil className="w-4 h-4" />
+                Editar Entrega
+              </Button>
+
               <Button
                 variant="outline"
                 className="w-full gap-2"
