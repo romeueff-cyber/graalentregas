@@ -310,7 +310,7 @@ export default function MainMapPage() {
                       <div
                         className={`w-3 h-3 rounded-full ${
                           isClienteAvisara && equipment.status !== 'RECOLHIDO'
-                            ? 'bg-amber-500'
+                            ? 'bg-status-waiting'
                             : equipment.status === 'ENTREGUE'
                               ? 'bg-destructive'
                               : equipment.status === 'LIBERADO_PARA_RECOLHA'
