@@ -41,6 +41,16 @@ const periodLabels: Record<string, string> = {
   CLIENTE_IRA_AVISAR: 'Cliente Avisará',
 };
 
+// Helper to format dates correctly avoiding timezone issues
+const formatDate = (dateString: string): string => {
+  // If it's a date-only string (YYYY-MM-DD), add time to avoid timezone shift
+  if (dateString.length === 10) {
+    return new Date(dateString + 'T12:00:00').toLocaleDateString('pt-BR');
+  }
+  // If it's a full timestamp, parse and format
+  return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
 export function EquipmentDialog({
   equipment,
   open,
@@ -140,13 +150,13 @@ export function EquipmentDialog({
               {equipment.data_entrega && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  <span>Data da entrega: {new Date(equipment.data_entrega).toLocaleDateString('pt-BR')}</span>
+                  <span>Data da entrega: {formatDate(equipment.data_entrega)}</span>
                 </div>
               )}
               {!isClienteAvisara && equipment.data_prevista_recolha && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  <span>Recolha prevista: {new Date(equipment.data_prevista_recolha).toLocaleDateString('pt-BR')}</span>
+                  <span>Recolha prevista: {formatDate(equipment.data_prevista_recolha)}</span>
                 </div>
               )}
             </div>
