@@ -50,9 +50,10 @@ export function MapView({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [scriptError, setScriptError] = useState<Error | null>(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   const [mapCenter, setMapCenter] =
-    useState<google.maps.LatLngLiteral>(defaultCenter);
+    useState<{ lat: number; lng: number }>(defaultCenter);
   const hasSetInitialCenter = useRef(false);
 
   useEffect(() => {
@@ -72,24 +73,26 @@ export function MapView({
     hasSetInitialCenter.current = true;
   }, [driverLocation, map]);
 
-  const mapOptions = useMemo<google.maps.MapOptions>(
+  const mapOptions = useMemo(
     () => ({
       disableDefaultUI: true,
       zoomControl: true,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      gestureHandling: 'greedy',
+      gestureHandling: 'greedy' as const,
     }),
     []
   );
 
   const onLoad = useCallback((m: google.maps.Map) => {
     setMap(m);
+    setIsMapLoaded(true);
   }, []);
 
   const onUnmount = useCallback(() => {
     setMap(null);
+    setIsMapLoaded(false);
   }, []);
 
   const handleMarkerClick = (equipment: EquipmentWithCreator) => {
