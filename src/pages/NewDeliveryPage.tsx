@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
 import { Button } from '@/components/ui/button';
@@ -15,13 +15,14 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw } from 'lucide-react';
 import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import type { CollectionPeriod } from '@/types/database';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
+import { isOnline } from '@/lib/offline-storage';
 
 const mapContainerStyle = {
   width: '100%',
@@ -46,14 +47,37 @@ export default function NewDeliveryPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [mapScriptError, setMapScriptError] = useState<Error | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [online, setOnline] = useState(isOnline());
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get current location on mount
+  // Listen for online/offline events
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Get current location via GPS
+  const getGPSLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsError('GPS não suportado neste dispositivo');
+      return;
+    }
+
+    setGpsLoading(true);
+    setGpsError(null);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -61,14 +85,31 @@ export default function NewDeliveryPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        setGpsLoading(false);
+        toast.success('Localização obtida com sucesso!');
       },
       (error) => {
         console.error('Error getting location:', error);
-        toast.error('Não foi possível obter sua localização');
+        setGpsLoading(false);
+        let errorMsg = 'Não foi possível obter sua localização';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = 'Permissão de localização negada';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = 'Localização indisponível';
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = 'Tempo esgotado ao obter localização';
+        }
+        setGpsError(errorMsg);
+        toast.error(errorMsg);
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }, []);
+
+  // Get current location on mount
+  useEffect(() => {
+    getGPSLocation();
+  }, [getGPSLocation]);
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
@@ -255,72 +296,135 @@ export default function NewDeliveryPage() {
         {/* Localização */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
               <MapPin className="w-4 h-4" />
               Localização
+              {!online && (
+                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 ml-auto">
+                  <WifiOff className="w-3 h-3" />
+                  Offline
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg overflow-hidden border">
-              {!hasApiKey ? (
-                <GoogleMapsInlineSetup onApiKeySubmit={saveApiKey} />
-              ) : mapScriptError ? (
-                <div className="h-[200px] flex flex-col items-center justify-center bg-muted p-3 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Erro ao carregar mapa
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {mapScriptError.message}
-                  </p>
-                  <Button variant="outline" size="sm" onClick={clearApiKey}>
-                    Configurar chave
-                  </Button>
+            {/* GPS Location Display (always shown) */}
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Navigation className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Localização GPS</span>
                 </div>
-              ) : (
-                <LoadScript
-                  key={apiKey}
-                  id="google-map-script"
-                  googleMapsApiKey={apiKey}
-                  language="pt-BR"
-                  region="BR"
-                  onError={(err) => setMapScriptError(err)}
-                  loadingElement={
-                    <div className="h-[200px] flex items-center justify-center bg-muted">
-                      <LoadingSpinner text="Carregando mapa..." />
-                    </div>
-                  }
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getGPSLocation}
+                  disabled={gpsLoading}
                 >
-                  <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={location || { lat: -23.5505, lng: -46.6333 }}
-                    zoom={16}
-                    onClick={handleMapClick}
-                    options={{
-                      disableDefaultUI: true,
-                      zoomControl: true,
-                      gestureHandling: 'greedy',
-                    }}
-                  >
-                    {location && <Marker position={location} />}
-                  </GoogleMap>
-                </LoadScript>
+                  {gpsLoading ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Atualizar
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {gpsError ? (
+                <p className="text-sm text-destructive">{gpsError}</p>
+              ) : location ? (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Lat: {location.lat.toFixed(6)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Lng: {location.lng.toFixed(6)}
+                  </p>
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ Localização capturada
+                  </p>
+                </div>
+              ) : gpsLoading ? (
+                <p className="text-sm text-muted-foreground">Obtendo localização...</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Localização não disponível</p>
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Toque no mapa para ajustar a localização
+            {/* Map (only shown when online and API key available) */}
+            {online && (
+              <div className="rounded-lg overflow-hidden border">
+                {!hasApiKey ? (
+                  <GoogleMapsInlineSetup onApiKeySubmit={saveApiKey} />
+                ) : mapScriptError ? (
+                  <div className="h-[200px] flex flex-col items-center justify-center bg-muted p-3 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Erro ao carregar mapa
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {mapScriptError.message}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={clearApiKey}>
+                      Configurar chave
+                    </Button>
+                  </div>
+                ) : (
+                  <LoadScript
+                    key={apiKey}
+                    id="google-map-script"
+                    googleMapsApiKey={apiKey}
+                    language="pt-BR"
+                    region="BR"
+                    onError={(err) => setMapScriptError(err)}
+                    loadingElement={
+                      <div className="h-[200px] flex items-center justify-center bg-muted">
+                        <LoadingSpinner text="Carregando mapa..." />
+                      </div>
+                    }
+                  >
+                    <GoogleMap
+                      mapContainerStyle={mapContainerStyle}
+                      center={location || { lat: -23.5505, lng: -46.6333 }}
+                      zoom={16}
+                      onClick={handleMapClick}
+                      options={{
+                        disableDefaultUI: true,
+                        zoomControl: true,
+                        gestureHandling: 'greedy',
+                      }}
+                    >
+                      {location && <Marker position={location} />}
+                    </GoogleMap>
+                  </LoadScript>
+                )}
+              </div>
+            )}
+
+            {online && hasApiKey && !mapScriptError && (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Toque no mapa para ajustar a localização
+                </p>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="px-0"
+                  onClick={clearApiKey}
+                >
+                  Configurar chave
+                </Button>
+              </div>
+            )}
+
+            {!online && (
+              <p className="text-xs text-muted-foreground text-center">
+                Mapa indisponível offline. A localização GPS será usada.
               </p>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="px-0"
-                onClick={clearApiKey}
-              >
-                Configurar chave
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
 
