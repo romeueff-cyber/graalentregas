@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode } from 'lucide-react';
+import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import type { CollectionPeriod } from '@/types/database';
@@ -44,6 +45,7 @@ export default function NewDeliveryPage() {
   );
   const [photo, setPhoto] = useState<string | null>(null);
   const [mapScriptError, setMapScriptError] = useState<Error | null>(null);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
@@ -165,15 +167,27 @@ export default function NewDeliveryPage() {
 
             <div className="space-y-2">
               <Label htmlFor="pedidoDia">Número do Pedido *</Label>
-              <Input
-                id="pedidoDia"
-                placeholder="Ex: 12345"
-                value={pedidoDia}
-                onChange={(e) => setPedidoDia(e.target.value)}
-                className="h-12"
-                inputMode="numeric"
-                pattern="[0-9]*"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="pedidoDia"
+                  placeholder="Ex: 12345"
+                  value={pedidoDia}
+                  onChange={(e) => setPedidoDia(e.target.value)}
+                  className="h-12 flex-1"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 shrink-0"
+                  onClick={() => setQrScannerOpen(true)}
+                  title="Escanear QR Code"
+                >
+                  <QrCode className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -383,6 +397,13 @@ export default function NewDeliveryPage() {
           {isSubmitting ? <LoadingSpinner size="sm" /> : 'Registrar Entrega'}
         </Button>
       </form>
+
+      {/* QR Code Scanner Modal */}
+      <QRCodeScanner
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onScan={(result) => setPedidoDia(result)}
+      />
     </div>
   );
 }
