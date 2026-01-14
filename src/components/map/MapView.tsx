@@ -30,10 +30,43 @@ const defaultCenter = {
   lng: -46.6333,
 };
 
-const statusColors = {
-  ENTREGUE: '#ef4444',
-  LIBERADO_PARA_RECOLHA: '#22c55e',
-  RECOLHIDO: '#6b7280',
+const getHslFromCssVar = (varName: string, fallback: string) => {
+  if (typeof window === 'undefined') return fallback;
+
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim();
+  if (!raw) return fallback;
+
+  // Expected format: "38 92% 50%"
+  const parts = raw.split(/\s+/);
+  if (parts.length >= 3) {
+    const [h, s, l] = parts;
+    const sVal = s.endsWith('%') ? s : `${s}%`;
+    const lVal = l.endsWith('%') ? l : `${l}%`;
+    return `hsl(${h}, ${sVal}, ${lVal})`;
+  }
+
+  return `hsl(${raw})`;
+};
+
+const getEquipmentMarkerColor = (equipment: EquipmentWithCreator) => {
+  const isClienteAvisara =
+    equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
+
+  if (isClienteAvisara && equipment.status !== 'RECOLHIDO') {
+    return getHslFromCssVar('--status-waiting', '#f59e0b');
+  }
+
+  switch (equipment.status) {
+    case 'ENTREGUE':
+      return getHslFromCssVar('--status-delivered', '#ef4444');
+    case 'LIBERADO_PARA_RECOLHA':
+      return getHslFromCssVar('--status-ready', '#22c55e');
+    case 'RECOLHIDO':
+    default:
+      return getHslFromCssVar('--status-collected', '#6b7280');
+  }
 };
 
 export function MapView({
@@ -131,9 +164,11 @@ export function MapView({
     );
   }
 
-  const getMarkerIcon = (status: string): google.maps.Symbol | undefined => {
+  const getMarkerIcon = (
+    equipment: EquipmentWithCreator
+  ): google.maps.Symbol | undefined => {
     if (typeof google === 'undefined' || !google.maps) return undefined;
-    const color = statusColors[status as keyof typeof statusColors] || '#6b7280';
+    const color = getEquipmentMarkerColor(equipment);
     return {
       path: google.maps.SymbolPath.CIRCLE,
       scale: 12,
@@ -198,7 +233,7 @@ export function MapView({
             <div key={equipment.id}>
               <Marker
                 position={{ lat: equipment.latitude, lng: equipment.longitude }}
-                icon={getMarkerIcon(equipment.status)}
+                icon={getMarkerIcon(equipment)}
                 onClick={() => handleMarkerClick(equipment)}
                 title={equipment.nome_cliente}
               />
