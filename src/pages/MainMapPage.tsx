@@ -37,6 +37,7 @@ export default function MainMapPage() {
     useState<EquipmentWithCreator | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   if (authLoading || isLoading) {
     return <FullPageLoader />;
@@ -82,12 +83,44 @@ export default function MainMapPage() {
     }
   };
 
-  // Count by status
+  // Count by status (separating "Cliente irá avisar" from regular delivered)
+  const clienteAvisaraEquipments = equipments.filter(
+    (e) => e.cliente_ira_avisar || e.periodo_recolha === 'CLIENTE_IRA_AVISAR'
+  );
+  const regularEquipments = equipments.filter(
+    (e) => !e.cliente_ira_avisar && e.periodo_recolha !== 'CLIENTE_IRA_AVISAR'
+  );
+
   const statusCounts = {
-    delivered: equipments.filter((e) => e.status === 'ENTREGUE').length,
-    ready: equipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA').length,
-    collected: equipments.filter((e) => e.status === 'RECOLHIDO').length,
+    delivered: regularEquipments.filter((e) => e.status === 'ENTREGUE').length,
+    ready: regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA').length,
+    collected: regularEquipments.filter((e) => e.status === 'RECOLHIDO').length,
+    clienteAvisara: clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO').length,
   };
+
+  // Filter equipments based on active filter
+  const toggleFilter = (filter: string) => {
+    setActiveFilter(activeFilter === filter ? null : filter);
+  };
+
+  const getFilteredEquipments = () => {
+    if (!activeFilter) return equipments;
+    
+    switch (activeFilter) {
+      case 'delivered':
+        return regularEquipments.filter((e) => e.status === 'ENTREGUE');
+      case 'ready':
+        return regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA');
+      case 'collected':
+        return regularEquipments.filter((e) => e.status === 'RECOLHIDO');
+      case 'clienteAvisara':
+        return clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO');
+      default:
+        return equipments;
+    }
+  };
+
+  const filteredEquipments = getFilteredEquipments();
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -184,20 +217,52 @@ export default function MainMapPage() {
           </div>
         </div>
 
-        {/* Status Summary */}
-        <div className="flex gap-4 mt-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-destructive" />
+        {/* Status Summary - Clickable Filters */}
+        <div className="flex gap-2 mt-3 text-xs flex-wrap">
+          <button
+            onClick={() => toggleFilter('delivered')}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+              activeFilter === 'delivered'
+                ? 'bg-destructive text-destructive-foreground'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-3 h-3 rounded-full ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
             <span>{statusCounts.delivered} Entregue</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-status-ready" />
+          </button>
+          <button
+            onClick={() => toggleFilter('ready')}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+              activeFilter === 'ready'
+                ? 'bg-status-ready text-white'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-3 h-3 rounded-full ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
             <span>{statusCounts.ready} Liberado</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-status-collected" />
+          </button>
+          <button
+            onClick={() => toggleFilter('collected')}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+              activeFilter === 'collected'
+                ? 'bg-status-collected text-white'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-3 h-3 rounded-full ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
             <span>{statusCounts.collected} Recolhido</span>
-          </div>
+          </button>
+          <button
+            onClick={() => toggleFilter('clienteAvisara')}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+              activeFilter === 'clienteAvisara'
+                ? 'bg-amber-500 text-white'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-3 h-3 rounded-full ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-amber-500'}`} />
+            <span>{statusCounts.clienteAvisara} Aguardando</span>
+          </button>
         </div>
       </div>
 
@@ -205,7 +270,7 @@ export default function MainMapPage() {
       <div className="flex-1 relative">
         {viewMode === 'map' ? (
           <MapView
-            equipments={equipments}
+            equipments={filteredEquipments}
             driverLocation={driverLocation}
             onEquipmentClick={handleEquipmentClick}
             selectedEquipment={selectedEquipment}
@@ -216,7 +281,7 @@ export default function MainMapPage() {
           />
         ) : (
           <div className="h-full overflow-auto p-4 space-y-3">
-            {equipments.length === 0 ? (
+            {filteredEquipments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <p className="text-muted-foreground mb-2">
                   Nenhuma entrega registrada
@@ -227,31 +292,36 @@ export default function MainMapPage() {
                 </Button>
               </div>
             ) : (
-              equipments.map((equipment) => (
-                <div
-                  key={equipment.id}
-                  className="bg-card rounded-lg p-4 border shadow-sm cursor-pointer card-interactive"
-                  onClick={() => handleViewDetails(equipment)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium">{equipment.nome_cliente}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {equipment.pedido_dia}
-                      </p>
+              filteredEquipments.map((equipment) => {
+                const isClienteAvisara = equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
+                return (
+                  <div
+                    key={equipment.id}
+                    className="bg-card rounded-lg p-4 border shadow-sm cursor-pointer card-interactive"
+                    onClick={() => handleViewDetails(equipment)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-medium">{equipment.nome_cliente}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {equipment.pedido_dia}
+                        </p>
+                      </div>
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          isClienteAvisara && equipment.status !== 'RECOLHIDO'
+                            ? 'bg-amber-500'
+                            : equipment.status === 'ENTREGUE'
+                              ? 'bg-destructive'
+                              : equipment.status === 'LIBERADO_PARA_RECOLHA'
+                                ? 'bg-status-ready'
+                                : 'bg-status-collected'
+                        }`}
+                      />
                     </div>
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        equipment.status === 'ENTREGUE'
-                          ? 'bg-destructive'
-                          : equipment.status === 'LIBERADO_PARA_RECOLHA'
-                            ? 'bg-status-ready'
-                            : 'bg-status-collected'
-                      }`}
-                    />
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
