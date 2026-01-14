@@ -128,10 +128,8 @@ export function MapView({
     );
   }
 
-  const canUseGoogle = typeof google !== 'undefined';
-
   const getMarkerIcon = (status: string): google.maps.Symbol | undefined => {
-    if (!canUseGoogle) return undefined;
+    if (typeof google === 'undefined' || !google.maps) return undefined;
     const color = statusColors[status as keyof typeof statusColors] || '#6b7280';
     return {
       path: google.maps.SymbolPath.CIRCLE,
@@ -143,17 +141,18 @@ export function MapView({
     };
   };
 
-  const driverMarkerIcon: google.maps.Symbol | undefined = canUseGoogle
-    ? {
-        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 8,
-        fillColor: '#3b82f6',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-        rotation: 0,
-      }
-    : undefined;
+  const getDriverMarkerIcon = (): google.maps.Symbol | undefined => {
+    if (typeof google === 'undefined' || !google.maps) return undefined;
+    return {
+      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      scale: 8,
+      fillColor: '#3b82f6',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      rotation: 0,
+    };
+  };
 
   return (
     <>
@@ -179,13 +178,13 @@ export function MapView({
           options={mapOptions}
         >
           {/* Driver marker */}
-          {driverLocation && driverMarkerIcon && (
+          {driverLocation && (
             <Marker
               position={{
                 lat: driverLocation.latitude,
                 lng: driverLocation.longitude,
               }}
-              icon={driverMarkerIcon}
+              icon={getDriverMarkerIcon()}
               title="Sua localização"
               zIndex={1000}
             />
