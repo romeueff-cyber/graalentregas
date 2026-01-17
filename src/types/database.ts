@@ -22,6 +22,7 @@ export interface UserRole {
 export interface Equipment {
   id: string;
   nome_cliente: string;
+  telefone_cliente: string | null;
   pedido_dia: string;
   periodo_recolha: CollectionPeriod;
   observacoes: string | null;
@@ -38,6 +39,8 @@ export interface Equipment {
   updated_at: string;
   sync_status: SyncStatus;
   cliente_ira_avisar: boolean;
+  confirmation_token: string | null;
+  token_used_at: string | null;
 }
 
 export interface Settings {

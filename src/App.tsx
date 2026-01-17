@@ -14,6 +14,7 @@ import EquipmentDetailPage from "./pages/EquipmentDetailPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
+import ClientConfirmationPage from "./pages/ClientConfirmationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/users" element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="/install" element={<InstallPage />} />
+            <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <PWAInstallBanner />

@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PeriodBadge } from '@/components/ui/period-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell, Pencil, CalendarClock, Clock } from 'lucide-react';
+import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell, Pencil, CalendarClock, Clock, MessageCircle } from 'lucide-react';
 import { daysSince, formatDaysWithClient, getDaysColor, formatDate } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -251,6 +251,32 @@ export function EquipmentDialog({
 
             {/* Action buttons */}
             <div className="flex flex-col gap-2 pt-2">
+              {/* WhatsApp button - only for "Cliente irá avisar" status */}
+              {isClienteAvisara && !isCollected && equipment.telefone_cliente && equipment.confirmation_token && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 border-green-500/50 text-green-700 hover:bg-green-50"
+                  onClick={() => {
+                    const phone = equipment.telefone_cliente?.replace(/\D/g, '');
+                    const confirmUrl = `${window.location.origin}/confirmar/${equipment.confirmation_token}`;
+                    const message = encodeURIComponent(
+                      `Olá! Seu equipamento da Graal Beer (Pedido ${equipment.pedido_dia}) está aguardando recolha.\n\nQuando estiver liberado, clique no link abaixo para confirmar a data e horário:\n${confirmUrl}`
+                    );
+                    window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+                  }}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Enviar WhatsApp
+                </Button>
+              )}
+
+              {/* WhatsApp without phone - show warning */}
+              {isClienteAvisara && !isCollected && !equipment.telefone_cliente && (
+                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg text-center">
+                  Adicione o telefone do cliente para enviar WhatsApp
+                </div>
+              )}
+
               {/* Quick reschedule button */}
               {!isCollected && !isClienteAvisara && !showReschedule && (
                 <Button
