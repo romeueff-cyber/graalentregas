@@ -163,7 +163,7 @@ export function EquipmentDialog({
             {/* Status badges + days counter */}
             <div className="flex items-center gap-2 flex-wrap">
               {isClienteAvisara ? (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-status-waiting/20 text-amber-700 border border-status-waiting/50">
                   <Bell className="w-3 h-3" />
                   Aguardando Cliente
                 </span>
@@ -215,8 +215,8 @@ export function EquipmentDialog({
 
             {/* Reschedule quick form */}
             {showReschedule && !isCollected && !isClienteAvisara && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
-                <Label htmlFor="newDate" className="text-sm font-medium text-blue-800">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-3">
+                <Label htmlFor="newDate" className="text-sm font-medium text-primary">
                   Nova data de recolha
                 </Label>
                 <div className="flex gap-2">
@@ -255,7 +255,7 @@ export function EquipmentDialog({
               {!isCollected && !isClienteAvisara && !showReschedule && (
                 <Button
                   variant="outline"
-                  className="w-full gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                  className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
                   onClick={() => setShowReschedule(true)}
                 >
                   <CalendarClock className="w-4 h-4" />
@@ -286,8 +286,8 @@ export function EquipmentDialog({
                 <Button
                   className={`w-full gap-2 ${
                     isCollected
-                      ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700'
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                      : 'bg-status-ready hover:bg-status-ready/90 text-white'
                   }`}
                   onClick={handleConfirm}
                   disabled={isConfirming || isCollected}
