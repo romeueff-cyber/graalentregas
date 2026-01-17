@@ -42,24 +42,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+
     const initializeAuth = async () => {
-      // If offline, try to load cached session
-      if (!isOnline()) {
-        const cachedAuth = await authStorage.get();
-        const isValid = await authStorage.isValid();
-        
-        if (cachedAuth && isValid) {
-          setUser(cachedAuth.user);
-          setSession(cachedAuth.session);
-          setProfile(cachedAuth.profile);
-          setRole(cachedAuth.role);
-          setIsLoading(false);
-          return;
-        }
+      // ALWAYS try cached auth first for instant UI
+      const cachedAuth = await authStorage.get();
+      const isValid = await authStorage.isValid();
+      
+      if (cachedAuth && isValid) {
+        setUser(cachedAuth.user);
+        setSession(cachedAuth.session);
+        setProfile(cachedAuth.profile);
+        setRole(cachedAuth.role);
       }
 
-      // Set up auth state listener FIRST
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      // If completely offline, stop here with cached data
+      if (!isOnline()) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Set up auth state listener
+      const { data } = supabase.auth.onAuthStateChange(
         (event, session) => {
           setSession(session);
           setUser(session?.user ?? null);
@@ -77,8 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       );
+      subscription = data.subscription;
 
-      // THEN check for existing session
+      // Check for existing session
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
@@ -87,36 +92,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await fetchUserData(session.user.id);
         } else {
-          // No online session, check cache as fallback
-          const cachedAuth = await authStorage.get();
-          const isValid = await authStorage.isValid();
-          
-          if (cachedAuth && isValid) {
-            setUser(cachedAuth.user);
-            setSession(cachedAuth.session);
-            setProfile(cachedAuth.profile);
-            setRole(cachedAuth.role);
-          }
+          // No online session - keep cached data if valid
           setIsLoading(false);
         }
       } catch (error) {
-        // Network error - try cached session
-        const cachedAuth = await authStorage.get();
-        const isValid = await authStorage.isValid();
-        
-        if (cachedAuth && isValid) {
-          setUser(cachedAuth.user);
-          setSession(cachedAuth.session);
-          setProfile(cachedAuth.profile);
-          setRole(cachedAuth.role);
-        }
+        // Network error - keep cached data
+        console.error('Error getting session:', error);
         setIsLoading(false);
       }
-
-      return () => subscription.unsubscribe();
     };
 
     initializeAuth();
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const fetchUserData = async (userId: string) => {
