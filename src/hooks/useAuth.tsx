@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { authStorage, isOnline } from '@/lib/offline-storage';
 import type { AppRole, Profile } from '@/types/database';
 
 interface AuthContextType {
@@ -10,6 +11,7 @@ interface AuthContextType {
   role: AppRole | null;
   isAdmin: boolean;
   isLoading: boolean;
+  isOffline: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -23,39 +25,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Listen for online/offline changes
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // Defer profile/role fetching
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRole(null);
+    const initializeAuth = async () => {
+      // If offline, try to load cached session
+      if (!isOnline()) {
+        const cachedAuth = await authStorage.get();
+        const isValid = await authStorage.isValid();
+        
+        if (cachedAuth && isValid) {
+          setUser(cachedAuth.user);
+          setSession(cachedAuth.session);
+          setProfile(cachedAuth.profile);
+          setRole(cachedAuth.role);
+          setIsLoading(false);
+          return;
         }
       }
-    );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      } else {
+      // Set up auth state listener FIRST
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          // Defer profile/role fetching
+          if (session?.user) {
+            setTimeout(() => {
+              fetchUserData(session.user.id);
+            }, 0);
+          } else {
+            setProfile(null);
+            setRole(null);
+            // Clear cached auth on logout
+            authStorage.clear();
+          }
+        }
+      );
+
+      // THEN check for existing session
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserData(session.user.id);
+        } else {
+          // No online session, check cache as fallback
+          const cachedAuth = await authStorage.get();
+          const isValid = await authStorage.isValid();
+          
+          if (cachedAuth && isValid) {
+            setUser(cachedAuth.user);
+            setSession(cachedAuth.session);
+            setProfile(cachedAuth.profile);
+            setRole(cachedAuth.role);
+          }
+          setIsLoading(false);
+        }
+      } catch (error) {
+        // Network error - try cached session
+        const cachedAuth = await authStorage.get();
+        const isValid = await authStorage.isValid();
+        
+        if (cachedAuth && isValid) {
+          setUser(cachedAuth.user);
+          setSession(cachedAuth.session);
+          setProfile(cachedAuth.profile);
+          setRole(cachedAuth.role);
+        }
         setIsLoading(false);
       }
-    });
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    };
+
+    initializeAuth();
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -67,8 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', userId)
         .single();
 
+      let fetchedProfile: Profile | null = null;
       if (profileData) {
-        setProfile(profileData as Profile);
+        fetchedProfile = profileData as Profile;
+        setProfile(fetchedProfile);
       }
 
       // Fetch role
@@ -78,8 +141,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .single();
 
+      let fetchedRole: AppRole | null = null;
       if (roleData) {
-        setRole(roleData.role as AppRole);
+        fetchedRole = roleData.role as AppRole;
+        setRole(fetchedRole);
+      }
+
+      // Cache auth data for offline use
+      const currentSession = await supabase.auth.getSession();
+      if (currentSession.data.session) {
+        await authStorage.save({
+          user: currentSession.data.session.user,
+          session: currentSession.data.session,
+          profile: fetchedProfile,
+          role: fetchedRole,
+          cachedAt: new Date().toISOString()
+        });
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -112,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    await authStorage.clear();
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -125,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role,
     isAdmin: role === 'admin',
     isLoading,
+    isOffline,
     signIn,
     signUp,
     signOut
