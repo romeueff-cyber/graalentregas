@@ -42,6 +42,73 @@ export default function MainMapPage() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
+  // All useMemo hooks MUST be before any conditional returns
+  // Count by status (separating "Cliente irá avisar" from regular delivered)
+  const clienteAvisaraEquipments = useMemo(() => 
+    equipments.filter((e) => e.cliente_ira_avisar || e.periodo_recolha === 'CLIENTE_IRA_AVISAR'),
+    [equipments]
+  );
+  
+  const regularEquipments = useMemo(() =>
+    equipments.filter((e) => !e.cliente_ira_avisar && e.periodo_recolha !== 'CLIENTE_IRA_AVISAR'),
+    [equipments]
+  );
+
+  const statusCounts = useMemo(() => ({
+    delivered: regularEquipments.filter((e) => e.status === 'ENTREGUE').length,
+    ready: regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA').length,
+    collected: regularEquipments.filter((e) => e.status === 'RECOLHIDO').length,
+    clienteAvisara: clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO').length,
+  }), [regularEquipments, clienteAvisaraEquipments]);
+
+  // Day summary calculations
+  const daySummary = useMemo(() => {
+    const pendingEquipments = equipments.filter(e => e.status !== 'RECOLHIDO');
+    
+    // Today's scheduled collections
+    const todayCollections = pendingEquipments.filter(e => 
+      !e.cliente_ira_avisar && 
+      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
+      isToday(e.data_prevista_recolha)
+    );
+    
+    // Overdue collections (past the expected date)
+    const overdueCollections = pendingEquipments.filter(e =>
+      !e.cliente_ira_avisar && 
+      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
+      isPastDate(e.data_prevista_recolha) &&
+      !isToday(e.data_prevista_recolha)
+    );
+    
+    // Long stays (more than 7 days with client)
+    const longStays = pendingEquipments.filter(e => daysSince(e.data_entrega) > 7);
+    
+    return {
+      todayCount: todayCollections.length,
+      overdueCount: overdueCollections.length,
+      longStaysCount: longStays.length,
+    };
+  }, [equipments]);
+
+  // Filtered equipments based on active filter
+  const filteredEquipments = useMemo(() => {
+    if (!activeFilter) return equipments;
+    
+    switch (activeFilter) {
+      case 'delivered':
+        return regularEquipments.filter((e) => e.status === 'ENTREGUE');
+      case 'ready':
+        return regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA');
+      case 'collected':
+        return regularEquipments.filter((e) => e.status === 'RECOLHIDO');
+      case 'clienteAvisara':
+        return clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO');
+      default:
+        return equipments;
+    }
+  }, [activeFilter, equipments, regularEquipments, clienteAvisaraEquipments]);
+
+  // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
     return <FullPageLoader />;
   }
@@ -86,73 +153,9 @@ export default function MainMapPage() {
     }
   };
 
-  // Count by status (separating "Cliente irá avisar" from regular delivered)
-  const clienteAvisaraEquipments = equipments.filter(
-    (e) => e.cliente_ira_avisar || e.periodo_recolha === 'CLIENTE_IRA_AVISAR'
-  );
-  const regularEquipments = equipments.filter(
-    (e) => !e.cliente_ira_avisar && e.periodo_recolha !== 'CLIENTE_IRA_AVISAR'
-  );
-
-  const statusCounts = {
-    delivered: regularEquipments.filter((e) => e.status === 'ENTREGUE').length,
-    ready: regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA').length,
-    collected: regularEquipments.filter((e) => e.status === 'RECOLHIDO').length,
-    clienteAvisara: clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO').length,
-  };
-
-  // Day summary calculations
-  const daySummary = useMemo(() => {
-    const pendingEquipments = equipments.filter(e => e.status !== 'RECOLHIDO');
-    
-    // Today's scheduled collections
-    const todayCollections = pendingEquipments.filter(e => 
-      !e.cliente_ira_avisar && 
-      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
-      isToday(e.data_prevista_recolha)
-    );
-    
-    // Overdue collections (past the expected date)
-    const overdueCollections = pendingEquipments.filter(e =>
-      !e.cliente_ira_avisar && 
-      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
-      isPastDate(e.data_prevista_recolha) &&
-      !isToday(e.data_prevista_recolha)
-    );
-    
-    // Long stays (more than 7 days with client)
-    const longStays = pendingEquipments.filter(e => daysSince(e.data_entrega) > 7);
-    
-    return {
-      todayCount: todayCollections.length,
-      overdueCount: overdueCollections.length,
-      longStaysCount: longStays.length,
-    };
-  }, [equipments]);
-
-  // Filter equipments based on active filter
   const toggleFilter = (filter: string) => {
     setActiveFilter(activeFilter === filter ? null : filter);
   };
-
-  const getFilteredEquipments = () => {
-    if (!activeFilter) return equipments;
-    
-    switch (activeFilter) {
-      case 'delivered':
-        return regularEquipments.filter((e) => e.status === 'ENTREGUE');
-      case 'ready':
-        return regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA');
-      case 'collected':
-        return regularEquipments.filter((e) => e.status === 'RECOLHIDO');
-      case 'clienteAvisara':
-        return clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO');
-      default:
-        return equipments;
-    }
-  };
-
-  const filteredEquipments = getFilteredEquipments();
 
   return (
     <div className="h-screen flex flex-col bg-background">
