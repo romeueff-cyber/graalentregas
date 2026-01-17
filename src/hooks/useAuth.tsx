@@ -43,8 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const initializeAuth = async () => {
+      // Set a maximum timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        console.warn('Auth initialization timeout - forcing completion');
+        setIsLoading(false);
+      }, 8000);
+
       // ALWAYS try cached auth first for instant UI
       const cachedAuth = await authStorage.get();
       const isValid = await authStorage.isValid();
@@ -58,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // If completely offline, stop here with cached data
       if (!isOnline()) {
+        clearTimeout(timeoutId);
         setIsLoading(false);
         return;
       }
@@ -83,21 +91,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       subscription = data.subscription;
 
-      // Check for existing session
+      // Check for existing session with timeout
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 5000)
+        );
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           await fetchUserData(session.user.id);
         } else {
-          // No online session - keep cached data if valid
+          // No valid online session - clear stale cache if session is null (expired)
+          if (!cachedAuth || !isValid) {
+            await authStorage.clear();
+          }
+          clearTimeout(timeoutId);
           setIsLoading(false);
         }
       } catch (error) {
-        // Network error - keep cached data
+        // Network error or timeout - keep cached data
         console.error('Error getting session:', error);
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
@@ -105,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
 
     return () => {
+      clearTimeout(timeoutId);
       if (subscription) {
         subscription.unsubscribe();
       }
@@ -158,11 +177,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    return { error: error as Error | null };
+    try {
+      // Clear any stale/expired session before attempting login
+      await supabase.auth.signOut({ scope: 'local' });
+      await authStorage.clear();
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      return { error: error as Error | null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signUp = async (email: string, password: string, name: string) => {
