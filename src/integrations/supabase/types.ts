@@ -17,6 +17,7 @@ export type Database = {
       equipments: {
         Row: {
           cliente_ira_avisar: boolean
+          confirmation_token: string | null
           created_at: string | null
           created_by_user_id: string
           data_entrega: string | null
@@ -33,10 +34,13 @@ export type Database = {
           periodo_recolha: Database["public"]["Enums"]["collection_period"]
           status: Database["public"]["Enums"]["equipment_status"]
           sync_status: Database["public"]["Enums"]["sync_status"]
+          telefone_cliente: string | null
+          token_used_at: string | null
           updated_at: string | null
         }
         Insert: {
           cliente_ira_avisar?: boolean
+          confirmation_token?: string | null
           created_at?: string | null
           created_by_user_id: string
           data_entrega?: string | null
@@ -53,10 +57,13 @@ export type Database = {
           periodo_recolha: Database["public"]["Enums"]["collection_period"]
           status?: Database["public"]["Enums"]["equipment_status"]
           sync_status?: Database["public"]["Enums"]["sync_status"]
+          telefone_cliente?: string | null
+          token_used_at?: string | null
           updated_at?: string | null
         }
         Update: {
           cliente_ira_avisar?: boolean
+          confirmation_token?: string | null
           created_at?: string | null
           created_by_user_id?: string
           data_entrega?: string | null
@@ -73,6 +80,8 @@ export type Database = {
           periodo_recolha?: Database["public"]["Enums"]["collection_period"]
           status?: Database["public"]["Enums"]["equipment_status"]
           sync_status?: Database["public"]["Enums"]["sync_status"]
+          telefone_cliente?: string | null
+          token_used_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -143,6 +152,7 @@ export type Database = {
         Args: { _equipment_id: string }
         Returns: {
           cliente_ira_avisar: boolean
+          confirmation_token: string | null
           created_at: string | null
           created_by_user_id: string
           data_entrega: string | null
@@ -159,6 +169,8 @@ export type Database = {
           periodo_recolha: Database["public"]["Enums"]["collection_period"]
           status: Database["public"]["Enums"]["equipment_status"]
           sync_status: Database["public"]["Enums"]["sync_status"]
+          telefone_cliente: string | null
+          token_used_at: string | null
           updated_at: string | null
         }
         SetofOptions: {
