@@ -145,20 +145,16 @@ export function MapView({
     await onConfirmCollection(equipment);
   };
 
-  if (!hasApiKey) {
-    return <GoogleMapsSetup onApiKeySubmit={saveApiKey} />;
-  }
-
   if (scriptError) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 text-center">
         <p className="text-muted-foreground mb-2">Erro ao carregar mapa</p>
         <p className="text-xs text-muted-foreground mb-4">
           {scriptError.message ||
-            'Verifique se a chave está correta e se a Maps JavaScript API está ativada.'}
+            'Verifique se a chave está ativa e se a Maps JavaScript API está habilitada e restrita ao domínio correto.'}
         </p>
-        <Button variant="outline" size="sm" onClick={clearApiKey}>
-          Configurar chave
+        <Button variant="outline" size="sm" onClick={() => setScriptError(null)}>
+          Tentar novamente
         </Button>
       </div>
     );

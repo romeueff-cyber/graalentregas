@@ -292,18 +292,17 @@ export default function EditDeliveryPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg overflow-hidden border">
-              {!hasApiKey ? (
-                <GoogleMapsInlineSetup onApiKeySubmit={saveApiKey} />
-              ) : mapScriptError ? (
+              {mapScriptError ? (
                 <div className="h-[200px] flex flex-col items-center justify-center bg-muted p-3 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Erro ao carregar mapa
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {mapScriptError.message}
-                  </p>
-                  <Button variant="outline" size="sm" onClick={clearApiKey}>
-                    Configurar chave
+                  <p className="text-sm text-muted-foreground mb-2">Erro ao carregar mapa</p>
+                  <p className="text-xs text-muted-foreground mb-3">{mapScriptError.message}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setMapScriptError(null)}
+                  >
+                    Tentar novamente
                   </Button>
                 </div>
               ) : (
@@ -337,20 +336,9 @@ export default function EditDeliveryPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Toque no mapa para ajustar a localização
-              </p>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="px-0"
-                onClick={clearApiKey}
-              >
-                Configurar chave
-              </Button>
-            </div>
+            {!mapScriptError && (
+              <p className="text-xs text-muted-foreground">Toque no mapa para ajustar a localização</p>
+            )}
           </CardContent>
         </Card>
 
