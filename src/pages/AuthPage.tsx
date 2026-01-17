@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Beer, Mail, Lock } from 'lucide-react';
+import { Beer, Mail, Lock, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -17,15 +17,27 @@ const loginSchema = z.object({
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { signIn, isLoading: authLoading } = useAuth();
+  const { signIn, isLoading: authLoading, user, isOffline } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
+  // Redirect if already logged in (including cached offline session)
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/');
+    }
+  }, [authLoading, user, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+
+    if (isOffline) {
+      toast.error('Você precisa estar conectado à internet para fazer login pela primeira vez');
+      return;
+    }
 
     // Validate
     const result = loginSchema.safeParse({ email, password });
@@ -88,6 +100,12 @@ export default function AuthPage() {
           <CardDescription className="text-center">
             Acesse sua conta para gerenciar entregas
           </CardDescription>
+          {isOffline && (
+            <div className="flex items-center justify-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg p-2 mt-2">
+              <WifiOff className="w-4 h-4" />
+              <span>Você está offline. Conecte-se para fazer login.</span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -135,7 +153,7 @@ export default function AuthPage() {
             <Button
               type="submit"
               className="w-full h-12 text-base font-semibold bg-gradient-primary hover:opacity-90 transition-opacity"
-              disabled={isLoading}
+              disabled={isLoading || isOffline}
             >
               {isLoading ? (
                 <LoadingSpinner size="sm" />
@@ -147,7 +165,9 @@ export default function AuthPage() {
 
           <div className="mt-6 pt-4 border-t text-center">
             <p className="text-sm text-muted-foreground">
-              Novo entregador? Fale com o administrador.
+              {isOffline 
+                ? 'Já logou antes? Sua sessão será recuperada quando voltar online.'
+                : 'Novo entregador? Fale com o administrador.'}
             </p>
           </div>
         </CardContent>
