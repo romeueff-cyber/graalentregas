@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.delete-equipment]
 verify_jwt = false
+
+[functions.confirm-by-client]
+verify_jwt = false
+
+[functions.get-equipment-by-token]
+verify_jwt = false

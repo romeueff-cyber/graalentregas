@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone } from 'lucide-react';
 import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
@@ -36,6 +36,7 @@ export default function NewDeliveryPage() {
 
   // Form state
   const [nomeCliente, setNomeCliente] = useState('');
+  const [telefoneCliente, setTelefoneCliente] = useState('');
   const [pedidoDia, setPedidoDia] = useState('');
   const [periodoRecolha, setPeriodoRecolha] = useState<CollectionPeriod>('DIA_TODO');
   const [dataPrevistaRecolha, setDataPrevistaRecolha] = useState('');
@@ -149,6 +150,7 @@ export default function NewDeliveryPage() {
     try {
       await createEquipment({
         nome_cliente: nomeCliente,
+        telefone_cliente: telefoneCliente || null,
         pedido_dia: pedidoDia,
         periodo_recolha: clienteIraAvisar ? 'CLIENTE_IRA_AVISAR' : periodoRecolha,
         data_prevista_recolha: clienteIraAvisar 
@@ -204,6 +206,25 @@ export default function NewDeliveryPage() {
                 onChange={(e) => setNomeCliente(e.target.value)}
                 className="h-12"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telefoneCliente" className="flex items-center gap-2">
+                <Phone className="w-3 h-3" />
+                Telefone do Cliente
+                {clienteIraAvisar && <span className="text-xs text-amber-600">(recomendado)</span>}
+              </Label>
+              <Input
+                id="telefoneCliente"
+                type="tel"
+                placeholder="(11) 99999-9999"
+                value={telefoneCliente}
+                onChange={(e) => setTelefoneCliente(e.target.value)}
+                className="h-12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Para enviar link de confirmação via WhatsApp
+              </p>
             </div>
 
             <div className="space-y-2">
