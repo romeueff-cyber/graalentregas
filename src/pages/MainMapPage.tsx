@@ -301,13 +301,13 @@ export default function MainMapPage() {
         {(daySummary.todayCount > 0 || daySummary.overdueCount > 0) && (
           <div className="flex gap-2 mt-2 text-xs">
             {daySummary.todayCount > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary">
                 <CalendarCheck className="w-3.5 h-3.5" />
                 <span className="font-medium">{daySummary.todayCount} para hoje</span>
               </div>
             )}
             {daySummary.overdueCount > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span className="font-medium">{daySummary.overdueCount} atrasadas</span>
               </div>

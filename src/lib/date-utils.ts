@@ -27,13 +27,13 @@ export function formatDaysWithClient(days: number): string {
 }
 
 /**
- * Get color based on days with client
+ * Get color based on days with client - returns HSL color values
  */
 export function getDaysColor(days: number): { bg: string; text: string } {
-  if (days <= 3) return { bg: '#dcfce7', text: '#16a34a' }; // Green
-  if (days <= 7) return { bg: '#fef3c7', text: '#d97706' }; // Amber
-  if (days <= 14) return { bg: '#fed7aa', text: '#ea580c' }; // Orange
-  return { bg: '#fee2e2', text: '#dc2626' }; // Red - urgent
+  if (days <= 3) return { bg: 'hsl(142 76% 94%)', text: 'hsl(142 71% 35%)' }; // Green
+  if (days <= 7) return { bg: 'hsl(48 96% 94%)', text: 'hsl(38 92% 40%)' }; // Amber
+  if (days <= 14) return { bg: 'hsl(27 96% 91%)', text: 'hsl(21 90% 48%)' }; // Orange
+  return { bg: 'hsl(0 86% 94%)', text: 'hsl(0 72% 51%)' }; // Red - urgent
 }
 
 /**
