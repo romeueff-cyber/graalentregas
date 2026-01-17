@@ -254,6 +254,11 @@ export function MapView({
         onOpenChange={handleDialogClose}
         onConfirmCollection={onConfirmCollection ? handleConfirmCollection : undefined}
         onDelete={onDelete}
+        onReschedule={() => {
+          // Close dialog and trigger a refresh
+          setDialogOpen(false);
+          onCloseInfoWindow?.();
+        }}
         isAdmin={isAdmin}
       />
     </>

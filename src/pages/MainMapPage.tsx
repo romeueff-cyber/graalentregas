@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
@@ -16,6 +16,8 @@ import {
   List,
   Map as MapIcon,
   Beer,
+  CalendarCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Sheet,
@@ -24,6 +26,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { isToday, isPastDate, daysSince } from '@/lib/date-utils';
 import type { EquipmentWithCreator } from '@/types/database';
 
 export default function MainMapPage() {
@@ -97,6 +100,35 @@ export default function MainMapPage() {
     collected: regularEquipments.filter((e) => e.status === 'RECOLHIDO').length,
     clienteAvisara: clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO').length,
   };
+
+  // Day summary calculations
+  const daySummary = useMemo(() => {
+    const pendingEquipments = equipments.filter(e => e.status !== 'RECOLHIDO');
+    
+    // Today's scheduled collections
+    const todayCollections = pendingEquipments.filter(e => 
+      !e.cliente_ira_avisar && 
+      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
+      isToday(e.data_prevista_recolha)
+    );
+    
+    // Overdue collections (past the expected date)
+    const overdueCollections = pendingEquipments.filter(e =>
+      !e.cliente_ira_avisar && 
+      e.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
+      isPastDate(e.data_prevista_recolha) &&
+      !isToday(e.data_prevista_recolha)
+    );
+    
+    // Long stays (more than 7 days with client)
+    const longStays = pendingEquipments.filter(e => daysSince(e.data_entrega) > 7);
+    
+    return {
+      todayCount: todayCollections.length,
+      overdueCount: overdueCollections.length,
+      longStaysCount: longStays.length,
+    };
+  }, [equipments]);
 
   // Filter equipments based on active filter
   const toggleFilter = (filter: string) => {
@@ -264,6 +296,24 @@ export default function MainMapPage() {
             <span>{statusCounts.clienteAvisara} Aguardando</span>
           </button>
         </div>
+
+        {/* Day Summary Card */}
+        {(daySummary.todayCount > 0 || daySummary.overdueCount > 0) && (
+          <div className="flex gap-2 mt-2 text-xs">
+            {daySummary.todayCount > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
+                <CalendarCheck className="w-3.5 h-3.5" />
+                <span className="font-medium">{daySummary.todayCount} para hoje</span>
+              </div>
+            )}
+            {daySummary.overdueCount > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="font-medium">{daySummary.overdueCount} atrasadas</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Map or List View */}
@@ -294,6 +344,9 @@ export default function MainMapPage() {
             ) : (
               filteredEquipments.map((equipment) => {
                 const isClienteAvisara = equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
+                const isCollected = equipment.status === 'RECOLHIDO';
+                const daysWithClient = !isCollected ? daysSince(equipment.data_entrega) : 0;
+                
                 return (
                   <div
                     key={equipment.id}
@@ -301,15 +354,24 @@ export default function MainMapPage() {
                     onClick={() => handleViewDetails(equipment)}
                   >
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-medium">{equipment.nome_cliente}</h3>
                         <p className="text-sm text-muted-foreground">
                           {equipment.pedido_dia}
                         </p>
+                        {/* Days counter in list */}
+                        {!isCollected && daysWithClient > 0 && (
+                          <p className={`text-xs mt-1 font-medium ${
+                            daysWithClient > 7 ? 'text-red-600' : 
+                            daysWithClient > 3 ? 'text-amber-600' : 'text-green-600'
+                          }`}>
+                            {daysWithClient === 1 ? '1 dia' : `${daysWithClient} dias`} com cliente
+                          </p>
+                        )}
                       </div>
                       <div
-                        className={`w-3 h-3 rounded-full ${
-                          isClienteAvisara && equipment.status !== 'RECOLHIDO'
+                        className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                          isClienteAvisara && !isCollected
                             ? 'bg-status-waiting'
                             : equipment.status === 'ENTREGUE'
                               ? 'bg-destructive'

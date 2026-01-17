@@ -18,10 +18,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PeriodBadge } from '@/components/ui/period-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell, Pencil } from 'lucide-react';
+import { Navigation, ExternalLink, CheckCircle2, MapPin, User, Calendar, Trash2, Bell, Pencil, CalendarClock, Clock } from 'lucide-react';
+import { daysSince, formatDaysWithClient, getDaysColor, formatDate } from '@/lib/date-utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { EquipmentWithCreator } from '@/types/database';
 
 interface EquipmentDialogProps {
@@ -30,6 +35,7 @@ interface EquipmentDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirmCollection?: (equipment: EquipmentWithCreator) => Promise<void>;
   onDelete?: (equipment: EquipmentWithCreator) => Promise<void>;
+  onReschedule?: (equipment: EquipmentWithCreator, newDate: string) => void;
   isAdmin?: boolean;
 }
 
@@ -41,28 +47,22 @@ const periodLabels: Record<string, string> = {
   CLIENTE_IRA_AVISAR: 'Cliente Avisará',
 };
 
-// Helper to format dates correctly avoiding timezone issues
-const formatDate = (dateString: string): string => {
-  // If it's a date-only string (YYYY-MM-DD), add time to avoid timezone shift
-  if (dateString.length === 10) {
-    return new Date(dateString + 'T12:00:00').toLocaleDateString('pt-BR');
-  }
-  // If it's a full timestamp, parse and format
-  return new Date(dateString).toLocaleDateString('pt-BR');
-};
-
 export function EquipmentDialog({
   equipment,
   open,
   onOpenChange,
   onConfirmCollection,
   onDelete,
+  onReschedule,
   isAdmin = false,
 }: EquipmentDialogProps) {
   const navigate = useNavigate();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   if (!equipment) return null;
 
@@ -98,9 +98,41 @@ export function EquipmentDialog({
     }
   };
 
+  const handleReschedule = async () => {
+    if (!newDate || !equipment) return;
+    
+    setIsRescheduling(true);
+    try {
+      const { error } = await supabase
+        .from('equipments')
+        .update({ data_prevista_recolha: newDate })
+        .eq('id', equipment.id);
+      
+      if (error) throw error;
+      
+      toast.success('Data reagendada com sucesso!');
+      setShowReschedule(false);
+      setNewDate('');
+      
+      // Call callback to update UI
+      if (onReschedule) {
+        onReschedule(equipment, newDate);
+      }
+    } catch (error) {
+      console.error('Error rescheduling:', error);
+      toast.error('Erro ao reagendar');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
   const isCollected = equipment.status === 'RECOLHIDO';
   const isClienteAvisara = equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
   const hasPhoto = equipment.foto_local_path || equipment.foto_url;
+  
+  // Calculate days with client
+  const daysWithClient = !isCollected ? daysSince(equipment.data_entrega) : 0;
+  const daysColors = getDaysColor(daysWithClient);
 
   return (
     <>
@@ -128,7 +160,7 @@ export function EquipmentDialog({
               </div>
             )}
 
-            {/* Status badges */}
+            {/* Status badges + days counter */}
             <div className="flex items-center gap-2 flex-wrap">
               {isClienteAvisara ? (
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
@@ -139,6 +171,17 @@ export function EquipmentDialog({
                 <StatusBadge status={equipment.status} />
               )}
               <PeriodBadge period={equipment.periodo_recolha} />
+              
+              {/* Days counter badge */}
+              {!isCollected && daysWithClient > 0 && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: daysColors.bg, color: daysColors.text }}
+                >
+                  <Clock className="w-3 h-3" />
+                  {formatDaysWithClient(daysWithClient)}
+                </span>
+              )}
             </div>
 
             {/* Info grid */}
@@ -170,8 +213,56 @@ export function EquipmentDialog({
               </div>
             )}
 
+            {/* Reschedule quick form */}
+            {showReschedule && !isCollected && !isClienteAvisara && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
+                <Label htmlFor="newDate" className="text-sm font-medium text-blue-800">
+                  Nova data de recolha
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="newDate"
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="flex-1"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleReschedule}
+                    disabled={!newDate || isRescheduling}
+                  >
+                    {isRescheduling ? <LoadingSpinner size="sm" /> : 'Salvar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowReschedule(false);
+                      setNewDate('');
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="flex flex-col gap-2 pt-2">
+              {/* Quick reschedule button */}
+              {!isCollected && !isClienteAvisara && !showReschedule && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                  onClick={() => setShowReschedule(true)}
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  Reagendar Recolha
+                </Button>
+              )}
+              
               <Button
                 variant="outline"
                 className="w-full gap-2"

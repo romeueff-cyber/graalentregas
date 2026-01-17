@@ -1,5 +1,6 @@
 import { OverlayView, OverlayViewF } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
+import { daysSince, formatDaysWithClient, getDaysColor } from '@/lib/date-utils';
 
 interface MarkerLabelProps {
   equipment: EquipmentWithCreator;
@@ -23,12 +24,17 @@ const periodLabels: Record<string, string> = {
 export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
   // Use amber/orange color for "Cliente irá avisar" status
   const isClienteAvisara = equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
+  const isCollected = equipment.status === 'RECOLHIDO';
   
   const colors = isClienteAvisara 
     ? { bg: '#fef3c7', text: '#d97706', border: '#fbbf24' } // Amber colors
     : (statusColors[equipment.status] || statusColors.RECOLHIDO);
 
   const hasPhoto = equipment.foto_local_path || equipment.foto_url;
+  
+  // Calculate days with client (only if not collected)
+  const daysWithClient = !isCollected ? daysSince(equipment.data_entrega) : 0;
+  const daysColors = getDaysColor(daysWithClient);
 
   return (
     <OverlayViewF
@@ -111,6 +117,19 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
                     ? 'Liberado'
                     : 'Recolhido'}
             </span>
+            {/* Days counter - only show if not collected */}
+            {!isCollected && daysWithClient > 0 && (
+              <span style={{
+                backgroundColor: daysColors.bg,
+                color: daysColors.text,
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 600
+              }}>
+                {formatDaysWithClient(daysWithClient)}
+              </span>
+            )}
             <span style={{ fontSize: '10px' }}>
               {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
             </span>
