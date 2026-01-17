@@ -8,9 +8,9 @@ interface MarkerLabelProps {
 }
 
 const statusColors = {
-  ENTREGUE: { bg: '#fee2e2', text: '#dc2626', border: '#fca5a5' },
-  LIBERADO_PARA_RECOLHA: { bg: '#dcfce7', text: '#16a34a', border: '#86efac' },
-  RECOLHIDO: { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' },
+  ENTREGUE: { bg: 'hsl(0 86% 94%)', text: 'hsl(0 72% 51%)', border: 'hsl(0 72% 70%)' },
+  LIBERADO_PARA_RECOLHA: { bg: 'hsl(142 76% 94%)', text: 'hsl(142 71% 35%)', border: 'hsl(142 71% 65%)' },
+  RECOLHIDO: { bg: 'hsl(220 14% 96%)', text: 'hsl(220 10% 45%)', border: 'hsl(220 10% 80%)' },
 };
 
 const periodLabels: Record<string, string> = {
@@ -27,7 +27,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
   const isCollected = equipment.status === 'RECOLHIDO';
   
   const colors = isClienteAvisara 
-    ? { bg: '#fef3c7', text: '#d97706', border: '#fbbf24' } // Amber colors
+    ? { bg: 'hsl(48 96% 89%)', text: 'hsl(38 92% 40%)', border: 'hsl(45 93% 47%)' } // Amber colors
     : (statusColors[equipment.status] || statusColors.RECOLHIDO);
 
   const hasPhoto = equipment.foto_local_path || equipment.foto_url;
@@ -85,7 +85,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
           <div style={{ 
             fontWeight: 600, 
             fontSize: '13px', 
-            color: '#1f2937',
+            color: 'hsl(220 14% 15%)',
             marginBottom: '4px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -95,7 +95,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
           </div>
           <div style={{ 
             fontSize: '11px', 
-            color: '#6b7280',
+            color: 'hsl(220 10% 45%)',
             display: 'flex',
             gap: '6px',
             alignItems: 'center',
