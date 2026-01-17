@@ -252,13 +252,30 @@ export function EquipmentDialog({
             {/* Action buttons */}
             <div className="flex flex-col gap-2 pt-2">
               {/* WhatsApp button - only for "Cliente irá avisar" status */}
-              {isClienteAvisara && !isCollected && equipment.telefone_cliente && equipment.confirmation_token && (
+              {isClienteAvisara && !isCollected && equipment.telefone_cliente && (
                 <Button
                   variant="outline"
                   className="w-full gap-2 border-green-500/50 text-green-700 hover:bg-green-50"
-                  onClick={() => {
+                  onClick={async () => {
                     const phone = equipment.telefone_cliente?.replace(/\D/g, '');
-                    const confirmUrl = `${window.location.origin}/confirmar/${equipment.confirmation_token}`;
+
+                    // Garantir token (alguns registros antigos podem estar sem)
+                    let token = equipment.confirmation_token;
+                    if (!token) {
+                      token = crypto.randomUUID();
+                      const { error } = await supabase
+                        .from('equipments')
+                        .update({ confirmation_token: token })
+                        .eq('id', equipment.id);
+
+                      if (error) {
+                        console.error('Error generating confirmation token:', error);
+                        toast.error('Erro ao gerar link de confirmação');
+                        return;
+                      }
+                    }
+
+                    const confirmUrl = `${window.location.origin}/confirmar/${token}`;
                     const message = encodeURIComponent(
                       `Olá! Seu equipamento da Graal Beer (Pedido ${equipment.pedido_dia}) está aguardando recolha.\n\nQuando estiver liberado, clique no link abaixo para confirmar a data e horário:\n${confirmUrl}`
                     );
