@@ -205,6 +205,12 @@ export function useDailyOrderLocations() {
     return [...new Set([...missing, ...failedOrders])];
   }, [orders, locations, failedOrders]);
 
+  // Get location for a specific order number
+  const getOrderLocation = useCallback((orderNumber: string): { lat: number; lng: number } | null => {
+    const loc = locations.find(l => l.orderNumber === orderNumber);
+    return loc ? { lat: loc.lat, lng: loc.lng } : null;
+  }, [locations]);
+
   return {
     orders,
     locations,
@@ -212,5 +218,6 @@ export function useDailyOrderLocations() {
     isLoading: isLoading || isGeocoding,
     error,
     isGoogleReady,
+    getOrderLocation,
   };
 }
