@@ -140,8 +140,46 @@ export function useDailyOrderLocations() {
       }
     }
 
+    // If multiple orders resolve to the same coordinates (common when same address),
+    // markers overlap and look like they are “missing”. Spread them slightly.
+    const spreadOverlappingLocations = (locs: OrderLocation[]) => {
+      const groups = new Map<string, OrderLocation[]>();
+
+      for (const l of locs) {
+        const key = `${l.lat.toFixed(5)},${l.lng.toFixed(5)}`;
+        const arr = groups.get(key) ?? [];
+        arr.push(l);
+        groups.set(key, arr);
+      }
+
+      const out: OrderLocation[] = [];
+      for (const [key, group] of groups.entries()) {
+        if (group.length === 1) {
+          out.push(group[0]);
+          continue;
+        }
+
+        console.info(`Spreading ${group.length} overlapping daily-order markers at ${key}`);
+
+        const radius = 0.00012; // ~10–15m
+        const sorted = [...group].sort((a, b) => a.orderNumber.localeCompare(b.orderNumber));
+        sorted.forEach((l, idx) => {
+          const angle = (2 * Math.PI * idx) / sorted.length;
+          out.push({
+            ...l,
+            lat: l.lat + radius * Math.cos(angle),
+            lng: l.lng + radius * Math.sin(angle),
+          });
+        });
+      }
+
+      return out;
+    };
+
+    const spreadResults = spreadOverlappingLocations(results);
+
     console.log('Geocoding complete:', results.length, 'locations found,', failed.length, 'failed:', failed.join(', '));
-    setLocations(results);
+    setLocations(spreadResults);
     setFailedOrders(failed);
     setIsGeocoding(false);
   }, [orders, isGoogleReady, isGeocoding]);
