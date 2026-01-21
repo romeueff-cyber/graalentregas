@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import {
   GlassWater,
   AlertTriangle,
   RefreshCw,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,15 +51,25 @@ interface Order {
   equipments: OrderEquipment[];
 }
 
+type EquipmentFilter = 'all' | 'growler' | 'barril' | 'chopeira';
+
 interface DailyOrdersSidebarProps {
   onOrderSelect?: (order: Order) => void;
   selectedOrderNumber?: string | null;
   ordersWithoutLocation?: string[];
+  onRegisterDelivery?: (order: Order) => void;
 }
 
-export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersWithoutLocation = [] }: DailyOrdersSidebarProps) {
+export function DailyOrdersSidebar({ 
+  onOrderSelect, 
+  selectedOrderNumber, 
+  ordersWithoutLocation = [],
+  onRegisterDelivery,
+}: DailyOrdersSidebarProps) {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
 
   const today = useMemo(() => {
     return new Date().toISOString().split('T')[0];
@@ -97,12 +109,53 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
     const { street, city, neighborhood } = order.address;
     const hasAddressData = !!(street || city || neighborhood);
     const failedGeocoding = ordersWithoutLocation.includes(order.order_number);
-    // Show alert if no address data OR if geocoding failed
     return !hasAddressData || failedGeocoding;
   };
 
+  // Filter orders based on equipment type
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    
+    switch (equipmentFilter) {
+      case 'growler':
+        return orders.filter(o => hasGrowler(o));
+      case 'barril':
+        return orders.filter(o => hasBarrel(o));
+      case 'chopeira':
+        return orders.filter(o => hasChopeira(o));
+      default:
+        return orders;
+    }
+  }, [orders, equipmentFilter]);
+
+  // Counts for each filter
+  const filterCounts = useMemo(() => {
+    if (!orders) return { all: 0, growler: 0, barril: 0, chopeira: 0 };
+    return {
+      all: orders.length,
+      growler: orders.filter(o => hasGrowler(o)).length,
+      barril: orders.filter(o => hasBarrel(o)).length,
+      chopeira: orders.filter(o => hasChopeira(o)).length,
+    };
+  }, [orders]);
+
   const toggleExpand = (orderNumber: string) => {
     setExpandedOrder(expandedOrder === orderNumber ? null : orderNumber);
+  };
+
+  const handleRegisterDelivery = (order: Order, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRegisterDelivery) {
+      onRegisterDelivery(order);
+    } else {
+      // Navigate to new delivery page with order data
+      navigate('/new-delivery', { 
+        state: { 
+          orderData: order,
+          fromDailyOrders: true,
+        } 
+      });
+    }
   };
 
   // Compact collapsed state - just shows order count
@@ -124,13 +177,13 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
 
   // Expanded state - full sidebar
   return (
-    <div className="absolute left-2 top-2 bottom-20 w-56 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
+    <div className="absolute left-2 top-2 bottom-20 w-64 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-xs">Pedidos do Dia</h3>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {orders?.length || 0}
+            {filteredOrders.length}
           </Badge>
         </div>
         <div className="flex items-center gap-0.5">
@@ -154,22 +207,79 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
         </div>
       </div>
 
+      {/* Equipment Filter Row */}
+      <div className="flex gap-1 p-2 border-b overflow-x-auto">
+        <button
+          onClick={() => setEquipmentFilter('all')}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+            equipmentFilter === 'all'
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
+          )}
+        >
+          Todos ({filterCounts.all})
+        </button>
+        <button
+          onClick={() => setEquipmentFilter('growler')}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+            equipmentFilter === 'growler'
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
+          )}
+        >
+          <Wine className="w-3 h-3" />
+          {filterCounts.growler}
+        </button>
+        <button
+          onClick={() => setEquipmentFilter('barril')}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+            equipmentFilter === 'barril'
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
+          )}
+        >
+          <Cylinder className="w-3 h-3" />
+          {filterCounts.barril}
+        </button>
+        <button
+          onClick={() => setEquipmentFilter('chopeira')}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+            equipmentFilter === 'chopeira'
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
+          )}
+        >
+          <GlassWater className="w-3 h-3" />
+          {filterCounts.chopeira}
+        </button>
+      </div>
+
       {/* Content */}
       <ScrollArea className="flex-1">
         {isLoading ? (
           <div className="flex justify-center py-6">
             <LoadingSpinner />
           </div>
-        ) : !orders || orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="p-3 text-center text-muted-foreground text-xs">
-            Nenhum pedido para hoje
+            {equipmentFilter === 'all' 
+              ? 'Nenhum pedido para hoje'
+              : `Nenhum pedido com ${equipmentFilter}`
+            }
           </div>
         ) : (
           <div className="p-1.5 space-y-1">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const isOrderExpanded = expandedOrder === order.order_number;
               const isSelected = selectedOrderNumber === order.order_number;
               const locationIssue = hasLocationIssue(order);
+              const orderHasGrowler = hasGrowler(order);
+              const orderHasBarrel = hasBarrel(order);
+              const orderHasChopeira = hasChopeira(order);
 
               return (
                 <div
@@ -196,13 +306,13 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
                       )}
                     </div>
 
-                    {/* Equipment Icons - Wine bottle for Growler, Cylinder for Barril, GlassWater for Chopeira */}
+                    {/* Equipment Icons */}
                     <div className="flex items-center gap-0.5 ml-auto">
                       <span title="Growler">
                         <Wine
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
-                            hasGrowler(order) ? "text-primary" : "text-muted-foreground/30"
+                            orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
                       </span>
@@ -210,7 +320,7 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
                         <Cylinder
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
-                            hasBarrel(order) ? "text-primary" : "text-muted-foreground/30"
+                            orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
                       </span>
@@ -218,7 +328,7 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
                         <GlassWater
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
-                            hasChopeira(order) ? "text-primary" : "text-muted-foreground/30"
+                            orderHasChopeira ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
                       </span>
@@ -244,7 +354,7 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
 
                   {/* Expanded Content */}
                   {isOrderExpanded && (
-                    <div className="px-2 pb-2 pt-1 border-t text-[10px] space-y-1">
+                    <div className="px-2 pb-2 pt-1 border-t text-[10px] space-y-2">
                       <p className="font-medium text-foreground truncate">
                         {order.client_name}
                       </p>
@@ -252,6 +362,17 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersW
                         {order.address.city || 'Cidade não informada'}
                         {order.address.neighborhood && `, ${order.address.neighborhood}`}
                       </p>
+                      
+                      {/* Register Delivery Button */}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full h-7 text-[10px] bg-gradient-primary"
+                        onClick={(e) => handleRegisterDelivery(order, e)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Registrar Entrega
+                      </Button>
                     </div>
                   )}
                 </div>
