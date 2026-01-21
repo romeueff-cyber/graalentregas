@@ -130,15 +130,19 @@ export function useEquipments() {
   }, [user, fetchEquipments]);
 
   // Create equipment
-  const createEquipment = async (data: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'data_entrega' | 'data_real_recolha' | 'status' | 'sync_status' | 'created_by_user_id' | 'confirmation_token' | 'token_used_at'>) => {
+  const createEquipment = async (data: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'data_entrega' | 'data_real_recolha' | 'sync_status' | 'created_by_user_id' | 'confirmation_token' | 'token_used_at'> & { status?: Equipment['status'] }) => {
     if (!user) throw new Error('Usuário não autenticado');
+
+    // Default status is ENTREGUE, but can be overridden (e.g., for growler/barril orders)
+    const initialStatus = data.status || 'ENTREGUE';
+    const isCollected = initialStatus === 'RECOLHIDO';
 
     const newEquipment: Equipment = {
       id: crypto.randomUUID(),
       ...data,
       data_entrega: new Date().toISOString(),
-      data_real_recolha: null,
-      status: 'ENTREGUE',
+      data_real_recolha: isCollected ? new Date().toISOString() : null,
+      status: initialStatus,
       sync_status: isOnline() ? 'synced' : 'pending',
       created_by_user_id: user.id,
       created_at: new Date().toISOString(),

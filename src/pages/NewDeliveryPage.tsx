@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
+import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,9 +14,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone, Search } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone, Search, ChevronDown, Wine, Cylinder, GlassWater, AlertCircle } from 'lucide-react';
 import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
@@ -24,15 +38,28 @@ import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
 import { isOnline } from '@/lib/offline-storage';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+
 const mapContainerStyle = {
   width: '100%',
   height: '200px',
 };
 
+interface LocationState {
+  orderData?: DailyOrderData;
+  fromDailyOrders?: boolean;
+}
+
 export default function NewDeliveryPage() {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  const locationState = routerLocation.state as LocationState | undefined;
+  
   const { createEquipment } = useEquipments();
+  const { orders: dailyOrders, isLoading: ordersLoading, hasGrowler, hasBarrel, hasChopeira, needsCollectionDate, shouldAutoCollect } = useDailyOrders();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSearchOpen, setOrderSearchOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<DailyOrderData | null>(null);
 
   // Form state
   const [nomeCliente, setNomeCliente] = useState('');
@@ -42,9 +69,7 @@ export default function NewDeliveryPage() {
   const [dataPrevistaRecolha, setDataPrevistaRecolha] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [clienteIraAvisar, setClienteIraAvisar] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
+  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [mapScriptError, setMapScriptError] = useState<Error | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
@@ -52,6 +77,10 @@ export default function NewDeliveryPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [erpSearching, setErpSearching] = useState(false);
+
+  // Derived state: should collection date be disabled?
+  const isCollectionDisabled = selectedOrder ? !needsCollectionDate(selectedOrder) : false;
+  const willAutoCollect = selectedOrder ? shouldAutoCollect(selectedOrder) : false;
 
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
@@ -71,6 +100,29 @@ export default function NewDeliveryPage() {
     };
   }, []);
 
+  // Pre-fill form if coming from daily orders
+  useEffect(() => {
+    if (locationState?.orderData) {
+      const order = locationState.orderData;
+      setSelectedOrder(order);
+      setPedidoDia(order.order_number);
+      setNomeCliente(order.client_name);
+      if (order.phone) setTelefoneCliente(order.phone);
+      if (order.expected_return) {
+        const returnDate = new Date(order.expected_return);
+        if (!isNaN(returnDate.getTime())) {
+          setDataPrevistaRecolha(returnDate.toISOString().split('T')[0]);
+        }
+      }
+      if (order.observations) setObservacoes(order.observations);
+      
+      // If order only has growler/barril (no chopeira), disable collection date
+      if (shouldAutoCollect(order)) {
+        setClienteIraAvisar(false);
+      }
+    }
+  }, [locationState, shouldAutoCollect]);
+
   // Get current location via GPS
   const getGPSLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -83,7 +135,7 @@ export default function NewDeliveryPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLocation({
+        setGpsLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
@@ -115,11 +167,28 @@ export default function NewDeliveryPage() {
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
-      setLocation({
+      setGpsLocation({
         lat: e.latLng.lat(),
         lng: e.latLng.lng(),
       });
     }
+  };
+
+  // Select order from daily orders
+  const handleSelectDailyOrder = (order: DailyOrderData) => {
+    setSelectedOrder(order);
+    setPedidoDia(order.order_number);
+    setNomeCliente(order.client_name);
+    if (order.phone) setTelefoneCliente(order.phone);
+    if (order.expected_return) {
+      const returnDate = new Date(order.expected_return);
+      if (!isNaN(returnDate.getTime())) {
+        setDataPrevistaRecolha(returnDate.toISOString().split('T')[0]);
+      }
+    }
+    if (order.observations) setObservacoes(order.observations);
+    setOrderSearchOpen(false);
+    toast.success('Dados do pedido carregados!');
   };
 
   // Search order in ERP
@@ -193,32 +262,47 @@ export default function NewDeliveryPage() {
     e.preventDefault();
 
     // If client will notify, date and period are not required
-    if (!nomeCliente || !pedidoDia || !location) {
+    if (!nomeCliente || !pedidoDia || !gpsLocation) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
 
-    if (!clienteIraAvisar && !dataPrevistaRecolha) {
+    // Only require date if collection is enabled and not auto-collect
+    if (!isCollectionDisabled && !willAutoCollect && !clienteIraAvisar && !dataPrevistaRecolha) {
       toast.error('Preencha a data prevista ou marque "Cliente irá avisar"');
       return;
     }
 
     setIsSubmitting(true);
     try {
+      // Determine the status and date based on equipment type
+      let finalStatus: 'ENTREGUE' | 'LIBERADO_PARA_RECOLHA' | 'RECOLHIDO' = 'ENTREGUE';
+      let finalPeriodo: CollectionPeriod = periodoRecolha;
+      let finalDataRecolha = dataPrevistaRecolha;
+
+      if (willAutoCollect) {
+        // Growler/Barril without Chopeira: mark as RECOLHIDO immediately
+        finalStatus = 'RECOLHIDO';
+        finalPeriodo = 'DIA_TODO';
+        finalDataRecolha = new Date().toISOString().split('T')[0]; // Today
+      } else if (clienteIraAvisar) {
+        finalPeriodo = 'CLIENTE_IRA_AVISAR';
+        finalDataRecolha = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      }
+
       await createEquipment({
         nome_cliente: nomeCliente,
         telefone_cliente: telefoneCliente || null,
         pedido_dia: pedidoDia,
-        periodo_recolha: clienteIraAvisar ? 'CLIENTE_IRA_AVISAR' : periodoRecolha,
-        data_prevista_recolha: clienteIraAvisar 
-          ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 year from now as placeholder
-          : dataPrevistaRecolha,
+        periodo_recolha: finalPeriodo,
+        data_prevista_recolha: finalDataRecolha || new Date().toISOString().split('T')[0],
         observacoes: observacoes || null,
         foto_local_path: photo || null,
         foto_url: null,
-        latitude: location.lat,
-        longitude: location.lng,
-        cliente_ira_avisar: clienteIraAvisar,
+        latitude: gpsLocation.lat,
+        longitude: gpsLocation.lng,
+        cliente_ira_avisar: clienteIraAvisar && !willAutoCollect,
+        ...(willAutoCollect && { status: 'RECOLHIDO' as const }),
       });
 
       // Small delay to ensure state propagates before navigation
@@ -269,7 +353,7 @@ export default function NewDeliveryPage() {
               <Label htmlFor="telefoneCliente" className="flex items-center gap-2">
                 <Phone className="w-3 h-3" />
                 Telefone do Cliente
-                {clienteIraAvisar && <span className="text-xs text-amber-600">(recomendado)</span>}
+                {clienteIraAvisar && <span className="text-xs text-status-waiting">(recomendado)</span>}
               </Label>
               <Input
                 id="telefoneCliente"
@@ -287,15 +371,63 @@ export default function NewDeliveryPage() {
             <div className="space-y-2">
               <Label htmlFor="pedidoDia">Número do Pedido *</Label>
               <div className="flex gap-2">
-                <Input
-                  id="pedidoDia"
-                  placeholder="Ex: 12345"
-                  value={pedidoDia}
-                  onChange={(e) => setPedidoDia(e.target.value)}
-                  className="h-12 flex-1"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                />
+                {/* Order number with daily orders dropdown */}
+                <Popover open={orderSearchOpen} onOpenChange={setOrderSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={orderSearchOpen}
+                      className="h-12 flex-1 justify-between font-normal"
+                    >
+                      {pedidoDia || "Selecionar ou digitar pedido..."}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar pedido..." 
+                        value={pedidoDia}
+                        onValueChange={setPedidoDia}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {ordersLoading ? (
+                            <div className="flex justify-center py-4">
+                              <LoadingSpinner size="sm" />
+                            </div>
+                          ) : (
+                            <span>Nenhum pedido encontrado</span>
+                          )}
+                        </CommandEmpty>
+                        {dailyOrders.length > 0 && (
+                          <CommandGroup heading="Pedidos do Dia">
+                            {dailyOrders.map((order) => (
+                              <CommandItem
+                                key={order.order_number}
+                                value={`${order.order_number} ${order.client_name}`}
+                                onSelect={() => handleSelectDailyOrder(order)}
+                                className="flex items-center gap-2"
+                              >
+                                <span className="font-mono font-semibold">#{order.order_number}</span>
+                                <span className="text-sm text-muted-foreground truncate flex-1">
+                                  {order.client_name}
+                                </span>
+                                <div className="flex items-center gap-0.5">
+                                  <Wine className={cn("w-3 h-3", hasGrowler(order) ? "text-primary" : "text-muted-foreground/30")} />
+                                  <Cylinder className={cn("w-3 h-3", hasBarrel(order) ? "text-primary" : "text-muted-foreground/30")} />
+                                  <GlassWater className={cn("w-3 h-3", hasChopeira(order) ? "text-primary" : "text-muted-foreground/30")} />
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
                 <Button
                   type="button"
                   variant="outline"
@@ -307,9 +439,26 @@ export default function NewDeliveryPage() {
                   <QrCode className="w-5 h-5" />
                 </Button>
               </div>
+
+              {/* Selected order info */}
+              {selectedOrder && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted text-xs">
+                  <div className="flex items-center gap-1">
+                    <Wine className={cn("w-3 h-3", hasGrowler(selectedOrder) ? "text-primary" : "text-muted-foreground/30")} />
+                    <Cylinder className={cn("w-3 h-3", hasBarrel(selectedOrder) ? "text-primary" : "text-muted-foreground/30")} />
+                    <GlassWater className={cn("w-3 h-3", hasChopeira(selectedOrder) ? "text-primary" : "text-muted-foreground/30")} />
+                  </div>
+                  {willAutoCollect && (
+                    <span className="text-status-collected flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Será marcado como recolhido
+                    </span>
+                  )}
+                </div>
+              )}
               
               {/* ERP Search Button */}
-              {online && (
+              {online && !selectedOrder && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -331,65 +480,96 @@ export default function NewDeliveryPage() {
           </CardContent>
         </Card>
 
-        {/* Recolha */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Previsão de Recolha
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Cliente irá avisar checkbox */}
-            <div className="flex items-center space-x-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <Checkbox
-                id="clienteIraAvisar"
-                checked={clienteIraAvisar}
-                onCheckedChange={(checked) => setClienteIraAvisar(checked === true)}
-              />
-              <Label 
-                htmlFor="clienteIraAvisar" 
-                className="text-sm font-medium text-amber-800 cursor-pointer"
-              >
-                Cliente irá avisar
-              </Label>
-            </div>
-
-            <div className={`space-y-2 ${clienteIraAvisar ? 'opacity-50 pointer-events-none' : ''}`}>
-              <Label htmlFor="dataPrevistaRecolha">Data Prevista {!clienteIraAvisar && '*'}</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="dataPrevistaRecolha"
-                  type="date"
-                  value={dataPrevistaRecolha}
-                  onChange={(e) => setDataPrevistaRecolha(e.target.value)}
-                  className="h-12 pl-10"
-                  disabled={clienteIraAvisar}
+        {/* Recolha - only show if not auto-collect */}
+        {!willAutoCollect && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Previsão de Recolha
+                {isCollectionDisabled && (
+                  <span className="text-xs font-normal text-muted-foreground ml-auto">
+                    (Não aplicável para este pedido)
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Cliente irá avisar checkbox */}
+              <div className={cn(
+                "flex items-center space-x-3 p-3 rounded-lg border",
+                isCollectionDisabled ? "opacity-50 pointer-events-none bg-muted" : "bg-status-waiting/10 border-status-waiting/30"
+              )}>
+                <Checkbox
+                  id="clienteIraAvisar"
+                  checked={clienteIraAvisar}
+                  onCheckedChange={(checked) => setClienteIraAvisar(checked === true)}
+                  disabled={isCollectionDisabled}
                 />
+                <Label 
+                  htmlFor="clienteIraAvisar" 
+                  className={cn(
+                    "text-sm font-medium cursor-pointer",
+                    isCollectionDisabled ? "text-muted-foreground" : "text-status-waiting"
+                  )}
+                >
+                  Cliente irá avisar
+                </Label>
               </div>
-            </div>
 
-            <div className={`space-y-2 ${clienteIraAvisar ? 'opacity-50 pointer-events-none' : ''}`}>
-              <Label>Período {!clienteIraAvisar && '*'}</Label>
-              <Select
-                value={periodoRecolha}
-                onValueChange={(v) => setPeriodoRecolha(v as CollectionPeriod)}
-                disabled={clienteIraAvisar}
-              >
-                <SelectTrigger className="h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DIA_TODO">Dia Todo</SelectItem>
-                  <SelectItem value="MANHA">Manhã</SelectItem>
-                  <SelectItem value="TARDE">Tarde</SelectItem>
-                  <SelectItem value="NOITE">Noite</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+              <div className={cn("space-y-2", (clienteIraAvisar || isCollectionDisabled) && "opacity-50 pointer-events-none")}>
+                <Label htmlFor="dataPrevistaRecolha">Data Prevista {!clienteIraAvisar && !isCollectionDisabled && '*'}</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="dataPrevistaRecolha"
+                    type="date"
+                    value={dataPrevistaRecolha}
+                    onChange={(e) => setDataPrevistaRecolha(e.target.value)}
+                    className="h-12 pl-10"
+                    disabled={clienteIraAvisar || isCollectionDisabled}
+                  />
+                </div>
+              </div>
+
+              <div className={cn("space-y-2", (clienteIraAvisar || isCollectionDisabled) && "opacity-50 pointer-events-none")}>
+                <Label>Período {!clienteIraAvisar && !isCollectionDisabled && '*'}</Label>
+                <Select
+                  value={periodoRecolha}
+                  onValueChange={(v) => setPeriodoRecolha(v as CollectionPeriod)}
+                  disabled={clienteIraAvisar || isCollectionDisabled}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DIA_TODO">Dia Todo</SelectItem>
+                    <SelectItem value="MANHA">Manhã</SelectItem>
+                    <SelectItem value="TARDE">Tarde</SelectItem>
+                    <SelectItem value="NOITE">Noite</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Auto-collect notice */}
+        {willAutoCollect && (
+          <Card className="border-status-collected/30 bg-status-collected/5">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3 text-status-collected">
+                <AlertCircle className="w-5 h-5" />
+                <div>
+                  <p className="font-medium text-sm">Pedido apenas com Growler/Barril</p>
+                  <p className="text-xs text-muted-foreground">
+                    Este pedido será marcado como recolhido automaticamente
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Localização */}
         <Card>
@@ -398,7 +578,7 @@ export default function NewDeliveryPage() {
               <MapPin className="w-4 h-4" />
               Localização
               {!online && (
-                <span className="flex items-center gap-1 text-xs font-normal text-amber-600 ml-auto">
+                <span className="flex items-center gap-1 text-xs font-normal text-status-waiting ml-auto">
                   <WifiOff className="w-3 h-3" />
                   Offline
                 </span>
@@ -433,15 +613,15 @@ export default function NewDeliveryPage() {
               
               {gpsError ? (
                 <p className="text-sm text-destructive">{gpsError}</p>
-              ) : location ? (
+              ) : gpsLocation ? (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">
-                    Lat: {location.lat.toFixed(6)}
+                    Lat: {gpsLocation.lat.toFixed(6)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Lng: {location.lng.toFixed(6)}
+                    Lng: {gpsLocation.lng.toFixed(6)}
                   </p>
-                  <p className="text-xs text-green-600 mt-2">
+                  <p className="text-xs text-status-ready mt-2">
                     ✓ Localização capturada
                   </p>
                 </div>
@@ -484,7 +664,7 @@ export default function NewDeliveryPage() {
                   >
                     <GoogleMap
                       mapContainerStyle={mapContainerStyle}
-                      center={location || { lat: -23.5505, lng: -46.6333 }}
+                      center={gpsLocation || { lat: -23.5505, lng: -46.6333 }}
                       zoom={16}
                       onClick={handleMapClick}
                       options={{
@@ -493,7 +673,7 @@ export default function NewDeliveryPage() {
                         gestureHandling: 'greedy',
                       }}
                     >
-                      {location && <Marker position={location} />}
+                      {gpsLocation && <Marker position={gpsLocation} />}
                     </GoogleMap>
                   </LoadScript>
                 )}
@@ -582,7 +762,13 @@ export default function NewDeliveryPage() {
           className="w-full h-14 text-base font-semibold bg-gradient-primary"
           disabled={isSubmitting}
         >
-          {isSubmitting ? <LoadingSpinner size="sm" /> : 'Registrar Entrega'}
+          {isSubmitting ? (
+            <LoadingSpinner size="sm" />
+          ) : willAutoCollect ? (
+            'Registrar Entrega (Recolhido)'
+          ) : (
+            'Registrar Entrega'
+          )}
         </Button>
       </form>
 
@@ -590,9 +776,15 @@ export default function NewDeliveryPage() {
       <QRCodeScanner
         open={qrScannerOpen}
         onClose={() => setQrScannerOpen(false)}
-        onScan={(result) => setPedidoDia(result)}
+        onScan={(result) => {
+          setPedidoDia(result);
+          // Try to find the order in daily orders
+          const found = dailyOrders.find(o => o.order_number === result);
+          if (found) {
+            handleSelectDailyOrder(found);
+          }
+        }}
       />
     </div>
   );
 }
-
