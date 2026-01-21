@@ -15,6 +15,7 @@ interface DailyOrderLocation {
   clientName: string;
   lat: number;
   lng: number;
+  isDelivered?: boolean;
 }
 
 interface MapViewProps {
@@ -263,6 +264,7 @@ export function MapView({
               orderNumber={order.orderNumber}
               clientName={order.clientName}
               isSelected={selectedDailyOrder === order.orderNumber}
+              isDelivered={order.isDelivered}
               onClick={() => onDailyOrderClick?.(order.orderNumber)}
             />
           ))}

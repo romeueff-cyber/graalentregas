@@ -116,13 +116,22 @@ export default function MainMapPage() {
     }
   }, [activeFilter, equipments, regularEquipments, clienteAvisaraEquipments]);
 
+  // Get set of delivered order numbers
+  const deliveredOrderNumbers = useMemo(() => {
+    return new Set(equipments.map(e => e.pedido_dia));
+  }, [equipments]);
+
   // Show daily order locations only when dailyOrders filter is active or no filter
+  // Mark orders that are already delivered
   const visibleDailyOrderLocations = useMemo(() => {
     if (activeFilter === 'dailyOrders' || !activeFilter) {
-      return dailyOrderLocations;
+      return dailyOrderLocations.map(loc => ({
+        ...loc,
+        isDelivered: deliveredOrderNumbers.has(loc.orderNumber),
+      }));
     }
     return [];
-  }, [activeFilter, dailyOrderLocations]);
+  }, [activeFilter, dailyOrderLocations, deliveredOrderNumbers]);
 
   // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
@@ -366,6 +375,7 @@ export default function MainMapPage() {
               onOrderSelect={(order: DailyOrder) => setSelectedDailyOrder(order.order_number)}
               selectedOrderNumber={selectedDailyOrder}
               ordersWithoutLocation={ordersWithoutLocation}
+              deliveredOrderNumbers={deliveredOrderNumbers}
             />
             <MapView
               equipments={filteredEquipments}
@@ -378,7 +388,18 @@ export default function MainMapPage() {
               isAdmin={isAdmin}
               dailyOrderLocations={visibleDailyOrderLocations}
               selectedDailyOrder={selectedDailyOrder}
-              onDailyOrderClick={(orderNumber) => setSelectedDailyOrder(orderNumber)}
+              onDailyOrderClick={(orderNumber) => {
+                // Find the order data and navigate to registration page
+                const orderData = dailyOrders?.find(o => o.order_number === orderNumber);
+                if (orderData) {
+                  navigate('/new-delivery', { 
+                    state: { 
+                      orderData,
+                      fromDailyOrders: true,
+                    } 
+                  });
+                }
+              }}
             />
           </>
         ) : (

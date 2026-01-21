@@ -58,6 +58,7 @@ interface DailyOrdersSidebarProps {
   selectedOrderNumber?: string | null;
   ordersWithoutLocation?: string[];
   onRegisterDelivery?: (order: Order) => void;
+  deliveredOrderNumbers?: Set<string>;
 }
 
 export function DailyOrdersSidebar({ 
@@ -65,6 +66,7 @@ export function DailyOrdersSidebar({
   selectedOrderNumber, 
   ordersWithoutLocation = [],
   onRegisterDelivery,
+  deliveredOrderNumbers = new Set(),
 }: DailyOrdersSidebarProps) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -280,13 +282,18 @@ export function DailyOrdersSidebar({
               const orderHasGrowler = hasGrowler(order);
               const orderHasBarrel = hasBarrel(order);
               const orderHasChopeira = hasChopeira(order);
+              const isOrderDelivered = deliveredOrderNumbers.has(order.order_number);
 
               return (
                 <div
                   key={order.order_number}
                   className={cn(
                     "rounded-md border transition-all",
-                    isSelected ? "bg-primary/10 border-primary/30" : "bg-background hover:bg-muted/50"
+                    isOrderDelivered 
+                      ? "bg-status-ready/10 border-status-ready/30"
+                      : isSelected 
+                        ? "bg-primary/10 border-primary/30" 
+                        : "bg-background hover:bg-muted/50"
                   )}
                 >
                   {/* Order Row */}
@@ -296,8 +303,12 @@ export function DailyOrdersSidebar({
                   >
                     {/* Order Number */}
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="font-mono font-semibold text-xs">
+                      <span className={cn(
+                        "font-mono font-semibold text-xs",
+                        isOrderDelivered && "text-status-ready"
+                      )}>
                         #{order.order_number}
+                        {isOrderDelivered && ' ✓'}
                       </span>
                       {locationIssue && (
                         <span title="Localização não encontrada">
