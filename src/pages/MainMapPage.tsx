@@ -391,11 +391,13 @@ export default function MainMapPage() {
               onDailyOrderClick={(orderNumber) => {
                 // Find the order data and navigate to registration page
                 const orderData = dailyOrders?.find(o => o.order_number === orderNumber);
+                const orderLoc = visibleDailyOrderLocations.find(l => l.orderNumber === orderNumber);
                 if (orderData) {
                   navigate('/new-delivery', { 
                     state: { 
                       orderData,
                       fromDailyOrders: true,
+                      orderLocation: orderLoc ? { lat: orderLoc.lat, lng: orderLoc.lng } : undefined,
                     } 
                   });
                 }
