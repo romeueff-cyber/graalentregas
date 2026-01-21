@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
+import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone, Search, ChevronDown, Wine, Cylinder, GlassWater, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone, Search, ChevronDown, Wine, Cylinder, GlassWater, AlertCircle, LocateFixed } from 'lucide-react';
 import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
@@ -57,9 +58,11 @@ export default function NewDeliveryPage() {
   
   const { createEquipment } = useEquipments();
   const { orders: dailyOrders, isLoading: ordersLoading, hasGrowler, hasBarrel, hasChopeira, needsCollectionDate, shouldAutoCollect } = useDailyOrders();
+  const { getOrderLocation } = useDailyOrderLocations();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSearchOpen, setOrderSearchOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<DailyOrderData | null>(null);
+  const [usingOrderLocation, setUsingOrderLocation] = useState(false);
 
   // Form state
   const [nomeCliente, setNomeCliente] = useState('');
@@ -120,8 +123,16 @@ export default function NewDeliveryPage() {
       if (shouldAutoCollect(order)) {
         setClienteIraAvisar(false);
       }
+
+      // Try to use order's geocoded location first
+      const orderLoc = getOrderLocation(order.order_number);
+      if (orderLoc) {
+        setGpsLocation(orderLoc);
+        setUsingOrderLocation(true);
+        toast.success('Localização do pedido carregada!');
+      }
     }
-  }, [locationState, shouldAutoCollect]);
+  }, [locationState, shouldAutoCollect, getOrderLocation]);
 
   // Get current location via GPS
   const getGPSLocation = useCallback(() => {
@@ -188,8 +199,23 @@ export default function NewDeliveryPage() {
     }
     if (order.observations) setObservacoes(order.observations);
     setOrderSearchOpen(false);
-    toast.success('Dados do pedido carregados!');
+    
+    // Try to use order's geocoded location
+    const orderLoc = getOrderLocation(order.order_number);
+    if (orderLoc) {
+      setGpsLocation(orderLoc);
+      setUsingOrderLocation(true);
+      toast.success('Dados e localização do pedido carregados!');
+    } else {
+      toast.success('Dados do pedido carregados!');
+    }
   };
+
+  // Switch to driver's GPS location
+  const useDriverLocation = useCallback(() => {
+    setUsingOrderLocation(false);
+    getGPSLocation();
+  }, [getGPSLocation]);
 
   // Search order in ERP
   const searchOrderInERP = async () => {
@@ -586,32 +612,72 @@ export default function NewDeliveryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Location Source Toggle (when order location is available) */}
+            {selectedOrder && getOrderLocation(selectedOrder.order_number) && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={usingOrderLocation ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    const orderLoc = getOrderLocation(selectedOrder.order_number);
+                    if (orderLoc) {
+                      setGpsLocation(orderLoc);
+                      setUsingOrderLocation(true);
+                    }
+                  }}
+                >
+                  <MapPin className="w-3 h-3 mr-1" />
+                  Endereço do Pedido
+                </Button>
+                <Button
+                  type="button"
+                  variant={!usingOrderLocation ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={useDriverLocation}
+                >
+                  <LocateFixed className="w-3 h-3 mr-1" />
+                  Localização Atual
+                </Button>
+              </div>
+            )}
+
             {/* GPS Location Display (always shown) */}
             <div className="p-4 rounded-lg bg-muted/50 border">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Localização GPS</span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={getGPSLocation}
-                  disabled={gpsLoading}
-                >
-                  {gpsLoading ? (
-                    <LoadingSpinner size="sm" />
+                  {usingOrderLocation ? (
+                    <MapPin className="w-4 h-4 text-primary" />
                   ) : (
-                    <>
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      Atualizar
-                    </>
+                    <Navigation className="w-4 h-4 text-primary" />
                   )}
-                </Button>
+                  <span className="text-sm font-medium">
+                    {usingOrderLocation ? 'Localização do Pedido' : 'Localização GPS'}
+                  </span>
+                </div>
+                {!usingOrderLocation && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={getGPSLocation}
+                    disabled={gpsLoading}
+                  >
+                    {gpsLoading ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Atualizar
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
               
-              {gpsError ? (
+              {gpsError && !usingOrderLocation ? (
                 <p className="text-sm text-destructive">{gpsError}</p>
               ) : gpsLocation ? (
                 <div className="space-y-1">
@@ -622,7 +688,7 @@ export default function NewDeliveryPage() {
                     Lng: {gpsLocation.lng.toFixed(6)}
                   </p>
                   <p className="text-xs text-status-ready mt-2">
-                    ✓ Localização capturada
+                    ✓ {usingOrderLocation ? 'Usando endereço do pedido' : 'Localização capturada'}
                   </p>
                 </div>
               ) : gpsLoading ? (

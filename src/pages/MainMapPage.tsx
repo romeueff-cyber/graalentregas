@@ -21,6 +21,7 @@ import {
   CalendarCheck,
   AlertTriangle,
   ClipboardList,
+  PackageCheck,
 } from 'lucide-react';
 import {
   Sheet,
@@ -38,7 +39,7 @@ export default function MainMapPage() {
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
-  const { locations: dailyOrderLocations, ordersWithoutLocation } = useDailyOrderLocations();
+  const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation } = useDailyOrderLocations();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -269,7 +270,18 @@ export default function MainMapPage() {
         </div>
 
         {/* Status Summary - Clickable Filters */}
-        <div className="flex gap-1 mt-3 text-[11px] overflow-x-auto">
+        <div className="flex gap-1 mt-3 text-[11px] overflow-x-auto pb-1">
+          <button
+            onClick={() => toggleFilter('dailyOrders')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
+              activeFilter === 'dailyOrders'
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <PackageCheck className={`w-3 h-3 ${activeFilter === 'dailyOrders' ? '' : 'text-primary'}`} />
+            <span>{dailyOrders?.length || 0} Pedidos</span>
+          </button>
           <button
             onClick={() => toggleFilter('delivered')}
             className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
