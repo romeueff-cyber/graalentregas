@@ -110,11 +110,11 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
         ov.COMPLEMENTO,
         p.NOME,
         p.APELIDO,
-        e.DESCRICAO AS ESTADO,
+        e.NOME AS ESTADO,
         e.SIGLA AS UF,
-        c.DESCRICAO AS CIDADE,
-        b.DESCRICAO AS BAIRRO,
-        r.DESCRICAO AS RUA
+        c.NOME AS CIDADE,
+        b.NOME AS BAIRRO,
+        r.NOME AS RUA
       FROM ORDENS_VENDA ov
       JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
       JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
