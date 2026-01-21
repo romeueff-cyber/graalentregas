@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone } from 'lucide-react';
+import { ArrowLeft, MapPin, Camera, Calendar, User, Package, QrCode, Navigation, WifiOff, RefreshCw, Phone, Search } from 'lucide-react';
 import { QRCodeScanner } from '@/components/QRCodeScanner';
 import { toast } from 'sonner';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
@@ -23,7 +23,7 @@ import type { CollectionPeriod } from '@/types/database';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
 import { isOnline } from '@/lib/offline-storage';
-
+import { supabase } from '@/integrations/supabase/client';
 const mapContainerStyle = {
   width: '100%',
   height: '200px',
@@ -51,6 +51,7 @@ export default function NewDeliveryPage() {
   const [online, setOnline] = useState(isOnline());
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [erpSearching, setErpSearching] = useState(false);
 
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
@@ -118,6 +119,62 @@ export default function NewDeliveryPage() {
         lat: e.latLng.lat(),
         lng: e.latLng.lng(),
       });
+    }
+  };
+
+  // Search order in ERP
+  const searchOrderInERP = async () => {
+    if (!pedidoDia.trim()) {
+      toast.error('Digite o número do pedido');
+      return;
+    }
+
+    if (!online) {
+      toast.error('Busca no ERP requer conexão com a internet');
+      return;
+    }
+
+    setErpSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-erp-order', {
+        body: { orderNumber: pedidoDia.trim() }
+      });
+
+      if (error) {
+        console.error('ERP search error:', error);
+        toast.error('Erro ao buscar pedido no ERP');
+        return;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Fill form with ERP data
+      if (data.customer_name) {
+        setNomeCliente(data.customer_name);
+      }
+      if (data.phone) {
+        setTelefoneCliente(data.phone);
+      }
+      if (data.pickup_date) {
+        // Convert to YYYY-MM-DD format
+        const pickupDate = new Date(data.pickup_date);
+        if (!isNaN(pickupDate.getTime())) {
+          setDataPrevistaRecolha(pickupDate.toISOString().split('T')[0]);
+        }
+      }
+      if (data.observations) {
+        setObservacoes(data.observations);
+      }
+
+      toast.success('Dados do pedido carregados do ERP!');
+    } catch (err) {
+      console.error('Error searching ERP:', err);
+      toast.error('Erro ao conectar com o ERP');
+    } finally {
+      setErpSearching(false);
     }
   };
 
@@ -250,6 +307,26 @@ export default function NewDeliveryPage() {
                   <QrCode className="w-5 h-5" />
                 </Button>
               </div>
+              
+              {/* ERP Search Button */}
+              {online && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full h-10"
+                  onClick={searchOrderInERP}
+                  disabled={erpSearching || !pedidoDia.trim()}
+                >
+                  {erpSearching ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Buscar no ERP
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
