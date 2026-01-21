@@ -96,86 +96,61 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
         )}
         
         <div style={{ padding: hasPhoto && isHovered ? '0 6px 6px' : 0 }}>
-          {/* Compact view: just order number and name */}
+          {/* Order number and client name - always visible */}
           <div style={{ 
             fontWeight: 600, 
             fontSize: isHovered ? '13px' : '11px', 
             color: 'hsl(220 14% 15%)',
-            marginBottom: isHovered ? '4px' : '2px',
+            marginBottom: '4px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}>
-            {equipment.pedido_dia}{isHovered ? ` - ${equipment.nome_cliente}` : ''}
+            {equipment.pedido_dia} - {equipment.nome_cliente}
           </div>
           
-          {/* Expanded details - only when hovered */}
-          {isHovered ? (
-            <div style={{ 
-              fontSize: '11px', 
-              color: 'hsl(220 10% 45%)',
-              display: 'flex',
-              gap: '6px',
-              alignItems: 'center',
-              flexWrap: 'wrap',
+          {/* Status and info - always visible */}
+          <div style={{ 
+            fontSize: '11px', 
+            color: 'hsl(220 10% 45%)',
+            display: 'flex',
+            gap: '6px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}>
+            <span style={{
+              backgroundColor: colors.bg,
+              color: colors.text,
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 500
             }}>
+              {isClienteAvisara 
+                ? 'Aguardando'
+                : equipment.status === 'ENTREGUE' 
+                  ? 'Entregue' 
+                  : equipment.status === 'LIBERADO_PARA_RECOLHA'
+                    ? 'Liberado'
+                    : 'Recolhido'}
+            </span>
+            {/* Days counter - only show if not collected */}
+            {!isCollected && daysWithClient > 0 && (
               <span style={{
-                backgroundColor: colors.bg,
-                color: colors.text,
-                padding: '2px 8px',
+                backgroundColor: daysColors.bg,
+                color: daysColors.text,
+                padding: '2px 6px',
                 borderRadius: '4px',
                 fontSize: '10px',
-                fontWeight: 500
+                fontWeight: 600
               }}>
-                {isClienteAvisara 
-                  ? 'Aguardando'
-                  : equipment.status === 'ENTREGUE' 
-                    ? 'Entregue' 
-                    : equipment.status === 'LIBERADO_PARA_RECOLHA'
-                      ? 'Liberado'
-                      : 'Recolhido'}
+                {formatDaysWithClient(daysWithClient)}
               </span>
-              {/* Days counter - only show if not collected */}
-              {!isCollected && daysWithClient > 0 && (
-                <span style={{
-                  backgroundColor: daysColors.bg,
-                  color: daysColors.text,
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  fontSize: '10px',
-                  fontWeight: 600
-                }}>
-                  {formatDaysWithClient(daysWithClient)}
-                </span>
-              )}
-              <span style={{ fontSize: '10px' }}>
-                {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
-              </span>
-            </div>
-          ) : (
-            // Minimal compact view - just status dot
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: colors.border,
-              }} />
-              {!isCollected && daysWithClient > 3 && (
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: daysColors.text,
-                }}>
-                  {daysWithClient}d
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            <span style={{ fontSize: '10px' }}>
+              {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
+            </span>
+          </div>
         </div>
       </div>
     </OverlayViewF>
