@@ -99,10 +99,11 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
     
-    // Query principal com endereço completo (endereço vem de ORDENS_VENDA)
+    // Query principal com endereço completo
     const query = `
       SELECT FIRST 1
         ov.N_PEDIDO,
+        ov.ID_ORDENS_VENDA,
         ov.DATA_PREV_RETORNO,
         ov.DATA_PREV_ENTREGA,
         ov.OBS,
@@ -134,6 +135,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     }
     
     const order = orders[0];
+    const orderId = order.ID_ORDENS_VENDA;
     
     // Buscar celular do cliente (prioridade) ou telefone fixo
     const phoneQuery = `
@@ -155,6 +157,44 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     
     const phones = await executeQuery(phoneQuery, [parseInt(orderNumber)]);
     const phone = phones && phones.length > 0 ? phones[0].DESCRICAO : null;
+    
+    // Buscar itens do pedido (produtos)
+    const itemsQuery = `
+      SELECT 
+        pr.DESCRICAO AS PRODUTO,
+        iov.QTDE_PEDIDA AS QUANTIDADE,
+        iov.PRECO_UNIT AS VALOR_UNITARIO,
+        iov.VALOR_ITEM AS VALOR_TOTAL
+      FROM ITENS_ORDENS_VENDA iov
+      JOIN PRODUTOS pr ON iov.ID_PRODUTO = pr.ID_PRODUTOS
+      WHERE iov.ID_ORDENS_VENDA = ?
+        AND (iov.DELETED IS NULL OR iov.DELETED = 0)
+    `;
+    
+    const itemsResult = await executeQuery(itemsQuery, [orderId]);
+    const items = (itemsResult || []).map(item => ({
+      product: item.PRODUTO || '',
+      quantity: item.QUANTIDADE || 0,
+      unit_price: item.VALOR_UNITARIO || 0,
+      total: item.VALOR_TOTAL || 0
+    }));
+    
+    // Buscar equipamentos do pedido (barris)
+    const equipmentsQuery = `
+      SELECT 
+        te.DESCRICAO AS TIPO,
+        eov.QTDE AS QUANTIDADE
+      FROM EQUIP_ORDENS_VENDA eov
+      JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
+      WHERE eov.ID_ORDENS_VENDA = ?
+        AND (eov.DELETED IS NULL OR eov.DELETED = 0)
+    `;
+    
+    const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
+    const equipments = (equipmentsResult || []).map(eq => ({
+      type: eq.TIPO || '',
+      quantity: eq.QUANTIDADE || 0
+    }));
     
     // Montar endereço completo
     const addressParts = [];
@@ -186,7 +226,9 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
         neighborhood: order.BAIRRO || '',
         city: order.CIDADE || '',
         state: order.UF || ''
-      }
+      },
+      items: items,
+      equipments: equipments
     });
     
   } catch (error) {
