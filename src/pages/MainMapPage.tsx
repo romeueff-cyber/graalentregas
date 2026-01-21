@@ -18,6 +18,7 @@ import {
   Beer,
   CalendarCheck,
   AlertTriangle,
+  ClipboardList,
 } from 'lucide-react';
 import {
   Sheet,
@@ -185,6 +186,17 @@ export default function MainMapPage() {
                 </SheetHeader>
 
                 <div className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/pedidos-dia');
+                    }}
+                  >
+                    <ClipboardList className="w-5 h-5" />
+                    Pedidos do Dia
+                  </Button>
                   {isAdmin && (
                     <>
                       <Button
