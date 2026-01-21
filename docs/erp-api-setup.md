@@ -99,6 +99,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
     
+    // Query principal com endereço completo
     const query = `
       SELECT FIRST 1
         ov.N_PEDIDO,
@@ -108,10 +109,19 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
         ov.NUMERO,
         ov.COMPLEMENTO,
         p.NOME,
-        p.APELIDO
+        p.APELIDO,
+        e.DESCRICAO AS ESTADO,
+        e.SIGLA AS UF,
+        c.DESCRICAO AS CIDADE,
+        b.DESCRICAO AS BAIRRO,
+        r.DESCRICAO AS RUA
       FROM ORDENS_VENDA ov
       JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
       JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
+      LEFT JOIN ESTADO e ON cl.ID_ESTADO = e.ID_ESTADO
+      LEFT JOIN CIDADE c ON cl.ID_CIDADE = c.ID_CIDADE
+      LEFT JOIN BAIRRO b ON cl.ID_BAIRRO = b.ID_BAIRRO
+      LEFT JOIN RUA r ON cl.ID_RUA = r.ID_RUA
       WHERE ov.N_PEDIDO = ?
         AND (ov.DELETED IS NULL OR ov.DELETED = 0)
       ORDER BY ov.DATE_CAD DESC
@@ -139,6 +149,20 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     const phones = await executeQuery(phoneQuery, [parseInt(orderNumber)]);
     const phone = phones && phones.length > 0 ? phones[0].DESCRICAO : null;
     
+    // Montar endereço completo
+    const addressParts = [];
+    if (order.RUA) addressParts.push(order.RUA);
+    if (order.NUMERO) addressParts.push(order.NUMERO);
+    if (order.COMPLEMENTO) addressParts.push(order.COMPLEMENTO);
+    
+    const locationParts = [];
+    if (order.BAIRRO) locationParts.push(order.BAIRRO);
+    if (order.CIDADE) locationParts.push(order.CIDADE);
+    if (order.UF) locationParts.push(order.UF);
+    
+    const fullAddress = addressParts.join(', ');
+    const location = locationParts.join(' - ');
+    
     res.json({
       order_number: order.N_PEDIDO?.toString() || orderNumber,
       customer_name: order.NOME || order.APELIDO || '',
@@ -146,8 +170,16 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
       pickup_date: order.DATA_PREV_RETORNO || order.DATA_PREV_ENTREGA || null,
       delivery_date: order.DATA_PREV_ENTREGA || null,
       observations: order.OBS || '',
-      address_number: order.NUMERO || '',
-      address_complement: order.COMPLEMENTO || ''
+      address: fullAddress,
+      location: location,
+      address_details: {
+        street: order.RUA || '',
+        number: order.NUMERO || '',
+        complement: order.COMPLEMENTO || '',
+        neighborhood: order.BAIRRO || '',
+        city: order.CIDADE || '',
+        state: order.UF || ''
+      }
     });
     
   } catch (error) {
