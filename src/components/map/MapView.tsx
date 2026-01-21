@@ -7,7 +7,15 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { GoogleMapsSetup } from './GoogleMapsSetup';
 import { MarkerLabel } from './MarkerLabel';
 import { EquipmentDialog } from './EquipmentDialog';
+import { DailyOrderMarker } from './DailyOrderMarker';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+
+interface DailyOrderLocation {
+  orderNumber: string;
+  clientName: string;
+  lat: number;
+  lng: number;
+}
 
 interface MapViewProps {
   equipments: EquipmentWithCreator[];
@@ -18,6 +26,9 @@ interface MapViewProps {
   onConfirmCollection?: (equipment: EquipmentWithCreator) => void;
   onDelete?: (equipment: EquipmentWithCreator) => Promise<void>;
   isAdmin?: boolean;
+  dailyOrderLocations?: DailyOrderLocation[];
+  selectedDailyOrder?: string | null;
+  onDailyOrderClick?: (orderNumber: string) => void;
 }
 
 const mapContainerStyle = {
@@ -78,6 +89,9 @@ export function MapView({
   onConfirmCollection,
   onDelete,
   isAdmin = false,
+  dailyOrderLocations = [],
+  selectedDailyOrder,
+  onDailyOrderClick,
 }: MapViewProps) {
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -239,6 +253,18 @@ export function MapView({
                 onClick={() => handleMarkerClick(equipment)}
               />
             </div>
+          ))}
+
+          {/* Daily order markers (pulsing) */}
+          {dailyOrderLocations.map((order) => (
+            <DailyOrderMarker
+              key={order.orderNumber}
+              position={{ lat: order.lat, lng: order.lng }}
+              orderNumber={order.orderNumber}
+              clientName={order.clientName}
+              isSelected={selectedDailyOrder === order.orderNumber}
+              onClick={() => onDailyOrderClick?.(order.orderNumber)}
+            />
           ))}
         </GoogleMap>
       </LoadScript>

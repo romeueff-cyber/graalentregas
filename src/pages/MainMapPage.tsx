@@ -3,7 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
+import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
 import { MapView } from '@/components/map/MapView';
+import { DailyOrdersSidebar, type DailyOrder } from '@/components/map/DailyOrdersSidebar';
 import { Button } from '@/components/ui/button';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
@@ -36,9 +38,11 @@ export default function MainMapPage() {
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
+  const { locations: dailyOrderLocations } = useDailyOrderLocations();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
+  const [selectedDailyOrder, setSelectedDailyOrder] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -334,16 +338,26 @@ export default function MainMapPage() {
       {/* Map or List View */}
       <div className="flex-1 relative">
         {viewMode === 'map' ? (
-          <MapView
-            equipments={filteredEquipments}
-            driverLocation={driverLocation}
-            onEquipmentClick={handleEquipmentClick}
-            selectedEquipment={selectedEquipment}
-            onCloseInfoWindow={() => setSelectedEquipment(null)}
-            onConfirmCollection={handleConfirmCollection}
-            onDelete={isAdmin ? handleDeleteEquipment : undefined}
-            isAdmin={isAdmin}
-          />
+          <>
+            {/* Daily Orders Sidebar */}
+            <DailyOrdersSidebar
+              onOrderSelect={(order: DailyOrder) => setSelectedDailyOrder(order.order_number)}
+              selectedOrderNumber={selectedDailyOrder}
+            />
+            <MapView
+              equipments={filteredEquipments}
+              driverLocation={driverLocation}
+              onEquipmentClick={handleEquipmentClick}
+              selectedEquipment={selectedEquipment}
+              onCloseInfoWindow={() => setSelectedEquipment(null)}
+              onConfirmCollection={handleConfirmCollection}
+              onDelete={isAdmin ? handleDeleteEquipment : undefined}
+              isAdmin={isAdmin}
+              dailyOrderLocations={dailyOrderLocations}
+              selectedDailyOrder={selectedDailyOrder}
+              onDailyOrderClick={(orderNumber) => setSelectedDailyOrder(orderNumber)}
+            />
+          </>
         ) : (
           <div className="h-full overflow-auto p-4 space-y-3">
             {filteredEquipments.length === 0 ? (

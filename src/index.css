@@ -212,12 +212,32 @@
 }
 
 /* Google Maps custom styles */
-.gm-style-iw {
+.gm-style-iw-c {
   padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .gm-style-iw-d {
   overflow: hidden !important;
+}
+
+/* Pulsing animation for daily order markers */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 0 8px hsl(var(--primary) / 0);
+  }
+}
+
+.daily-order-label {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .gm-style-iw button {
