@@ -52,9 +52,10 @@ interface Order {
 interface DailyOrdersSidebarProps {
   onOrderSelect?: (order: Order) => void;
   selectedOrderNumber?: string | null;
+  ordersWithoutLocation?: string[];
 }
 
-export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: DailyOrdersSidebarProps) {
+export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber, ordersWithoutLocation = [] }: DailyOrdersSidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
@@ -92,9 +93,12 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
     );
   };
 
-  const hasValidAddress = (order: Order) => {
+  const hasLocationIssue = (order: Order) => {
     const { street, city, neighborhood } = order.address;
-    return !!(street || city || neighborhood);
+    const hasAddressData = !!(street || city || neighborhood);
+    const failedGeocoding = ordersWithoutLocation.includes(order.order_number);
+    // Show alert if no address data OR if geocoding failed
+    return !hasAddressData || failedGeocoding;
   };
 
   const toggleExpand = (orderNumber: string) => {
@@ -165,7 +169,7 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
             {orders.map((order) => {
               const isOrderExpanded = expandedOrder === order.order_number;
               const isSelected = selectedOrderNumber === order.order_number;
-              const validAddress = hasValidAddress(order);
+              const locationIssue = hasLocationIssue(order);
 
               return (
                 <div
@@ -185,8 +189,10 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
                       <span className="font-mono font-semibold text-xs">
                         #{order.order_number}
                       </span>
-                      {!validAddress && (
-                        <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                      {locationIssue && (
+                        <span title="Localização não encontrada">
+                          <AlertTriangle className="w-3 h-3 text-status-waiting flex-shrink-0" />
+                        </span>
                       )}
                     </div>
 
