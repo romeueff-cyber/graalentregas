@@ -38,7 +38,7 @@ export default function MainMapPage() {
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
-  const { locations: dailyOrderLocations } = useDailyOrderLocations();
+  const { locations: dailyOrderLocations, ordersWithoutLocation } = useDailyOrderLocations();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -343,6 +343,7 @@ export default function MainMapPage() {
             <DailyOrdersSidebar
               onOrderSelect={(order: DailyOrder) => setSelectedDailyOrder(order.order_number)}
               selectedOrderNumber={selectedDailyOrder}
+              ordersWithoutLocation={ordersWithoutLocation}
             />
             <MapView
               equipments={filteredEquipments}
