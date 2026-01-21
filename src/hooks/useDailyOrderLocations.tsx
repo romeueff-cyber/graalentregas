@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -64,11 +64,14 @@ async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng
 }
 
 export function useDailyOrderLocations() {
+  // All useState hooks at the top, in consistent order
   const [isGoogleReady, setIsGoogleReady] = useState(false);
   const [locations, setLocations] = useState<OrderLocation[]>([]);
   const [failedOrders, setFailedOrders] = useState<string[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [hasGeocoded, setHasGeocoded] = useState(false);
+  
+  // Use ref instead of state to track if geocoding has run (doesn't cause re-render issues)
+  const hasGeocodedRef = useRef(false);
 
   const today = useMemo(() => {
     return new Date().toISOString().split('T')[0];
@@ -143,11 +146,13 @@ export function useDailyOrderLocations() {
     setIsGeocoding(false);
   }, [orders, isGoogleReady, isGeocoding]);
 
+  // Trigger geocoding when ready
   useEffect(() => {
-    if (orders && orders.length > 0 && isGoogleReady && !hasGeocoded && !isGeocoding) {
-      geocodeOrders().then(() => setHasGeocoded(true));
+    if (orders && orders.length > 0 && isGoogleReady && !hasGeocodedRef.current && !isGeocoding) {
+      hasGeocodedRef.current = true;
+      geocodeOrders();
     }
-  }, [orders, isGoogleReady, hasGeocoded, isGeocoding, geocodeOrders]);
+  }, [orders, isGoogleReady, isGeocoding, geocodeOrders]);
 
   // Orders without valid coordinates (includes failed geocoding)
   const ordersWithoutLocation = useMemo(() => {
