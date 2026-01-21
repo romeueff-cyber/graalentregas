@@ -177,7 +177,7 @@ export function MapView({
   const getMarkerIcon = (
     equipment: EquipmentWithCreator
   ): google.maps.Symbol | undefined => {
-    if (typeof google === 'undefined' || !google.maps) return undefined;
+    if (typeof google === 'undefined' || !google.maps || !google.maps.SymbolPath) return undefined;
     const color = getEquipmentMarkerColor(equipment);
     return {
       path: google.maps.SymbolPath.CIRCLE,
@@ -190,7 +190,7 @@ export function MapView({
   };
 
   const getDriverMarkerIcon = (): google.maps.Symbol | undefined => {
-    if (typeof google === 'undefined' || !google.maps) return undefined;
+    if (typeof google === 'undefined' || !google.maps || !google.maps.SymbolPath) return undefined;
     return {
       path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
       scale: 8,
