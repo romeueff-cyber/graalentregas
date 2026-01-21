@@ -99,7 +99,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
     
-    // Query principal com endereço completo
+    // Query principal com endereço completo (endereço vem de ORDENS_VENDA)
     const query = `
       SELECT FIRST 1
         ov.N_PEDIDO,
@@ -118,10 +118,10 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
       FROM ORDENS_VENDA ov
       JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
       JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
-      LEFT JOIN ESTADO e ON cl.ID_ESTADO = e.ID_ESTADO
-      LEFT JOIN CIDADE c ON cl.ID_CIDADE = c.ID_CIDADE
-      LEFT JOIN BAIRRO b ON cl.ID_BAIRRO = b.ID_BAIRRO
-      LEFT JOIN RUA r ON cl.ID_RUA = r.ID_RUA
+      LEFT JOIN ESTADO e ON ov.ID_ESTADO = e.ID_ESTADO
+      LEFT JOIN CIDADE c ON ov.ID_CIDADE = c.ID_CIDADE
+      LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
+      LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
       WHERE ov.N_PEDIDO = ?
         AND (ov.DELETED IS NULL OR ov.DELETED = 0)
       ORDER BY ov.DATE_CAD DESC
