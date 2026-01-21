@@ -98,6 +98,8 @@ export default function MainMapPage() {
 
   // Filtered equipments based on active filter
   const filteredEquipments = useMemo(() => {
+    // When dailyOrders filter is active, hide all equipments
+    if (activeFilter === 'dailyOrders') return [];
     if (!activeFilter) return equipments;
     
     switch (activeFilter) {
@@ -113,6 +115,14 @@ export default function MainMapPage() {
         return equipments;
     }
   }, [activeFilter, equipments, regularEquipments, clienteAvisaraEquipments]);
+
+  // Show daily order locations only when dailyOrders filter is active or no filter
+  const visibleDailyOrderLocations = useMemo(() => {
+    if (activeFilter === 'dailyOrders' || !activeFilter) {
+      return dailyOrderLocations;
+    }
+    return [];
+  }, [activeFilter, dailyOrderLocations]);
 
   // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
@@ -366,7 +376,7 @@ export default function MainMapPage() {
               onConfirmCollection={handleConfirmCollection}
               onDelete={isAdmin ? handleDeleteEquipment : undefined}
               isAdmin={isAdmin}
-              dailyOrderLocations={dailyOrderLocations}
+              dailyOrderLocations={visibleDailyOrderLocations}
               selectedDailyOrder={selectedDailyOrder}
               onDailyOrderClick={(orderNumber) => setSelectedDailyOrder(orderNumber)}
             />
