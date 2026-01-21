@@ -237,6 +237,137 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   }
 });
 
+// Endpoint para listar pedidos por data
+app.get('/api/orders', authenticate, async (req, res) => {
+  try {
+    const dateParam = req.query.date; // formato YYYY-MM-DD
+    
+    if (!dateParam) {
+      return res.status(400).json({ error: 'Parâmetro date é obrigatório (YYYY-MM-DD)' });
+    }
+    
+    // Converter data para formato Firebird
+    const [year, month, day] = dateParam.split('-');
+    const firebirdDate = `${month}/${day}/${year}`;
+    
+    console.log(`Buscando pedidos para data: ${firebirdDate}`);
+    
+    // Query para buscar pedidos do dia
+    const ordersQuery = `
+      SELECT 
+        ov.N_PEDIDO,
+        ov.ID_ORDENS_VENDA,
+        ov.DATA_PREV_RETORNO,
+        ov.DATA_PREV_ENTREGA,
+        ov.OBS,
+        p.NOME,
+        c.APELIDO,
+        e.DESCRICAO AS UF,
+        ci.DESCRICAO AS CIDADE,
+        b.DESCRICAO AS BAIRRO,
+        r.DESCRICAO AS RUA,
+        ov.NUMERO,
+        ov.COMPLEMENTO
+      FROM ORDENS_VENDA ov
+      LEFT JOIN CLIENTES c ON ov.ID_CLIENTE = c.ID_CLIENTES
+      LEFT JOIN PESSOAS p ON c.ID_PESSOA = p.ID_PESSOAS
+      LEFT JOIN ESTADO e ON ov.ID_ESTADO = e.ID_ESTADO
+      LEFT JOIN CIDADE ci ON ov.ID_CIDADE = ci.ID_CIDADE
+      LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
+      LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
+      WHERE CAST(ov.DATA_PREV_ENTREGA AS DATE) = ?
+        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+      ORDER BY ov.N_PEDIDO DESC
+    `;
+    
+    const orders = await executeQuery(ordersQuery, [firebirdDate]);
+    
+    if (!orders || orders.length === 0) {
+      return res.json([]);
+    }
+    
+    // Para cada pedido, buscar telefone, itens e equipamentos
+    const ordersWithDetails = await Promise.all(orders.map(async (order) => {
+      const orderId = order.ID_ORDENS_VENDA;
+      const orderNumber = order.N_PEDIDO?.toString();
+      
+      // Buscar telefone
+      const phoneQuery = `
+        SELECT FIRST 1 co.DESCRICAO
+        FROM CONTATO co
+        JOIN CLIENTES c ON co.ID_PESSOA = c.ID_PESSOA
+        JOIN ORDENS_VENDA ov ON ov.ID_CLIENTE = c.ID_CLIENTES
+        WHERE ov.N_PEDIDO = ?
+          AND co.ID_TIPO_CONTATO IN (1, 2)
+        ORDER BY co.ID_TIPO_CONTATO ASC
+      `;
+      const phones = await executeQuery(phoneQuery, [parseInt(orderNumber)]);
+      const phone = phones && phones.length > 0 ? phones[0].DESCRICAO : null;
+      
+      // Buscar itens
+      const itemsQuery = `
+        SELECT 
+          pr.DESCRICAO AS PRODUTO,
+          iov.QTDE_PEDIDA AS QUANTIDADE,
+          iov.PRECO_UNIT AS VALOR_UNITARIO,
+          iov.VALOR_ITEM AS VALOR_TOTAL
+        FROM ITENS_ORDENS_VENDA iov
+        JOIN PRODUTOS pr ON iov.ID_PRODUTO = pr.ID_PRODUTOS
+        WHERE iov.ID_ORDENS_VENDA = ?
+          AND (iov.DELETED IS NULL OR iov.DELETED = 0)
+      `;
+      const itemsResult = await executeQuery(itemsQuery, [orderId]);
+      const items = (itemsResult || []).map(item => ({
+        product: item.PRODUTO || '',
+        quantity: item.QUANTIDADE || 0,
+        unit_price: item.VALOR_UNITARIO || 0,
+        total: item.VALOR_TOTAL || 0
+      }));
+      
+      // Buscar equipamentos
+      const equipmentsQuery = `
+        SELECT 
+          te.DESCRICAO AS TIPO,
+          eov.QTDE AS QUANTIDADE
+        FROM EQUIP_ORDENS_VENDA eov
+        JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
+        WHERE eov.ID_ORDENS_VENDA = ?
+          AND (eov.DELETED IS NULL OR eov.DELETED = 0)
+      `;
+      const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
+      const equipments = (equipmentsResult || []).map(eq => ({
+        type: eq.TIPO || '',
+        quantity: eq.QUANTIDADE || 0
+      }));
+      
+      return {
+        order_number: orderNumber,
+        client_name: order.NOME || order.APELIDO || '',
+        phone: phone || null,
+        expected_delivery: order.DATA_PREV_ENTREGA || null,
+        expected_return: order.DATA_PREV_RETORNO || null,
+        observations: order.OBS || null,
+        address: {
+          street: order.RUA || '',
+          number: order.NUMERO || '',
+          complement: order.COMPLEMENTO || '',
+          neighborhood: order.BAIRRO || '',
+          city: order.CIDADE || '',
+          state: order.UF || ''
+        },
+        items: items,
+        equipments: equipments
+      };
+    }));
+    
+    res.json(ordersWithDetails);
+    
+  } catch (error) {
+    console.error('Erro ao listar pedidos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
