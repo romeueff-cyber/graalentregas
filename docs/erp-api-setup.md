@@ -135,15 +135,22 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     
     const order = orders[0];
     
-    // Buscar telefone do cliente
+    // Buscar celular do cliente (prioridade) ou telefone fixo
     const phoneQuery = `
       SELECT FIRST 1 c.DESCRICAO
       FROM CONTATO c
+      JOIN TIPO_CONTATO tc ON c.ID_TIPO_CONTATO = tc.ID_TIPO_CONTATO
       JOIN CLIENTES cl ON c.ID_PESSOA = cl.ID_PESSOA
       JOIN ORDENS_VENDA ov ON ov.ID_CLIENTE = cl.ID_CLIENTE
       WHERE ov.N_PEDIDO = ?
         AND (c.DELETED IS NULL OR c.DELETED = 0)
-      ORDER BY c.ID_CONTATO
+        AND UPPER(tc.DESCRICAO) IN ('CELULAR', 'FONE')
+      ORDER BY 
+        CASE UPPER(tc.DESCRICAO) 
+          WHEN 'CELULAR' THEN 1 
+          WHEN 'FONE' THEN 2 
+          ELSE 3 
+        END
     `;
     
     const phones = await executeQuery(phoneQuery, [parseInt(orderNumber)]);
