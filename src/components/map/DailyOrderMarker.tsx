@@ -7,6 +7,7 @@ interface DailyOrderMarkerProps {
   orderNumber: string;
   clientName: string;
   isSelected?: boolean;
+  isDelivered?: boolean;
   onClick?: () => void;
 }
 
@@ -15,6 +16,7 @@ export function DailyOrderMarker({
   orderNumber,
   clientName,
   isSelected = false,
+  isDelivered = false,
   onClick,
 }: DailyOrderMarkerProps) {
   const [isGoogleReady, setIsGoogleReady] = useState(false);
@@ -29,15 +31,18 @@ export function DailyOrderMarker({
   const markerIcon = useMemo((): google.maps.Symbol | undefined => {
     if (!isGoogleReady) return undefined;
 
+    // Green for delivered, amber/primary for pending
+    const fillColor = isDelivered ? 'hsl(142, 71%, 45%)' : 'hsl(38, 92%, 50%)';
+
     return {
       path: google.maps.SymbolPath.CIRCLE,
       scale: isSelected ? 14 : 10,
-      fillColor: 'hsl(38, 92%, 50%)', // Primary/amber color
+      fillColor,
       fillOpacity: 1,
       strokeColor: '#ffffff',
       strokeWeight: 3,
     };
-  }, [isSelected, isGoogleReady]);
+  }, [isSelected, isGoogleReady, isDelivered]);
 
   if (!isGoogleReady) return null;
 
@@ -61,11 +66,11 @@ export function DailyOrderMarker({
         })}
       >
         <div
-          className="daily-order-label cursor-pointer whitespace-nowrap animate-pulse-glow"
+          className={`daily-order-label cursor-pointer whitespace-nowrap ${isDelivered ? '' : 'animate-pulse-glow'}`}
           onClick={onClick}
           style={{
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
+            background: isDelivered ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))',
+            color: isDelivered ? '#ffffff' : 'hsl(var(--primary-foreground))',
             padding: '4px 8px',
             borderRadius: '6px',
             fontSize: '11px',
@@ -73,7 +78,7 @@ export function DailyOrderMarker({
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          #{orderNumber}
+          #{orderNumber} {isDelivered && '✓'}
         </div>
       </OverlayViewF>
     </>
