@@ -10,9 +10,9 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  Beer,
-  Coffee,
-  Droplets,
+  Wine,
+  Cylinder,
+  GlassWater,
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
@@ -55,7 +55,7 @@ interface DailyOrdersSidebarProps {
 }
 
 export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: DailyOrdersSidebarProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   const today = useMemo(() => {
@@ -101,48 +101,51 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
     setExpandedOrder(expandedOrder === orderNumber ? null : orderNumber);
   };
 
-  if (!isOpen) {
+  // Compact collapsed state - just shows order count
+  if (!isExpanded) {
     return (
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setIsOpen(true)}
-          className="rounded-l-none rounded-r-lg shadow-lg h-20"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+      <div 
+        className="absolute left-2 top-2 z-10 cursor-pointer"
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="bg-card/95 backdrop-blur-sm border rounded-lg shadow-lg p-2 flex items-center gap-2 hover:bg-muted/50 transition-colors">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          <Badge variant="secondary" className="text-xs font-semibold">
+            {orders?.length || 0} pedidos
+          </Badge>
+        </div>
       </div>
     );
   }
 
+  // Expanded state - full sidebar
   return (
-    <div className="absolute left-0 top-0 bottom-0 w-64 bg-card/95 backdrop-blur-sm border-r shadow-xl z-10 flex flex-col">
+    <div className="absolute left-2 top-2 bottom-20 w-56 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-muted/50">
+      <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm">Pedidos do Dia</h3>
-          <Badge variant="secondary" className="text-xs">
+          <h3 className="font-semibold text-xs">Pedidos do Dia</h3>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
             {orders?.length || 0}
           </Badge>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-6 w-6"
             onClick={() => refetch()}
             disabled={isFetching}
           >
-            <RefreshCw className={cn("w-3.5 h-3.5", isFetching && "animate-spin")} />
+            <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
-            onClick={() => setIsOpen(false)}
+            className="h-6 w-6"
+            onClick={() => setIsExpanded(false)}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3 h-3" />
           </Button>
         </div>
       </div>
@@ -150,17 +153,17 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
       {/* Content */}
       <ScrollArea className="flex-1">
         {isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-6">
             <LoadingSpinner />
           </div>
         ) : !orders || orders.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground text-sm">
+          <div className="p-3 text-center text-muted-foreground text-xs">
             Nenhum pedido para hoje
           </div>
         ) : (
-          <div className="p-2 space-y-1">
+          <div className="p-1.5 space-y-1">
             {orders.map((order) => {
-              const isExpanded = expandedOrder === order.order_number;
+              const isOrderExpanded = expandedOrder === order.order_number;
               const isSelected = selectedOrderNumber === order.order_number;
               const validAddress = hasValidAddress(order);
 
@@ -168,47 +171,47 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
                 <div
                   key={order.order_number}
                   className={cn(
-                    "rounded-lg border transition-all",
+                    "rounded-md border transition-all",
                     isSelected ? "bg-primary/10 border-primary/30" : "bg-background hover:bg-muted/50"
                   )}
                 >
                   {/* Order Row */}
                   <div
-                    className="flex items-center gap-2 p-2 cursor-pointer"
+                    className="flex items-center gap-1.5 p-1.5 cursor-pointer"
                     onClick={() => onOrderSelect?.(order)}
                   >
                     {/* Order Number */}
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono font-semibold text-sm">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-mono font-semibold text-xs">
                         #{order.order_number}
                       </span>
                       {!validAddress && (
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
                       )}
                     </div>
 
-                    {/* Equipment Icons */}
-                    <div className="flex items-center gap-1 ml-auto">
+                    {/* Equipment Icons - Wine bottle for Growler, Cylinder for Barril, GlassWater for Chopeira */}
+                    <div className="flex items-center gap-0.5 ml-auto">
                       <span title="Growler">
-                        <Droplets
+                        <Wine
                           className={cn(
-                            "w-4 h-4 transition-colors",
+                            "w-3.5 h-3.5 transition-colors",
                             hasGrowler(order) ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
                       </span>
                       <span title="Barril">
-                        <Beer
+                        <Cylinder
                           className={cn(
-                            "w-4 h-4 transition-colors",
+                            "w-3.5 h-3.5 transition-colors",
                             hasBarrel(order) ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
                       </span>
                       <span title="Chopeira">
-                        <Coffee
+                        <GlassWater
                           className={cn(
-                            "w-4 h-4 transition-colors",
+                            "w-3.5 h-3.5 transition-colors",
                             hasChopeira(order) ? "text-primary" : "text-muted-foreground/30"
                           )}
                         />
@@ -219,23 +222,23 @@ export function DailyOrdersSidebar({ onOrderSelect, selectedOrderNumber }: Daily
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 flex-shrink-0"
+                      className="h-5 w-5 flex-shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleExpand(order.order_number);
                       }}
                     >
-                      {isExpanded ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
+                      {isOrderExpanded ? (
+                        <ChevronUp className="w-3 h-3" />
                       ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
+                        <ChevronDown className="w-3 h-3" />
                       )}
                     </Button>
                   </div>
 
                   {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="px-3 pb-3 pt-1 border-t text-xs space-y-1.5">
+                  {isOrderExpanded && (
+                    <div className="px-2 pb-2 pt-1 border-t text-[10px] space-y-1">
                       <p className="font-medium text-foreground truncate">
                         {order.client_name}
                       </p>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Marker } from '@react-google-maps/api';
 import { OverlayViewF, OVERLAY_MOUSE_TARGET } from '@react-google-maps/api';
 
@@ -17,8 +17,17 @@ export function DailyOrderMarker({
   isSelected = false,
   onClick,
 }: DailyOrderMarkerProps) {
+  const [isGoogleReady, setIsGoogleReady] = useState(false);
+
+  useEffect(() => {
+    // Check if Google Maps is ready
+    if (typeof google !== 'undefined' && google.maps) {
+      setIsGoogleReady(true);
+    }
+  }, []);
+
   const markerIcon = useMemo((): google.maps.Symbol | undefined => {
-    if (typeof google === 'undefined' || !google.maps) return undefined;
+    if (!isGoogleReady) return undefined;
 
     return {
       path: google.maps.SymbolPath.CIRCLE,
@@ -28,7 +37,9 @@ export function DailyOrderMarker({
       strokeColor: '#ffffff',
       strokeWeight: 3,
     };
-  }, [isSelected]);
+  }, [isSelected, isGoogleReady]);
+
+  if (!isGoogleReady) return null;
 
   return (
     <>
@@ -38,10 +49,9 @@ export function DailyOrderMarker({
         onClick={onClick}
         title={`#${orderNumber} - ${clientName}`}
         zIndex={isSelected ? 999 : 500}
-        animation={google.maps.Animation.BOUNCE}
       />
 
-      {/* Label overlay */}
+      {/* Pulsing Label overlay */}
       <OverlayViewF
         position={position}
         mapPaneName={OVERLAY_MOUSE_TARGET}
@@ -51,7 +61,7 @@ export function DailyOrderMarker({
         })}
       >
         <div
-          className="daily-order-label cursor-pointer whitespace-nowrap"
+          className="daily-order-label cursor-pointer whitespace-nowrap animate-pulse-glow"
           onClick={onClick}
           style={{
             background: 'hsl(var(--primary))',
@@ -61,7 +71,6 @@ export function DailyOrderMarker({
             fontSize: '11px',
             fontWeight: 600,
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            animation: 'pulse-glow 2s ease-in-out infinite',
           }}
         >
           #{orderNumber}

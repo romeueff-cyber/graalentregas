@@ -230,14 +230,15 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0 hsl(var(--primary) / 0.4);
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.05);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 0 8px hsl(var(--primary) / 0);
+    opacity: 0.85;
+    transform: scale(1.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 0 10px hsl(var(--primary) / 0);
   }
 }
 
-.daily-order-label {
-  animation: pulse-glow 2s ease-in-out infinite;
+.daily-order-label,
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
 }
 
 .gm-style-iw button {
