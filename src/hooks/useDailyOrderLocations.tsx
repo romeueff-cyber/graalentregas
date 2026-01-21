@@ -66,7 +66,9 @@ async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng
 export function useDailyOrderLocations() {
   const [isGoogleReady, setIsGoogleReady] = useState(false);
   const [locations, setLocations] = useState<OrderLocation[]>([]);
+  const [failedOrders, setFailedOrders] = useState<string[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [hasGeocoded, setHasGeocoded] = useState(false);
 
   const today = useMemo(() => {
     return new Date().toISOString().split('T')[0];
@@ -115,6 +117,7 @@ export function useDailyOrderLocations() {
     console.log('Starting geocoding for', orders.length, 'orders');
     
     const results: OrderLocation[] = [];
+    const failed: string[] = [];
 
     for (const order of orders) {
       const coords = await geocodeAddress(order.address);
@@ -127,29 +130,37 @@ export function useDailyOrderLocations() {
           lng: coords.lng,
           hasValidAddress: true,
         });
+        console.log(`✓ Order ${order.order_number} geocoded to (${coords.lat}, ${coords.lng})`);
+      } else {
+        failed.push(order.order_number);
+        console.warn(`✗ Order ${order.order_number} geocoding failed. Address: ${JSON.stringify(order.address)}`);
       }
     }
 
-    console.log('Geocoding complete:', results.length, 'locations found');
+    console.log('Geocoding complete:', results.length, 'locations found,', failed.length, 'failed:', failed.join(', '));
     setLocations(results);
+    setFailedOrders(failed);
     setIsGeocoding(false);
   }, [orders, isGoogleReady, isGeocoding]);
 
   useEffect(() => {
-    if (orders && orders.length > 0 && isGoogleReady && locations.length === 0 && !isGeocoding) {
-      geocodeOrders();
+    if (orders && orders.length > 0 && isGoogleReady && !hasGeocoded && !isGeocoding) {
+      geocodeOrders().then(() => setHasGeocoded(true));
     }
-  }, [orders, isGoogleReady, locations.length, isGeocoding, geocodeOrders]);
+  }, [orders, isGoogleReady, hasGeocoded, isGeocoding, geocodeOrders]);
 
-  // Orders without valid coordinates
+  // Orders without valid coordinates (includes failed geocoding)
   const ordersWithoutLocation = useMemo(() => {
-    if (!orders || !locations) return [];
+    if (!orders) return failedOrders;
     
     const locatedNumbers = new Set(locations.map(l => l.orderNumber));
-    return orders
+    const missing = orders
       .filter(o => !locatedNumbers.has(o.order_number))
       .map(o => o.order_number);
-  }, [orders, locations]);
+    
+    // Combine with explicitly failed orders to ensure all are tracked
+    return [...new Set([...missing, ...failedOrders])];
+  }, [orders, locations, failedOrders]);
 
   return {
     orders,
