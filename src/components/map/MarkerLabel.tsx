@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { OverlayView, OverlayViewF } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
 import { daysSince, formatDaysWithClient, getDaysColor } from '@/lib/date-utils';
@@ -22,6 +23,8 @@ const periodLabels: Record<string, string> = {
 };
 
 export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   // Use amber/orange color for "Cliente irá avisar" status
   const isClienteAvisara = equipment.cliente_ira_avisar || equipment.periodo_recolha === 'CLIENTE_IRA_AVISAR';
   const isCollected = equipment.status === 'RECOLHIDO';
@@ -47,21 +50,32 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
     >
       <div
         onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onTouchStart={() => setIsHovered(true)}
+        onTouchEnd={() => setTimeout(() => setIsHovered(false), 2000)}
         style={{
           backgroundColor: 'white',
           borderRadius: '10px',
-          padding: hasPhoto ? '6px' : '8px 12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          padding: hasPhoto && isHovered ? '6px' : '8px 12px',
+          boxShadow: isHovered 
+            ? '0 4px 12px rgba(0,0,0,0.2)' 
+            : '0 2px 8px rgba(0,0,0,0.1)',
           cursor: 'pointer',
           fontFamily: 'system-ui, sans-serif',
           borderLeft: `4px solid ${colors.border}`,
-          minWidth: '120px',
-          maxWidth: hasPhoto ? '200px' : '180px',
+          minWidth: isHovered ? '120px' : '80px',
+          maxWidth: hasPhoto && isHovered ? '200px' : isHovered ? '180px' : '140px',
           overflow: 'hidden',
+          opacity: isHovered ? 1 : 0.75,
+          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+          transition: 'all 0.2s ease-in-out',
+          zIndex: isHovered ? 100 : 1,
+          pointerEvents: 'auto',
         }}
       >
-        {/* Photo thumbnail */}
-        {hasPhoto && (
+        {/* Photo thumbnail - only show when hovered */}
+        {hasPhoto && isHovered && (
           <div style={{
             width: '100%',
             height: '60px',
@@ -81,59 +95,87 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
           </div>
         )}
         
-        <div style={{ padding: hasPhoto ? '0 6px 6px' : 0 }}>
+        <div style={{ padding: hasPhoto && isHovered ? '0 6px 6px' : 0 }}>
+          {/* Compact view: just order number and name */}
           <div style={{ 
             fontWeight: 600, 
-            fontSize: '13px', 
+            fontSize: isHovered ? '13px' : '11px', 
             color: 'hsl(220 14% 15%)',
-            marginBottom: '4px',
+            marginBottom: isHovered ? '4px' : '2px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}>
-            {equipment.pedido_dia} - {equipment.nome_cliente}
+            {equipment.pedido_dia}{isHovered ? ` - ${equipment.nome_cliente}` : ''}
           </div>
-          <div style={{ 
-            fontSize: '11px', 
-            color: 'hsl(220 10% 45%)',
-            display: 'flex',
-            gap: '6px',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}>
-            <span style={{
-              backgroundColor: colors.bg,
-              color: colors.text,
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: 500
+          
+          {/* Expanded details - only when hovered */}
+          {isHovered ? (
+            <div style={{ 
+              fontSize: '11px', 
+              color: 'hsl(220 10% 45%)',
+              display: 'flex',
+              gap: '6px',
+              alignItems: 'center',
+              flexWrap: 'wrap',
             }}>
-              {isClienteAvisara 
-                ? 'Aguardando'
-                : equipment.status === 'ENTREGUE' 
-                  ? 'Entregue' 
-                  : equipment.status === 'LIBERADO_PARA_RECOLHA'
-                    ? 'Liberado'
-                    : 'Recolhido'}
-            </span>
-            {/* Days counter - only show if not collected */}
-            {!isCollected && daysWithClient > 0 && (
               <span style={{
-                backgroundColor: daysColors.bg,
-                color: daysColors.text,
-                padding: '2px 6px',
+                backgroundColor: colors.bg,
+                color: colors.text,
+                padding: '2px 8px',
                 borderRadius: '4px',
                 fontSize: '10px',
-                fontWeight: 600
+                fontWeight: 500
               }}>
-                {formatDaysWithClient(daysWithClient)}
+                {isClienteAvisara 
+                  ? 'Aguardando'
+                  : equipment.status === 'ENTREGUE' 
+                    ? 'Entregue' 
+                    : equipment.status === 'LIBERADO_PARA_RECOLHA'
+                      ? 'Liberado'
+                      : 'Recolhido'}
               </span>
-            )}
-            <span style={{ fontSize: '10px' }}>
-              {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
-            </span>
-          </div>
+              {/* Days counter - only show if not collected */}
+              {!isCollected && daysWithClient > 0 && (
+                <span style={{
+                  backgroundColor: daysColors.bg,
+                  color: daysColors.text,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: 600
+                }}>
+                  {formatDaysWithClient(daysWithClient)}
+                </span>
+              )}
+              <span style={{ fontSize: '10px' }}>
+                {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
+              </span>
+            </div>
+          ) : (
+            // Minimal compact view - just status dot
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: colors.border,
+              }} />
+              {!isCollected && daysWithClient > 3 && (
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: daysColors.text,
+                }}>
+                  {daysWithClient}d
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </OverlayViewF>
