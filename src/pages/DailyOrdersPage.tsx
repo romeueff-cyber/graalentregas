@@ -269,37 +269,47 @@ export default function DailyOrdersPage() {
     setHasGeocodingRun(true);
     
     try {
-      const locations: OrderLocation[] = [];
-      const failed: string[] = [];
+      const validOrders = orders.filter(hasValidAddress);
+      const invalidOrders = orders.filter((o) => !hasValidAddress(o)).map((o) => o.order_number);
 
-      for (const order of orders) {
-        // Check if address data exists first
-        if (!hasValidAddress(order)) {
-          failed.push(order.order_number);
-          continue;
-        }
+      // Geocode in parallel but with a small concurrency limit to avoid rate spikes
+      const concurrency = 6;
+      const results: Array<{ order: Order; coords: { lat: number; lng: number } | null }> = [];
 
-        // Try geocoding
-        let coords: { lat: number; lng: number } | null = null;
-        try {
-          coords = await geocodeAddress(order.address);
-        } catch {
-          coords = null;
-        }
-
-        if (coords) {
-          locations.push({
-            orderNumber: order.order_number,
-            clientName: order.client_name,
-            expectedDelivery: order.expected_delivery,
-            lat: coords.lat,
-            lng: coords.lng,
-            isDelivered: deliveredOrderNumbers.has(order.order_number),
-          });
-        } else {
-          failed.push(order.order_number);
-        }
+      for (let i = 0; i < validOrders.length; i += concurrency) {
+        const chunk = validOrders.slice(i, i + concurrency);
+        // eslint-disable-next-line no-await-in-loop
+        const chunkResults = await Promise.all(
+          chunk.map(async (order) => {
+            let coords: { lat: number; lng: number } | null = null;
+            try {
+              coords = await geocodeAddress(order.address);
+            } catch {
+              coords = null;
+            }
+            return { order, coords };
+          })
+        );
+        results.push(...chunkResults);
       }
+
+      const locations: OrderLocation[] = [];
+      const failed: string[] = [...invalidOrders];
+
+      results.forEach(({ order, coords }) => {
+        if (!coords) {
+          failed.push(order.order_number);
+          return;
+        }
+        locations.push({
+          orderNumber: order.order_number,
+          clientName: order.client_name,
+          expectedDelivery: order.expected_delivery,
+          lat: coords.lat,
+          lng: coords.lng,
+          isDelivered: deliveredOrderNumbers.has(order.order_number),
+        });
+      });
 
       setOrderLocations(locations);
       setOrdersWithoutLocation(failed);
@@ -459,18 +469,26 @@ export default function DailyOrdersPage() {
       </div>
 
       {/* Map */}
-      <div className="p-4 pb-2">
-        {isLoading || isGeocoding ? (
+      <div className="p-4 pb-2 space-y-2">
+        {isLoading ? (
           <div className="h-[250px] flex items-center justify-center bg-muted rounded-lg">
-            <LoadingSpinner text={isGeocoding ? 'Carregando localizações...' : 'Carregando...'} />
+            <LoadingSpinner text="Carregando..." />
           </div>
         ) : (
-          <DailyOrdersMapView
-            locations={orderLocations}
-            selectedOrderNumber={selectedOrderNumber}
-            onOrderClick={handleOrderClick}
-            height="250px"
-          />
+          <>
+            <DailyOrdersMapView
+              locations={orderLocations}
+              selectedOrderNumber={selectedOrderNumber}
+              onOrderClick={handleOrderClick}
+              height="250px"
+            />
+            {isGeocoding && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <LoadingSpinner size="sm" />
+                <span>Carregando localizações…</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -673,9 +691,16 @@ export default function DailyOrdersPage() {
                       {/* Action */}
                       <Button
                         className="w-full"
-                        onClick={() =>
-                          navigate(`/new-delivery?order=${order.order_number}`)
-                        }
+                        onClick={() => {
+                          const loc = orderLocations.find((l) => l.orderNumber === order.order_number);
+                          navigate('/new-delivery', {
+                            state: {
+                              orderData: order,
+                              fromDailyOrders: true,
+                              orderLocation: loc ? { lat: loc.lat, lng: loc.lng } : undefined,
+                            },
+                          });
+                        }}
                       >
                         Registrar Entrega
                       </Button>
