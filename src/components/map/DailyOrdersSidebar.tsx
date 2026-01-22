@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { getTodaySaoPaulo } from '@/lib/date-utils';
 import {
   ChevronLeft,
   ChevronRight,
@@ -74,7 +75,7 @@ export function DailyOrdersSidebar({
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
 
   const today = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
+    return getTodaySaoPaulo();
   }, []);
 
   const { data: orders, isLoading, refetch, isFetching } = useQuery({
@@ -210,7 +211,7 @@ export function DailyOrdersSidebar({
       </div>
 
       {/* Equipment Filter Row */}
-      <div className="flex gap-1 p-2 border-b overflow-x-auto">
+      <div className="flex gap-1 p-2 border-b overflow-x-auto items-center">
         <button
           onClick={() => setEquipmentFilter('all')}
           className={cn(
@@ -222,6 +223,23 @@ export function DailyOrdersSidebar({
         >
           Todos ({filterCounts.all})
         </button>
+        
+        {/* Status indicator circles */}
+        <div className="flex items-center gap-1 px-1">
+          <span 
+            className="w-2 h-2 rounded-full bg-status-delivered" 
+            title="Entregue (aguardando recolha)"
+          />
+          <span 
+            className="w-2 h-2 rounded-full bg-status-ready" 
+            title="Liberado para recolha"
+          />
+          <span 
+            className="w-2 h-2 rounded-full bg-status-collected" 
+            title="Recolhido"
+          />
+        </div>
+
         <button
           onClick={() => setEquipmentFilter('growler')}
           className={cn(
