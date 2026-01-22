@@ -223,22 +223,6 @@ export function DailyOrdersSidebar({
         >
           Todos ({filterCounts.all})
         </button>
-        
-        {/* Status indicator circles */}
-        <div className="flex items-center gap-1 px-1">
-          <span 
-            className="w-2 h-2 rounded-full bg-status-delivered" 
-            title="Entregue (aguardando recolha)"
-          />
-          <span 
-            className="w-2 h-2 rounded-full bg-status-ready" 
-            title="Liberado para recolha"
-          />
-          <span 
-            className="w-2 h-2 rounded-full bg-status-collected" 
-            title="Recolhido"
-          />
-        </div>
 
         <button
           onClick={() => setEquipmentFilter('growler')}
