@@ -361,11 +361,16 @@ export function DailyOrdersSidebar({
                           orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
                         )} />
                       </span>
-                      <span title={`${barrelCount} barril(s) - ${barrelVolume}L de chopp`} className="flex items-center gap-0.5">
+                      <span 
+                        title={barrelVolume > 0 ? `${barrelCount} barril(s) de ${Math.round(barrelVolume / barrelCount)}L cada = ${barrelVolume}L total` : 'Barril'} 
+                        className="flex items-center gap-0.5"
+                      >
                         <span className={cn(
                           "text-[9px] font-semibold",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/40"
-                        )}>{barrelCount}x{barrelVolume > 0 ? ` ${barrelVolume}L` : ''}</span>
+                        )}>
+                          {barrelCount}x{barrelVolume > 0 && barrelCount > 0 ? `${Math.round(barrelVolume / barrelCount)}L` : ''}
+                        </span>
                         <BeerBarrelIcon className={cn(
                           "w-3.5 h-3.5",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
