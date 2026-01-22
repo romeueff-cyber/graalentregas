@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getTodaySaoPaulo } from '@/lib/date-utils';
 
 interface OrderItem {
   product: string;
@@ -35,7 +36,7 @@ export interface DailyOrderData {
 
 export function useDailyOrders() {
   const today = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
+    return getTodaySaoPaulo();
   }, []);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({

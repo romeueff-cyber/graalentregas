@@ -1,11 +1,39 @@
 /**
- * Calculate the number of days since a given date
+ * São Paulo timezone (UTC-3)
+ */
+export const SAO_PAULO_TIMEZONE = 'America/Sao_Paulo';
+
+/**
+ * Get current date in São Paulo timezone as YYYY-MM-DD
+ */
+export function getTodaySaoPaulo(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: SAO_PAULO_TIMEZONE });
+}
+
+/**
+ * Get current datetime in São Paulo timezone
+ */
+export function getNowSaoPaulo(): Date {
+  const now = new Date();
+  const saoPauloString = now.toLocaleString('en-US', { timeZone: SAO_PAULO_TIMEZONE });
+  return new Date(saoPauloString);
+}
+
+/**
+ * Format a date to São Paulo timezone YYYY-MM-DD
+ */
+export function toSaoPauloDateString(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: SAO_PAULO_TIMEZONE });
+}
+
+/**
+ * Calculate the number of days since a given date (using São Paulo timezone)
  */
 export function daysSince(dateString: string | null | undefined): number {
   if (!dateString) return 0;
   
-  const date = new Date(dateString);
-  const now = new Date();
+  const date = new Date(dateString.length === 10 ? dateString + 'T12:00:00' : dateString);
+  const now = getNowSaoPaulo();
   
   // Reset time to compare just dates
   date.setHours(0, 0, 0, 0);
@@ -37,13 +65,13 @@ export function getDaysColor(days: number): { bg: string; text: string } {
 }
 
 /**
- * Check if a date is today
+ * Check if a date is today (using São Paulo timezone)
  */
 export function isToday(dateString: string | null | undefined): boolean {
   if (!dateString) return false;
   
   const date = new Date(dateString.length === 10 ? dateString + 'T12:00:00' : dateString);
-  const today = new Date();
+  const today = getNowSaoPaulo();
   
   return (
     date.getDate() === today.getDate() &&
@@ -53,24 +81,22 @@ export function isToday(dateString: string | null | undefined): boolean {
 }
 
 /**
- * Check if a date is in the past
+ * Check if a date is in the past (using São Paulo timezone)
  */
 export function isPastDate(dateString: string | null | undefined): boolean {
   if (!dateString) return false;
   
   const date = new Date(dateString.length === 10 ? dateString + 'T12:00:00' : dateString);
-  const today = new Date();
+  const today = getNowSaoPaulo();
   today.setHours(0, 0, 0, 0);
   
   return date < today;
 }
 
 /**
- * Format date avoiding timezone issues
+ * Format date avoiding timezone issues (uses São Paulo locale)
  */
 export function formatDate(dateString: string): string {
-  if (dateString.length === 10) {
-    return new Date(dateString + 'T12:00:00').toLocaleDateString('pt-BR');
-  }
-  return new Date(dateString).toLocaleDateString('pt-BR');
+  const date = new Date(dateString.length === 10 ? dateString + 'T12:00:00' : dateString);
+  return date.toLocaleDateString('pt-BR', { timeZone: SAO_PAULO_TIMEZONE });
 }
