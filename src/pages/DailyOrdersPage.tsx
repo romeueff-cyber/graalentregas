@@ -377,7 +377,7 @@ export default function DailyOrdersPage() {
 
         {/* Equipment Filter Icons */}
         <div className="flex gap-2 mt-3 items-center">
-          <span className="text-xs text-muted-foreground">Produtos:</span>
+          <span className="text-xs text-muted-foreground">Entregas:</span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 text-xs">
               <BeerBottleIcon className="w-4 h-4 text-primary" />
