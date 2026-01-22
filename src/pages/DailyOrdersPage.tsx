@@ -21,6 +21,7 @@ import {
   Beer,
   RefreshCw,
   Search,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Accordion,
@@ -126,8 +127,10 @@ export default function DailyOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => getTodaySaoPaulo());
   const [orderLocations, setOrderLocations] = useState<OrderLocation[]>([]);
+  const [ordersWithoutLocation, setOrdersWithoutLocation] = useState<string[]>([]);
   const [selectedOrderNumber, setSelectedOrderNumber] = useState<string | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [hasGeocodingRun, setHasGeocodingRun] = useState(false);
   
   const { equipments } = useEquipments();
 
@@ -250,17 +253,33 @@ export default function DailyOrdersPage() {
     return new Set(equipments.map(e => e.pedido_dia));
   }, [equipments]);
 
+  // Check if order has valid address data
+  const hasValidAddress = (order: Order) => {
+    const { street, city, neighborhood } = order.address || {};
+    return !!(street || city || neighborhood);
+  };
+
   // Geocode orders for map
   const geocodeOrders = useCallback(async () => {
     if (!orders || orders.length === 0) return;
     if (typeof google === 'undefined' || !google.maps || !google.maps.Geocoder) return;
+    if (hasGeocodingRun) return; // Don't re-run geocoding
 
     setIsGeocoding(true);
+    setHasGeocodingRun(true);
+    
     try {
       const locations: OrderLocation[] = [];
+      const failed: string[] = [];
 
       for (const order of orders) {
-        // Nunca deixar uma exceção aqui travar o loading.
+        // Check if address data exists first
+        if (!hasValidAddress(order)) {
+          failed.push(order.order_number);
+          continue;
+        }
+
+        // Try geocoding
         let coords: { lat: number; lng: number } | null = null;
         try {
           coords = await geocodeAddress(order.address);
@@ -277,18 +296,21 @@ export default function DailyOrdersPage() {
             lng: coords.lng,
             isDelivered: deliveredOrderNumbers.has(order.order_number),
           });
+        } else {
+          failed.push(order.order_number);
         }
       }
 
       setOrderLocations(locations);
+      setOrdersWithoutLocation(failed);
     } finally {
       setIsGeocoding(false);
     }
-  }, [orders, deliveredOrderNumbers]);
+  }, [orders, deliveredOrderNumbers, hasGeocodingRun]);
 
   // Trigger geocoding when orders change
   useEffect(() => {
-    if (orders && orders.length > 0) {
+    if (orders && orders.length > 0 && !hasGeocodingRun) {
       // Wait for Google Maps to be ready
       const checkAndGeocode = () => {
         if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
@@ -299,7 +321,14 @@ export default function DailyOrdersPage() {
       };
       checkAndGeocode();
     }
-  }, [orders, geocodeOrders]);
+  }, [orders, geocodeOrders, hasGeocodingRun]);
+
+  // Reset geocoding state when date changes
+  useEffect(() => {
+    setHasGeocodingRun(false);
+    setOrderLocations([]);
+    setOrdersWithoutLocation([]);
+  }, [selectedDate]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -481,6 +510,7 @@ export default function DailyOrdersPage() {
               const growlerCount = getGrowlerCount(order);
               const chopeiraCount = getChopeiraCount(order);
               const isOrderDelivered = deliveredOrderNumbers.has(order.order_number);
+              const hasLocationIssue = ordersWithoutLocation.includes(order.order_number) || !hasValidAddress(order);
 
               return (
                 <AccordionItem
@@ -507,6 +537,11 @@ export default function DailyOrdersPage() {
                           {order.expected_delivery && extractTime(order.expected_delivery) && (
                             <span className="text-xs text-muted-foreground">
                               {extractTime(order.expected_delivery)}
+                            </span>
+                          )}
+                          {hasLocationIssue && (
+                            <span title="Localização não encontrada - Pedido sem endereço válido">
+                              <AlertTriangle className="w-4 h-4 text-status-waiting" />
                             </span>
                           )}
                         </div>
