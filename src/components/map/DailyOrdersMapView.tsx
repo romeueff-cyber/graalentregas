@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { GoogleMap, LoadScript } from '@react-google-maps/api';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { DailyOrderMarker } from './DailyOrderMarker';
@@ -18,6 +18,7 @@ interface DailyOrdersMapViewProps {
   locations: DailyOrderLocation[];
   selectedOrderNumber?: string | null;
   onOrderClick?: (orderNumber: string) => void;
+  onGoogleReady?: () => void;
   height?: string;
 }
 
@@ -54,10 +55,12 @@ export function DailyOrdersMapView({
   locations,
   selectedOrderNumber,
   onOrderClick,
+  onGoogleReady,
   height = '250px',
 }: DailyOrdersMapViewProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [scriptError, setScriptError] = useState<Error | null>(null);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const { apiKey } = useGoogleMapsKey();
 
   // Calculate center based on locations
@@ -89,6 +92,12 @@ export function DailyOrdersMapView({
   const onLoad = useCallback((m: google.maps.Map) => {
     setMap(m);
     
+    // Notify parent that Google is ready (first load)
+    if (!isScriptLoaded) {
+      setIsScriptLoaded(true);
+      onGoogleReady?.();
+    }
+    
     // Fit bounds to show all markers
     if (locations.length > 1) {
       const bounds = new google.maps.LatLngBounds();
@@ -97,7 +106,21 @@ export function DailyOrdersMapView({
       });
       m.fitBounds(bounds, 50);
     }
-  }, [locations]);
+  }, [locations, isScriptLoaded, onGoogleReady]);
+
+  // Update bounds when locations change
+  useEffect(() => {
+    if (map && locations.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      locations.forEach(loc => {
+        bounds.extend({ lat: loc.lat, lng: loc.lng });
+      });
+      map.fitBounds(bounds, 50);
+    } else if (map && locations.length === 1) {
+      map.setCenter({ lat: locations[0].lat, lng: locations[0].lng });
+      map.setZoom(15);
+    }
+  }, [map, locations]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
@@ -120,19 +143,8 @@ export function DailyOrdersMapView({
     );
   }
 
-  if (locations.length === 0) {
-    return (
-      <div 
-        className="flex items-center justify-center bg-muted rounded-lg"
-        style={{ height }}
-      >
-        <p className="text-xs text-muted-foreground">Nenhum pedido com localização</p>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ height }} className="rounded-lg overflow-hidden border">
+    <div style={{ height }} className="rounded-lg overflow-hidden border relative">
       <LoadScript
         key={apiKey}
         id="google-map-script"
@@ -168,6 +180,13 @@ export function DailyOrdersMapView({
           ))}
         </GoogleMap>
       </LoadScript>
+      
+      {/* Overlay message when no locations */}
+      {locations.length === 0 && isScriptLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <p className="text-xs text-muted-foreground">Aguardando localizações...</p>
+        </div>
+      )}
     </div>
   );
 }
