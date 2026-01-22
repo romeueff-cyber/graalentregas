@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
-import { GoogleMap } from '@react-google-maps/api';
+import { GoogleMap, LoadScript } from '@react-google-maps/api';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { DailyOrderMarker } from './DailyOrderMarker';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 
 interface DailyOrderLocation {
   orderNumber: string;
@@ -54,10 +55,12 @@ export function DailyOrdersMapView({
   onOrderClick,
   height = '250px',
 }: DailyOrdersMapViewProps) {
+  const { apiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isGoogleReady, setIsGoogleReady] = useState(false);
+  const [scriptError, setScriptError] = useState<Error | null>(null);
 
-  // Check if Google Maps is ready
+  // Check if Google Maps is already loaded (from another component)
   useEffect(() => {
     const checkGoogle = () => {
       if (typeof google !== 'undefined' && google.maps && google.maps.Map) {
@@ -69,14 +72,22 @@ export function DailyOrdersMapView({
 
     if (checkGoogle()) return;
 
-    // Poll for Google Maps availability
+    // Poll for Google Maps availability (in case loaded elsewhere)
     const interval = setInterval(() => {
       if (checkGoogle()) {
         clearInterval(interval);
       }
     }, 300);
 
-    return () => clearInterval(interval);
+    // Timeout after 10 seconds
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Calculate center based on locations
