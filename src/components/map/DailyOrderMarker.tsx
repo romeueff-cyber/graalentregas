@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { Marker } from '@react-google-maps/api';
 import { OverlayViewF, OVERLAY_MOUSE_TARGET } from '@react-google-maps/api';
+import { extractTime } from '@/lib/date-utils';
 
 interface DailyOrderMarkerProps {
   position: { lat: number; lng: number };
@@ -84,8 +85,8 @@ export function DailyOrderMarker({
           }}
         >
           <span>#{orderNumber}</span>
-          {expectedDelivery && (
-            <span style={{ opacity: 0.85, fontSize: '10px' }}>{expectedDelivery}</span>
+          {expectedDelivery && extractTime(expectedDelivery) && (
+            <span style={{ opacity: 0.85, fontSize: '10px' }}>{extractTime(expectedDelivery)}</span>
           )}
           {isDelivered && <span>✓</span>}
         </div>
