@@ -39,7 +39,7 @@ export default function MainMapPage() {
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
-  const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation } = useDailyOrderLocations();
+  const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation, getOrderLocation } = useDailyOrderLocations();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -379,6 +379,16 @@ export default function MainMapPage() {
               selectedOrderNumber={selectedDailyOrder}
               ordersWithoutLocation={ordersWithoutLocation}
               deliveredOrderNumbers={deliveredOrderNumbers}
+              onRegisterDelivery={(order: DailyOrder) => {
+                const orderLoc = getOrderLocation(order.order_number);
+                navigate('/new-delivery', { 
+                  state: { 
+                    orderData: order,
+                    fromDailyOrders: true,
+                    orderLocation: orderLoc || undefined,
+                  } 
+                });
+              }}
             />
             <MapView
               equipments={filteredEquipments}
