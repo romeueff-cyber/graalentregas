@@ -122,6 +122,62 @@ export function DailyOrdersSidebar({
     return choppItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
+  // Get detailed barrel breakdown by size (e.g., 4x30L + 1x20L)
+  const getBarrelBreakdown = (order: Order): { count: number; unitVolume: number }[] => {
+    const barrelCount = getBarrelCount(order);
+    const totalVolume = getBarrelVolume(order);
+    
+    if (barrelCount === 0 || totalVolume === 0) return [];
+    
+    // Parse equipment types for barrel sizes (e.g., "Barril 30L", "Barril 20L")
+    const barrelsBySize: Record<number, number> = {};
+    
+    order.equipments
+      .filter(eq => eq.type.toLowerCase().includes('barril'))
+      .forEach(eq => {
+        // Try to extract volume from equipment type (e.g., "Barril 30L" -> 30)
+        const volumeMatch = eq.type.match(/(\d+)\s*[lL]/);
+        if (volumeMatch) {
+          const volume = parseInt(volumeMatch[1], 10);
+          barrelsBySize[volume] = (barrelsBySize[volume] || 0) + eq.quantity;
+        }
+      });
+    
+    // If we found specific sizes from equipment types
+    if (Object.keys(barrelsBySize).length > 0) {
+      return Object.entries(barrelsBySize)
+        .map(([volume, count]) => ({ count, unitVolume: parseInt(volume, 10) }))
+        .sort((a, b) => b.unitVolume - a.unitVolume); // Sort by volume descending
+    }
+    
+    // Fallback: calculate average if we can't determine specific sizes
+    const avgVolume = Math.round(totalVolume / barrelCount);
+    return [{ count: barrelCount, unitVolume: avgVolume }];
+  };
+
+  // Format barrel breakdown for display (e.g., "4x30L + 1x20L")
+  const formatBarrelDisplay = (order: Order): string => {
+    const breakdown = getBarrelBreakdown(order);
+    if (breakdown.length === 0) return '';
+    return breakdown.map(b => `${b.count}x${b.unitVolume}L`).join(' + ');
+  };
+
+  // Format barrel tooltip with full details
+  const formatBarrelTooltip = (order: Order): string => {
+    const breakdown = getBarrelBreakdown(order);
+    const totalVolume = getBarrelVolume(order);
+    const barrelCount = getBarrelCount(order);
+    
+    if (breakdown.length === 0) return 'Barril';
+    
+    if (breakdown.length === 1) {
+      return `${barrelCount} barril(s) de ${breakdown[0].unitVolume}L cada = ${totalVolume}L total`;
+    }
+    
+    const details = breakdown.map(b => `${b.count}x${b.unitVolume}L`).join(' + ');
+    return `${details} = ${totalVolume}L total`;
+  };
+
   const hasChopeira = (order: Order) => {
     return order.equipments.some(eq => 
       eq.type.toLowerCase().includes('chopeira')
@@ -362,17 +418,17 @@ export function DailyOrdersSidebar({
                         )} />
                       </span>
                       <span 
-                        title={barrelVolume > 0 ? `${barrelCount} barril(s) de ${Math.round(barrelVolume / barrelCount)}L cada = ${barrelVolume}L total` : 'Barril'} 
+                        title={formatBarrelTooltip(order)} 
                         className="flex items-center gap-0.5"
                       >
                         <span className={cn(
-                          "text-[9px] font-semibold",
+                          "text-[9px] font-semibold whitespace-nowrap",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/40"
                         )}>
-                          {barrelCount}x{barrelVolume > 0 && barrelCount > 0 ? `${Math.round(barrelVolume / barrelCount)}L` : ''}
+                          {orderHasBarrel ? formatBarrelDisplay(order) : '0x'}
                         </span>
                         <BeerBarrelIcon className={cn(
-                          "w-3.5 h-3.5",
+                          "w-3.5 h-3.5 flex-shrink-0",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
                         )} />
                       </span>
