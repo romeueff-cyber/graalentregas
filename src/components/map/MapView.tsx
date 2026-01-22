@@ -121,6 +121,25 @@ export function MapView({
     hasSetInitialCenter.current = true;
   }, [driverLocation, map]);
 
+  // Map styles to hide POIs (establishments, stores, restaurants, etc.)
+  const mapStyles: google.maps.MapTypeStyle[] = [
+    {
+      featureType: 'poi',
+      elementType: 'all',
+      stylers: [{ visibility: 'off' }],
+    },
+    {
+      featureType: 'poi.business',
+      elementType: 'all',
+      stylers: [{ visibility: 'off' }],
+    },
+    {
+      featureType: 'transit',
+      elementType: 'labels.icon',
+      stylers: [{ visibility: 'off' }],
+    },
+  ];
+
   const mapOptions = useMemo(
     () => ({
       disableDefaultUI: true,
@@ -129,6 +148,7 @@ export function MapView({
       streetViewControl: false,
       fullscreenControl: false,
       gestureHandling: 'greedy' as const,
+      styles: mapStyles,
     }),
     []
   );
