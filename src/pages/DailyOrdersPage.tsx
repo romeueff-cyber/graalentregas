@@ -326,6 +326,18 @@ export default function DailyOrdersPage() {
     }
   }, [orders, geocodeOrders, hasGeocodingRun, isGoogleReady]);
 
+  // Update isDelivered flag on orderLocations when deliveredOrderNumbers changes
+  useEffect(() => {
+    if (orderLocations.length > 0) {
+      setOrderLocations((prev) =>
+        prev.map((loc) => ({
+          ...loc,
+          isDelivered: deliveredOrderNumbers.has(loc.orderNumber),
+        }))
+      );
+    }
+  }, [deliveredOrderNumbers]);
+
   // Callback when Google Maps script loads
   const handleGoogleReady = useCallback(() => {
     setIsGoogleReady(true);
