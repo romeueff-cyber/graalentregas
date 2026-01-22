@@ -13,6 +13,7 @@ import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 interface DailyOrderLocation {
   orderNumber: string;
   clientName: string;
+  expectedDelivery?: string | null;
   lat: number;
   lng: number;
   isDelivered?: boolean;
@@ -283,6 +284,7 @@ export function MapView({
               position={{ lat: order.lat, lng: order.lng }}
               orderNumber={order.orderNumber}
               clientName={order.clientName}
+              expectedDelivery={order.expectedDelivery}
               isSelected={selectedDailyOrder === order.orderNumber}
               isDelivered={order.isDelivered}
               onClick={() => onDailyOrderClick?.(order.orderNumber)}

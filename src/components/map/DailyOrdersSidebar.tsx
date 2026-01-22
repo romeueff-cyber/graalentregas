@@ -389,7 +389,7 @@ export function DailyOrdersSidebar({
                     className="flex items-center gap-1.5 p-1.5 cursor-pointer"
                     onClick={() => onOrderSelect?.(order)}
                   >
-                    {/* Order Number */}
+                    {/* Order Number and Time */}
                     <div className="flex items-center gap-1 min-w-0">
                       <span className={cn(
                         "font-mono font-semibold text-xs",
@@ -398,6 +398,11 @@ export function DailyOrdersSidebar({
                         #{order.order_number}
                         {isOrderDelivered && ' ✓'}
                       </span>
+                      {order.expected_delivery && (
+                        <span className="text-[9px] text-muted-foreground font-medium">
+                          {order.expected_delivery}
+                        </span>
+                      )}
                       {locationIssue && (
                         <span title="Localização não encontrada">
                           <AlertTriangle className="w-3 h-3 text-status-waiting flex-shrink-0" />
