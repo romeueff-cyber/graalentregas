@@ -6,6 +6,7 @@ interface DailyOrderMarkerProps {
   position: { lat: number; lng: number };
   orderNumber: string;
   clientName: string;
+  expectedDelivery?: string | null;
   isSelected?: boolean;
   isDelivered?: boolean;
   onClick?: () => void;
@@ -15,6 +16,7 @@ export function DailyOrderMarker({
   position,
   orderNumber,
   clientName,
+  expectedDelivery,
   isSelected = false,
   isDelivered = false,
   onClick,
@@ -76,9 +78,16 @@ export function DailyOrderMarker({
             fontSize: '11px',
             fontWeight: 600,
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
           }}
         >
-          #{orderNumber} {isDelivered && '✓'}
+          <span>#{orderNumber}</span>
+          {expectedDelivery && (
+            <span style={{ opacity: 0.85, fontSize: '10px' }}>{expectedDelivery}</span>
+          )}
+          {isDelivered && <span>✓</span>}
         </div>
       </OverlayViewF>
     </>

@@ -15,12 +15,14 @@ interface OrderAddress {
 interface Order {
   order_number: string;
   client_name: string;
+  expected_delivery: string | null;
   address: OrderAddress;
 }
 
 interface OrderLocation {
   orderNumber: string;
   clientName: string;
+  expectedDelivery?: string | null;
   lat: number;
   lng: number;
   hasValidAddress: boolean;
@@ -143,6 +145,7 @@ export function useDailyOrderLocations() {
         results.push({
           orderNumber: order.order_number,
           clientName: order.client_name,
+          expectedDelivery: order.expected_delivery,
           lat: coords.lat,
           lng: coords.lng,
           hasValidAddress: true,
