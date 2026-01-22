@@ -32,10 +32,10 @@ serve(async (req) => {
       // No body or invalid JSON, use today's date
     }
 
-    // If no date provided, use today
+    // If no date provided, use today in São Paulo timezone (UTC-3)
     if (!targetDate) {
-      const today = new Date();
-      targetDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const now = new Date();
+      targetDate = now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     }
 
     console.log(`Fetching orders for date: ${targetDate}`);
