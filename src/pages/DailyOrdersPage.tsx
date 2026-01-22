@@ -71,7 +71,12 @@ interface OrderLocation {
 }
 
 // Simple geocoding function
-async function geocodeAddress(address: Order['address']): Promise<{ lat: number; lng: number } | null> {
+// NOTE: ERP pode retornar pedidos sem endereço (null/undefined). Nesses casos, retornamos null.
+async function geocodeAddress(
+  address: Order['address'] | null | undefined
+): Promise<{ lat: number; lng: number } | null> {
+  if (!address) return null;
+
   const parts = [
     address.street,
     address.number,
@@ -90,7 +95,17 @@ async function geocodeAddress(address: Order['address']): Promise<{ lat: number;
       const geocoder = new google.maps.Geocoder();
       
       return new Promise((resolve) => {
+        let settled = false;
+        const timeout = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve(null);
+        }, 7000);
+
         geocoder.geocode({ address: addressString }, (results, status) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
           if (status === 'OK' && results && results[0]) {
             const location = results[0].geometry.location;
             resolve({ lat: location.lat(), lng: location.lng() });
@@ -239,26 +254,36 @@ export default function DailyOrdersPage() {
   const geocodeOrders = useCallback(async () => {
     if (!orders || orders.length === 0) return;
     if (typeof google === 'undefined' || !google.maps || !google.maps.Geocoder) return;
-    
+
     setIsGeocoding(true);
-    const locations: OrderLocation[] = [];
+    try {
+      const locations: OrderLocation[] = [];
 
-    for (const order of orders) {
-      const coords = await geocodeAddress(order.address);
-      if (coords) {
-        locations.push({
-          orderNumber: order.order_number,
-          clientName: order.client_name,
-          expectedDelivery: order.expected_delivery,
-          lat: coords.lat,
-          lng: coords.lng,
-          isDelivered: deliveredOrderNumbers.has(order.order_number),
-        });
+      for (const order of orders) {
+        // Nunca deixar uma exceção aqui travar o loading.
+        let coords: { lat: number; lng: number } | null = null;
+        try {
+          coords = await geocodeAddress(order.address);
+        } catch {
+          coords = null;
+        }
+
+        if (coords) {
+          locations.push({
+            orderNumber: order.order_number,
+            clientName: order.client_name,
+            expectedDelivery: order.expected_delivery,
+            lat: coords.lat,
+            lng: coords.lng,
+            isDelivered: deliveredOrderNumbers.has(order.order_number),
+          });
+        }
       }
-    }
 
-    setOrderLocations(locations);
-    setIsGeocoding(false);
+      setOrderLocations(locations);
+    } finally {
+      setIsGeocoding(false);
+    }
   }, [orders, deliveredOrderNumbers]);
 
   // Trigger geocoding when orders change
