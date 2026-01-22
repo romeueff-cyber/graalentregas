@@ -30,8 +30,8 @@ const defaultCenter = {
   lng: -46.6333,
 };
 
-// Map styles to hide POIs
-const mapStyles: google.maps.MapTypeStyle[] = [
+// Map styles to hide POIs - defined as simple object to avoid google type issues
+const mapStylesArray = [
   {
     featureType: 'poi',
     elementType: 'all',
@@ -58,13 +58,17 @@ export function DailyOrdersMapView({
   const { apiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isGoogleReady, setIsGoogleReady] = useState(false);
-  const [scriptError, setScriptError] = useState<Error | null>(null);
+  const [needsLoadScript, setNeedsLoadScript] = useState(false);
 
   // Check if Google Maps is already loaded (from another component)
   useEffect(() => {
     const checkGoogle = () => {
-      if (typeof google !== 'undefined' && google.maps && google.maps.Map) {
+      if (typeof window !== 'undefined' && 
+          typeof google !== 'undefined' && 
+          google.maps && 
+          google.maps.Map) {
         setIsGoogleReady(true);
+        setNeedsLoadScript(false);
         return true;
       }
       return false;
@@ -73,21 +77,21 @@ export function DailyOrdersMapView({
     if (checkGoogle()) return;
 
     // Poll for Google Maps availability (in case loaded elsewhere)
+    let attempts = 0;
+    const maxAttempts = 20; // 6 seconds max
+    
     const interval = setInterval(() => {
+      attempts++;
       if (checkGoogle()) {
         clearInterval(interval);
+      } else if (attempts >= maxAttempts) {
+        // Google Maps not loaded elsewhere, we need to load it
+        clearInterval(interval);
+        setNeedsLoadScript(true);
       }
     }, 300);
 
-    // Timeout after 10 seconds
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-    }, 10000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate center based on locations
@@ -111,7 +115,7 @@ export function DailyOrdersMapView({
       streetViewControl: false,
       fullscreenControl: false,
       gestureHandling: 'greedy' as const,
-      styles: mapStyles,
+      styles: mapStylesArray as google.maps.MapTypeStyle[],
     }),
     []
   );
@@ -133,7 +137,8 @@ export function DailyOrdersMapView({
     setMap(null);
   }, []);
 
-  if (!isGoogleReady) {
+  // Show loading while checking for Google Maps
+  if (!isGoogleReady && !needsLoadScript) {
     return (
       <div 
         className="flex items-center justify-center bg-muted rounded-lg"
@@ -155,29 +160,64 @@ export function DailyOrdersMapView({
     );
   }
 
+  // If Google is ready from another component, render directly
+  if (isGoogleReady) {
+    return (
+      <div style={{ height }} className="rounded-lg overflow-hidden border">
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={center}
+          zoom={13}
+          onLoad={onLoad}
+          onUnmount={onUnmount}
+          options={mapOptions}
+        >
+          {locations.map((order) => (
+            <DailyOrderMarker
+              key={order.orderNumber}
+              position={{ lat: order.lat, lng: order.lng }}
+              orderNumber={order.orderNumber}
+              clientName={order.clientName}
+              expectedDelivery={order.expectedDelivery}
+              isSelected={selectedOrderNumber === order.orderNumber}
+              isDelivered={order.isDelivered}
+              onClick={() => onOrderClick?.(order.orderNumber)}
+            />
+          ))}
+        </GoogleMap>
+      </div>
+    );
+  }
+
+  // Need to load Google Maps ourselves
   return (
     <div style={{ height }} className="rounded-lg overflow-hidden border">
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={center}
-        zoom={13}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-        options={mapOptions}
+      <LoadScript 
+        googleMapsApiKey={apiKey}
+        onLoad={() => setIsGoogleReady(true)}
       >
-        {locations.map((order) => (
-          <DailyOrderMarker
-            key={order.orderNumber}
-            position={{ lat: order.lat, lng: order.lng }}
-            orderNumber={order.orderNumber}
-            clientName={order.clientName}
-            expectedDelivery={order.expectedDelivery}
-            isSelected={selectedOrderNumber === order.orderNumber}
-            isDelivered={order.isDelivered}
-            onClick={() => onOrderClick?.(order.orderNumber)}
-          />
-        ))}
-      </GoogleMap>
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={center}
+          zoom={13}
+          onLoad={onLoad}
+          onUnmount={onUnmount}
+          options={mapOptions}
+        >
+          {locations.map((order) => (
+            <DailyOrderMarker
+              key={order.orderNumber}
+              position={{ lat: order.lat, lng: order.lng }}
+              orderNumber={order.orderNumber}
+              clientName={order.clientName}
+              expectedDelivery={order.expectedDelivery}
+              isSelected={selectedOrderNumber === order.orderNumber}
+              isDelivered={order.isDelivered}
+              onClick={() => onOrderClick?.(order.orderNumber)}
+            />
+          ))}
+        </GoogleMap>
+      </LoadScript>
     </div>
   );
 }
