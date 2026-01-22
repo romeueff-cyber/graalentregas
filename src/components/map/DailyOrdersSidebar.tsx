@@ -12,13 +12,11 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  Wine,
-  Cylinder,
-  GlassWater,
   AlertTriangle,
   RefreshCw,
   Plus,
 } from 'lucide-react';
+import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
 interface OrderItem {
@@ -233,7 +231,7 @@ export function DailyOrdersSidebar({
               : "bg-muted hover:bg-muted/80"
           )}
         >
-          <Wine className="w-3 h-3" />
+          <BeerBottleIcon className="w-3 h-3" />
           {filterCounts.growler}
         </button>
         <button
@@ -245,7 +243,7 @@ export function DailyOrdersSidebar({
               : "bg-muted hover:bg-muted/80"
           )}
         >
-          <Cylinder className="w-3 h-3" />
+          <BeerBarrelIcon className="w-3 h-3" />
           {filterCounts.barril}
         </button>
         <button
@@ -257,7 +255,7 @@ export function DailyOrdersSidebar({
               : "bg-muted hover:bg-muted/80"
           )}
         >
-          <GlassWater className="w-3 h-3" />
+          <BeerTapIcon className="w-3 h-3" />
           {filterCounts.chopeira}
         </button>
       </div>
@@ -322,7 +320,7 @@ export function DailyOrdersSidebar({
                     {/* Equipment Icons */}
                     <div className="flex items-center gap-0.5 ml-auto">
                       <span title="Growler">
-                        <Wine
+                        <BeerBottleIcon
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
                             orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
@@ -330,7 +328,7 @@ export function DailyOrdersSidebar({
                         />
                       </span>
                       <span title="Barril">
-                        <Cylinder
+                        <BeerBarrelIcon
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
                             orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
@@ -338,7 +336,7 @@ export function DailyOrdersSidebar({
                         />
                       </span>
                       <span title="Chopeira">
-                        <GlassWater
+                        <BeerTapIcon
                           className={cn(
                             "w-3.5 h-3.5 transition-colors",
                             orderHasChopeira ? "text-primary" : "text-muted-foreground/30"
