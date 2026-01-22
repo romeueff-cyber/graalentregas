@@ -112,6 +112,16 @@ export function DailyOrdersSidebar({
       .reduce((sum, eq) => sum + eq.quantity, 0);
   };
 
+  // Get chopp volume for barrels (items that contain 'chopp' or 'l' for liters but not 'growler')
+  const getBarrelVolume = (order: Order) => {
+    const choppItems = order.items.filter(item => {
+      const product = item.product.toLowerCase();
+      return !product.includes('growler') && 
+             (product.includes('chopp') || product.includes('pilsen') || product.includes('ipa') || product.includes('lager') || product.includes('weiss'));
+    });
+    return choppItems.reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const hasChopeira = (order: Order) => {
     return order.equipments.some(eq => 
       eq.type.toLowerCase().includes('chopeira')
@@ -302,6 +312,7 @@ export function DailyOrdersSidebar({
               const orderHasChopeira = hasChopeira(order);
               const growlerCount = getGrowlerCount(order);
               const barrelCount = getBarrelCount(order);
+              const barrelVolume = getBarrelVolume(order);
               const chopeiraCount = getChopeiraCount(order);
               const isOrderDelivered = deliveredOrderNumbers.has(order.order_number);
 
@@ -350,11 +361,11 @@ export function DailyOrdersSidebar({
                           orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
                         )} />
                       </span>
-                      <span title="Barril" className="flex items-center gap-0.5">
+                      <span title={`${barrelCount} barril(s) - ${barrelVolume}L de chopp`} className="flex items-center gap-0.5">
                         <span className={cn(
                           "text-[9px] font-semibold",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/40"
-                        )}>{barrelCount}x</span>
+                        )}>{barrelCount}x{barrelVolume > 0 ? ` ${barrelVolume}L` : ''}</span>
                         <BeerBarrelIcon className={cn(
                           "w-3.5 h-3.5",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
