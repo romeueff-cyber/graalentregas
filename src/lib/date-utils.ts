@@ -102,21 +102,35 @@ export function formatDate(dateString: string): string {
 }
 
 /**
- * Extract time (HH:MM) from a Firebird datetime string
- * Firebird format: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS"
- * Returns just "HH:MM" or null if not found
+ * Extract time (HH:MM) from a datetime string, converting to São Paulo timezone
+ * Handles ISO format: "YYYY-MM-DDTHH:MM:SS.000Z"
+ * Returns just "HH:MM" in São Paulo time or null if not found
  */
 export function extractTime(dateTimeString: string | null | undefined): string | null {
   if (!dateTimeString) return null;
   
-  // Try to match time pattern after a space or T (to avoid matching date parts)
-  // This ensures we get the time part, not date digits
-  const timeMatch = dateTimeString.match(/[\sT](\d{2}):(\d{2})(:\d{2})?/);
-  if (timeMatch) {
-    return `${timeMatch[1]}:${timeMatch[2]}`;
+  try {
+    // Parse the ISO date string
+    const date = new Date(dateTimeString);
+    if (isNaN(date.getTime())) return null;
+    
+    // Format the time in São Paulo timezone
+    const timeStr = date.toLocaleTimeString('pt-BR', { 
+      timeZone: SAO_PAULO_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    return timeStr;
+  } catch {
+    // Fallback: try to match time pattern after a space or T
+    const timeMatch = dateTimeString.match(/[\sT](\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return `${timeMatch[1]}:${timeMatch[2]}`;
+    }
+    return null;
   }
-  
-  return null;
 }
 
 /**
