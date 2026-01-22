@@ -64,6 +64,9 @@ async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng
   }
 }
 
+// Cache for geocoded locations to persist across navigation
+const geocodeCache = new Map<string, OrderLocation[]>();
+
 export function useDailyOrderLocations() {
   // All useState hooks at the top, in consistent order
   const [isGoogleReady, setIsGoogleReady] = useState(false);
@@ -112,6 +115,16 @@ export function useDailyOrderLocations() {
     },
     staleTime: 1000 * 60 * 5,
   });
+
+  // Restore locations from cache on mount if available for today
+  useEffect(() => {
+    const cached = geocodeCache.get(today);
+    if (cached && cached.length > 0) {
+      console.log('Restoring', cached.length, 'geocoded locations from cache');
+      setLocations(cached);
+      hasGeocodedRef.current = true;
+    }
+  }, [today]);
 
   // Geocode addresses when Google Maps is ready and orders are loaded
   const geocodeOrders = useCallback(async () => {
@@ -183,7 +196,12 @@ export function useDailyOrderLocations() {
     setLocations(spreadResults);
     setFailedOrders(failed);
     setIsGeocoding(false);
-  }, [orders, isGoogleReady, isGeocoding]);
+    
+    // Cache the results for today to persist across navigation
+    if (spreadResults.length > 0) {
+      geocodeCache.set(today, spreadResults);
+    }
+  }, [orders, isGoogleReady, isGeocoding, today]);
 
   // Trigger geocoding when ready
   useEffect(() => {
