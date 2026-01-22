@@ -94,16 +94,34 @@ export function DailyOrdersSidebar({
     );
   };
 
+  const getGrowlerCount = (order: Order) => {
+    return order.items
+      .filter(item => item.product.toLowerCase().includes('growler'))
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const hasBarrel = (order: Order) => {
     return order.equipments.some(eq => 
       eq.type.toLowerCase().includes('barril')
     );
   };
 
+  const getBarrelCount = (order: Order) => {
+    return order.equipments
+      .filter(eq => eq.type.toLowerCase().includes('barril'))
+      .reduce((sum, eq) => sum + eq.quantity, 0);
+  };
+
   const hasChopeira = (order: Order) => {
     return order.equipments.some(eq => 
       eq.type.toLowerCase().includes('chopeira')
     );
+  };
+
+  const getChopeiraCount = (order: Order) => {
+    return order.equipments
+      .filter(eq => eq.type.toLowerCase().includes('chopeira'))
+      .reduce((sum, eq) => sum + eq.quantity, 0);
   };
 
   const hasLocationIssue = (order: Order) => {
@@ -282,6 +300,9 @@ export function DailyOrdersSidebar({
               const orderHasGrowler = hasGrowler(order);
               const orderHasBarrel = hasBarrel(order);
               const orderHasChopeira = hasChopeira(order);
+              const growlerCount = getGrowlerCount(order);
+              const barrelCount = getBarrelCount(order);
+              const chopeiraCount = getChopeiraCount(order);
               const isOrderDelivered = deliveredOrderNumbers.has(order.order_number);
 
               return (
@@ -317,32 +338,26 @@ export function DailyOrdersSidebar({
                       )}
                     </div>
 
-                    {/* Equipment Icons */}
-                    <div className="flex items-center gap-0.5 ml-auto">
-                      <span title="Growler">
-                        <BeerBottleIcon
-                          className={cn(
-                            "w-3.5 h-3.5 transition-colors",
-                            orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
-                          )}
-                        />
-                      </span>
-                      <span title="Barril">
-                        <BeerBarrelIcon
-                          className={cn(
-                            "w-3.5 h-3.5 transition-colors",
-                            orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
-                          )}
-                        />
-                      </span>
-                      <span title="Chopeira">
-                        <BeerTapIcon
-                          className={cn(
-                            "w-3.5 h-3.5 transition-colors",
-                            orderHasChopeira ? "text-primary" : "text-muted-foreground/30"
-                          )}
-                        />
-                      </span>
+                    {/* Equipment Icons with Quantities */}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      {orderHasGrowler && (
+                        <span title="Growler" className="flex items-center gap-0.5">
+                          <span className="text-[9px] font-semibold text-primary">{growlerCount}x</span>
+                          <BeerBottleIcon className="w-3.5 h-3.5 text-primary" />
+                        </span>
+                      )}
+                      {orderHasBarrel && (
+                        <span title="Barril" className="flex items-center gap-0.5">
+                          <span className="text-[9px] font-semibold text-primary">{barrelCount}x</span>
+                          <BeerBarrelIcon className="w-3.5 h-3.5 text-primary" />
+                        </span>
+                      )}
+                      {orderHasChopeira && (
+                        <span title="Chopeira" className="flex items-center gap-0.5">
+                          <span className="text-[9px] font-semibold text-primary">{chopeiraCount}x</span>
+                          <BeerTapIcon className="w-3.5 h-3.5 text-primary" />
+                        </span>
+                      )}
                     </div>
 
                     {/* Expand Button */}
