@@ -122,13 +122,16 @@ export default function MainMapPage() {
   }, [equipments]);
 
   // Show daily order locations only when dailyOrders filter is active or no filter
-  // Mark orders that are already delivered
+  // EXCLUDE orders that are already delivered (they show as regular equipment markers now)
   const visibleDailyOrderLocations = useMemo(() => {
     if (activeFilter === 'dailyOrders' || !activeFilter) {
-      return dailyOrderLocations.map(loc => ({
-        ...loc,
-        isDelivered: deliveredOrderNumbers.has(loc.orderNumber),
-      }));
+      // Filter out already-delivered orders from map markers
+      return dailyOrderLocations
+        .filter(loc => !deliveredOrderNumbers.has(loc.orderNumber))
+        .map(loc => ({
+          ...loc,
+          isDelivered: false,
+        }));
     }
     return [];
   }, [activeFilter, dailyOrderLocations, deliveredOrderNumbers]);
