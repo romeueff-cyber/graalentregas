@@ -340,24 +340,36 @@ export function DailyOrdersSidebar({
 
                     {/* Equipment Icons with Quantities */}
                     <div className="flex items-center gap-1.5 ml-auto">
-                      {orderHasGrowler && (
-                        <span title="Growler" className="flex items-center gap-0.5">
-                          <span className="text-[9px] font-semibold text-primary">{growlerCount}x</span>
-                          <BeerBottleIcon className="w-3.5 h-3.5 text-primary" />
-                        </span>
-                      )}
-                      {orderHasBarrel && (
-                        <span title="Barril" className="flex items-center gap-0.5">
-                          <span className="text-[9px] font-semibold text-primary">{barrelCount}x</span>
-                          <BeerBarrelIcon className="w-3.5 h-3.5 text-primary" />
-                        </span>
-                      )}
-                      {orderHasChopeira && (
-                        <span title="Chopeira" className="flex items-center gap-0.5">
-                          <span className="text-[9px] font-semibold text-primary">{chopeiraCount}x</span>
-                          <BeerTapIcon className="w-3.5 h-3.5 text-primary" />
-                        </span>
-                      )}
+                      <span title="Growler" className="flex items-center gap-0.5">
+                        <span className={cn(
+                          "text-[9px] font-semibold",
+                          orderHasGrowler ? "text-primary" : "text-muted-foreground/40"
+                        )}>{growlerCount}x</span>
+                        <BeerBottleIcon className={cn(
+                          "w-3.5 h-3.5",
+                          orderHasGrowler ? "text-primary" : "text-muted-foreground/30"
+                        )} />
+                      </span>
+                      <span title="Barril" className="flex items-center gap-0.5">
+                        <span className={cn(
+                          "text-[9px] font-semibold",
+                          orderHasBarrel ? "text-primary" : "text-muted-foreground/40"
+                        )}>{barrelCount}x</span>
+                        <BeerBarrelIcon className={cn(
+                          "w-3.5 h-3.5",
+                          orderHasBarrel ? "text-primary" : "text-muted-foreground/30"
+                        )} />
+                      </span>
+                      <span title="Chopeira" className="flex items-center gap-0.5">
+                        <span className={cn(
+                          "text-[9px] font-semibold",
+                          orderHasChopeira ? "text-primary" : "text-muted-foreground/40"
+                        )}>{chopeiraCount}x</span>
+                        <BeerTapIcon className={cn(
+                          "w-3.5 h-3.5",
+                          orderHasChopeira ? "text-primary" : "text-muted-foreground/30"
+                        )} />
+                      </span>
                     </div>
 
                     {/* Expand Button */}
