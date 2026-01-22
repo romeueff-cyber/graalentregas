@@ -131,6 +131,7 @@ export default function DailyOrdersPage() {
   const [selectedOrderNumber, setSelectedOrderNumber] = useState<string | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [hasGeocodingRun, setHasGeocodingRun] = useState(false);
+  const [isGoogleReady, setIsGoogleReady] = useState(false);
   
   const { equipments } = useEquipments();
 
@@ -318,20 +319,18 @@ export default function DailyOrdersPage() {
     }
   }, [orders, deliveredOrderNumbers, hasGeocodingRun]);
 
-  // Trigger geocoding when orders change
+  // Trigger geocoding when orders AND google are ready
   useEffect(() => {
-    if (orders && orders.length > 0 && !hasGeocodingRun) {
-      // Wait for Google Maps to be ready
-      const checkAndGeocode = () => {
-        if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
-          geocodeOrders();
-        } else {
-          setTimeout(checkAndGeocode, 500);
-        }
-      };
-      checkAndGeocode();
+    if (orders && orders.length > 0 && !hasGeocodingRun && isGoogleReady) {
+      geocodeOrders();
     }
-  }, [orders, geocodeOrders, hasGeocodingRun]);
+  }, [orders, geocodeOrders, hasGeocodingRun, isGoogleReady]);
+
+  // Callback when Google Maps script loads
+  const handleGoogleReady = useCallback(() => {
+    setIsGoogleReady(true);
+  }, []);
+
 
   // Reset geocoding state when date changes
   useEffect(() => {
@@ -480,6 +479,7 @@ export default function DailyOrdersPage() {
               locations={orderLocations}
               selectedOrderNumber={selectedOrderNumber}
               onOrderClick={handleOrderClick}
+              onGoogleReady={handleGoogleReady}
               height="250px"
             />
             {isGeocoding && (
