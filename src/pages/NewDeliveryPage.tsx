@@ -49,12 +49,15 @@ const mapContainerStyle = {
 interface LocationState {
   orderData?: DailyOrderData;
   fromDailyOrders?: boolean;
+  orderLocation?: { lat: number; lng: number };
 }
 
 export default function NewDeliveryPage() {
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const locationState = routerLocation.state as LocationState | undefined;
+  const routeOrderNumber = locationState?.orderData?.order_number ?? null;
+  const routeOrderLocation = locationState?.orderLocation ?? null;
   
   const { createEquipment } = useEquipments();
   const { orders: dailyOrders, isLoading: ordersLoading, hasGrowler, hasBarrel, hasChopeira, needsCollectionDate, shouldAutoCollect } = useDailyOrders();
@@ -89,6 +92,10 @@ export default function NewDeliveryPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Prevent re-processing route state when hooks update (e.g., geocoding finishes)
+  const routePrefillOrderRef = useRef<string | null>(null);
+  const routeLocationToastShownRef = useRef(false);
+
   // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -103,36 +110,57 @@ export default function NewDeliveryPage() {
     };
   }, []);
 
-  // Pre-fill form if coming from daily orders
+  // Pre-fill form if coming from daily orders (run once per order number)
   useEffect(() => {
-    if (locationState?.orderData) {
-      const order = locationState.orderData;
-      setSelectedOrder(order);
-      setPedidoDia(order.order_number);
-      setNomeCliente(order.client_name);
-      if (order.phone) setTelefoneCliente(order.phone);
-      if (order.expected_return) {
-        const returnDate = new Date(order.expected_return);
-        if (!isNaN(returnDate.getTime())) {
-          setDataPrevistaRecolha(returnDate.toISOString().split('T')[0]);
-        }
-      }
-      if (order.observations) setObservacoes(order.observations);
-      
-      // If order only has growler/barril (no chopeira), disable collection date
-      if (shouldAutoCollect(order)) {
-        setClienteIraAvisar(false);
-      }
+    if (!routeOrderNumber || !locationState?.orderData) return;
 
-      // Try to use order's geocoded location first
-      const orderLoc = getOrderLocation(order.order_number);
-      if (orderLoc) {
-        setGpsLocation(orderLoc);
-        setUsingOrderLocation(true);
-        toast.success('Localização do pedido carregada!');
+    if (routePrefillOrderRef.current === routeOrderNumber) return;
+    routePrefillOrderRef.current = routeOrderNumber;
+    routeLocationToastShownRef.current = false;
+
+    const order = locationState.orderData;
+    setSelectedOrder(order);
+    setPedidoDia(order.order_number);
+    setNomeCliente(order.client_name);
+    if (order.phone) setTelefoneCliente(order.phone);
+    if (order.expected_return) {
+      const returnDate = new Date(order.expected_return);
+      if (!isNaN(returnDate.getTime())) {
+        setDataPrevistaRecolha(returnDate.toISOString().split('T')[0]);
       }
     }
-  }, [locationState, shouldAutoCollect, getOrderLocation]);
+    if (order.observations) setObservacoes(order.observations);
+
+    // If order only has growler/barril (no chopeira), disable collection date
+    // (Intentionally not depending on shouldAutoCollect to avoid effect loops)
+    if (shouldAutoCollect(order)) {
+      setClienteIraAvisar(false);
+    }
+
+    // Prefer route-provided location (from map click) to avoid waiting for geocoding
+    if (routeOrderLocation) {
+      setGpsLocation(routeOrderLocation);
+      setUsingOrderLocation(true);
+      toast.success('Localização do pedido carregada!');
+      routeLocationToastShownRef.current = true;
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeOrderNumber]);
+
+  // If we didn't receive coordinates via route, try to use the geocoded order location (once)
+  useEffect(() => {
+    if (!routeOrderNumber) return;
+    if (routeLocationToastShownRef.current) return;
+
+    const orderLoc = getOrderLocation(routeOrderNumber);
+    if (orderLoc) {
+      setGpsLocation(orderLoc);
+      setUsingOrderLocation(true);
+      toast.success('Localização do pedido carregada!');
+      routeLocationToastShownRef.current = true;
+    }
+  }, [routeOrderNumber, getOrderLocation]);
 
   // Get current location via GPS
   const getGPSLocation = useCallback(() => {
@@ -171,10 +199,11 @@ export default function NewDeliveryPage() {
     );
   }, []);
 
-  // Get current location on mount
+  // Get current location on mount (skip when we opened from a daily order)
   useEffect(() => {
+    if (routeOrderNumber) return;
     getGPSLocation();
-  }, [getGPSLocation]);
+  }, [getGPSLocation, routeOrderNumber]);
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
