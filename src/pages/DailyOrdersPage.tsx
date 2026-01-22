@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEquipments } from '@/hooks/useEquipments';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { getTodaySaoPaulo } from '@/lib/date-utils';
 import {
   ArrowLeft,
   Package,
@@ -25,6 +27,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 
 interface OrderItem {
   product: string;
@@ -60,10 +63,9 @@ interface Order {
 export default function DailyOrdersPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [selectedDate, setSelectedDate] = useState(() => getTodaySaoPaulo());
+  
+  const { equipments } = useEquipments();
 
   const { data: orders, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['daily-orders', selectedDate],
@@ -82,6 +84,20 @@ export default function DailyOrdersPage() {
     order.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.order_number.includes(searchTerm)
   ) || [];
+
+  // Count equipments by status for the selected date
+  const statusCounts = useMemo(() => {
+    const todayEquipments = equipments.filter(eq => {
+      const eqDate = eq.data_entrega?.split('T')[0];
+      return eqDate === selectedDate;
+    });
+    
+    return {
+      delivered: todayEquipments.filter(eq => eq.status === 'ENTREGUE').length,
+      ready: todayEquipments.filter(eq => eq.status === 'LIBERADO_PARA_RECOLHA').length,
+      collected: todayEquipments.filter(eq => eq.status === 'RECOLHIDO').length,
+    };
+  }, [equipments, selectedDate]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -131,14 +147,37 @@ export default function DailyOrdersPage() {
           </Button>
         </div>
 
-        {/* Date and Search */}
-        <div className="flex gap-2 mt-3">
+        {/* Date, Status Circles and Search */}
+        <div className="flex gap-2 mt-3 items-center">
           <Input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-auto"
           />
+          
+          {/* Status indicator circles with counters */}
+          <div className="flex items-center gap-1.5">
+            <div 
+              className="w-7 h-7 rounded-full bg-status-delivered flex items-center justify-center"
+              title="Entregue (aguardando recolha)"
+            >
+              <span className="text-[10px] font-bold text-white">{statusCounts.delivered}</span>
+            </div>
+            <div 
+              className="w-7 h-7 rounded-full bg-status-ready flex items-center justify-center"
+              title="Liberado para recolha"
+            >
+              <span className="text-[10px] font-bold text-white">{statusCounts.ready}</span>
+            </div>
+            <div 
+              className="w-7 h-7 rounded-full bg-status-collected flex items-center justify-center"
+              title="Recolhido"
+            >
+              <span className="text-[10px] font-bold text-white">{statusCounts.collected}</span>
+            </div>
+          </div>
+
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
