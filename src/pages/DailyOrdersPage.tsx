@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { getTodaySaoPaulo, extractTime } from '@/lib/date-utils';
+import { getTodaySaoPaulo, extractTime, extractDatePart } from '@/lib/date-utils';
 import { DailyOrdersMapView } from '@/components/map/DailyOrdersMapView';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import {
@@ -283,10 +283,19 @@ export default function DailyOrdersPage() {
     }).format(value);
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDateDisplay = (dateString: string | null) => {
     if (!dateString) return '-';
-    const date = new Date(dateString + 'T12:00:00');
-    return date.toLocaleDateString('pt-BR');
+    // Extract just the date part first (handles Firebird datetime strings)
+    const datePart = extractDatePart(dateString) || dateString;
+    // Only add T12:00:00 if it's a date-only string
+    const dateToFormat = datePart.length === 10 ? datePart + 'T12:00:00' : dateString;
+    try {
+      const date = new Date(dateToFormat);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('pt-BR');
+    } catch {
+      return '-';
+    }
   };
 
   const formatAddress = (address: Order['address']) => {
@@ -545,11 +554,11 @@ export default function DailyOrdersPage() {
                       <div className="flex gap-4 text-sm">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span>Entrega: {formatDate(order.expected_delivery)}</span>
+                          <span>Entrega: {formatDateDisplay(order.expected_delivery)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span>Retorno: {formatDate(order.expected_return)}</span>
+                          <span>Retorno: {formatDateDisplay(order.expected_return)}</span>
                         </div>
                       </div>
 

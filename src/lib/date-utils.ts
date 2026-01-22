@@ -109,10 +109,27 @@ export function formatDate(dateString: string): string {
 export function extractTime(dateTimeString: string | null | undefined): string | null {
   if (!dateTimeString) return null;
   
-  // Try to match time pattern in the string (HH:MM or HH:MM:SS)
-  const timeMatch = dateTimeString.match(/(\d{2}):(\d{2})(:\d{2})?/);
+  // Try to match time pattern after a space or T (to avoid matching date parts)
+  // This ensures we get the time part, not date digits
+  const timeMatch = dateTimeString.match(/[\sT](\d{2}):(\d{2})(:\d{2})?/);
   if (timeMatch) {
     return `${timeMatch[1]}:${timeMatch[2]}`;
+  }
+  
+  return null;
+}
+
+/**
+ * Extract just the date part (YYYY-MM-DD) from a Firebird datetime string
+ * Handles both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS" formats
+ */
+export function extractDatePart(dateTimeString: string | null | undefined): string | null {
+  if (!dateTimeString) return null;
+  
+  // Match YYYY-MM-DD pattern at the start
+  const dateMatch = dateTimeString.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateMatch) {
+    return dateMatch[1];
   }
   
   return null;
