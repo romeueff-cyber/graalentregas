@@ -100,3 +100,20 @@ export function formatDate(dateString: string): string {
   const date = new Date(dateString.length === 10 ? dateString + 'T12:00:00' : dateString);
   return date.toLocaleDateString('pt-BR', { timeZone: SAO_PAULO_TIMEZONE });
 }
+
+/**
+ * Extract time (HH:MM) from a Firebird datetime string
+ * Firebird format: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS"
+ * Returns just "HH:MM" or null if not found
+ */
+export function extractTime(dateTimeString: string | null | undefined): string | null {
+  if (!dateTimeString) return null;
+  
+  // Try to match time pattern in the string (HH:MM or HH:MM:SS)
+  const timeMatch = dateTimeString.match(/(\d{2}):(\d{2})(:\d{2})?/);
+  if (timeMatch) {
+    return `${timeMatch[1]}:${timeMatch[2]}`;
+  }
+  
+  return null;
+}

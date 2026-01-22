@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { getTodaySaoPaulo } from '@/lib/date-utils';
+import { getTodaySaoPaulo, extractTime } from '@/lib/date-utils';
 import {
   ChevronLeft,
   ChevronRight,
@@ -398,9 +398,9 @@ export function DailyOrdersSidebar({
                         #{order.order_number}
                         {isOrderDelivered && ' ✓'}
                       </span>
-                      {order.expected_delivery && (
+                      {order.expected_delivery && extractTime(order.expected_delivery) && (
                         <span className="text-[9px] text-muted-foreground font-medium">
-                          {order.expected_delivery}
+                          {extractTime(order.expected_delivery)}
                         </span>
                       )}
                       {locationIssue && (

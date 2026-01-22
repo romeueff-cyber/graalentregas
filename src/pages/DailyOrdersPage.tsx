@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { getTodaySaoPaulo } from '@/lib/date-utils';
+import { getTodaySaoPaulo, extractTime } from '@/lib/date-utils';
 import { DailyOrdersMapView } from '@/components/map/DailyOrdersMapView';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import {
@@ -470,9 +470,9 @@ export default function DailyOrdersPage() {
                             #{order.order_number}
                             {isOrderDelivered && ' ✓'}
                           </span>
-                          {order.expected_delivery && (
+                          {order.expected_delivery && extractTime(order.expected_delivery) && (
                             <span className="text-xs text-muted-foreground">
-                              {order.expected_delivery}
+                              {extractTime(order.expected_delivery)}
                             </span>
                           )}
                         </div>
