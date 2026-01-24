@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Beer, Mail, Lock, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { authStorage } from '@/lib/offline-storage';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -38,11 +39,6 @@ export default function AuthPage() {
     e.preventDefault();
     setErrors({});
 
-    if (isOffline) {
-      toast.error('Você precisa estar conectado à internet para fazer login pela primeira vez');
-      return;
-    }
-
     // Validate
     const result = loginSchema.safeParse({ email, password });
     if (!result.success) {
@@ -56,6 +52,32 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    
+    // If offline, try to validate against cached credentials
+    if (isOffline) {
+      try {
+        const cachedAuth = await authStorage.get();
+        const isValid = await authStorage.isValid();
+        
+        if (cachedAuth && isValid && cachedAuth.user.email?.toLowerCase() === email.toLowerCase()) {
+          // Email matches cached user - restore session
+          toast.success('Login offline realizado com sucesso!');
+          navigate('/');
+          return;
+        } else if (cachedAuth && cachedAuth.user.email?.toLowerCase() !== email.toLowerCase()) {
+          toast.error('Este email não corresponde à sessão salva neste dispositivo');
+        } else {
+          toast.error('Nenhuma sessão salva encontrada. Conecte-se à internet para o primeiro login.');
+        }
+      } catch (err) {
+        toast.error('Erro ao verificar sessão offline');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Online login
     try {
       const { error } = await signIn(email, password);
       
@@ -163,10 +185,12 @@ export default function AuthPage() {
             <Button
               type="submit"
               className="w-full h-12 text-base font-semibold bg-gradient-primary hover:opacity-90 transition-opacity"
-              disabled={isLoading || isOffline}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <LoadingSpinner size="sm" />
+              ) : isOffline ? (
+                'Entrar Offline'
               ) : (
                 'Entrar'
               )}
