@@ -1,13 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useEquipments } from '@/hooks/useEquipments';
+import { useERPOrders, type DailyOrderData } from '@/hooks/useERPOrders';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ERPSyncBadge } from '@/components/ui/erp-sync-badge';
 import { getTodaySaoPaulo, extractTime, extractDatePart } from '@/lib/date-utils';
 import { DailyOrdersMapView } from '@/components/map/DailyOrdersMapView';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
@@ -31,35 +31,16 @@ import {
 } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 
-interface OrderItem {
-  product: string;
-  quantity: number;
-  unit_price: number;
-  total: number;
-}
+// Use the shared type from the hook
+type Order = DailyOrderData;
 
-interface OrderEquipment {
-  type: string;
-  quantity: number;
-}
-
-interface Order {
-  order_number: string;
-  client_name: string;
-  phone: string | null;
-  expected_delivery: string | null;
-  expected_return: string | null;
-  observations: string | null;
-  address: {
-    street: string;
-    number: string;
-    complement: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-  };
-  items: OrderItem[];
-  equipments: OrderEquipment[];
+interface OrderLocation {
+  orderNumber: string;
+  clientName: string;
+  expectedDelivery?: string | null;
+  lat: number;
+  lng: number;
+  isDelivered?: boolean;
 }
 
 interface OrderLocation {
@@ -135,18 +116,16 @@ export default function DailyOrdersPage() {
   
   const { equipments } = useEquipments();
 
-  const { data: orders, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['daily-orders', selectedDate],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-        body: { date: selectedDate },
-      });
-
-      if (error) throw error;
-      return data as Order[];
-    },
-    staleTime: 1000 * 60 * 5,
-  });
+  // Use the ERP orders hook with caching
+  const { 
+    orders, 
+    isLoading, 
+    error, 
+    isFetching, 
+    forceRefresh,
+    isOnline,
+    cacheStatus 
+  } = useERPOrders({ date: selectedDate });
 
   // Helper functions for equipment detection
   const hasGrowler = (order: Order) => {
@@ -410,11 +389,21 @@ export default function DailyOrdersPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => refetch()}
-            disabled={isFetching}
+            onClick={() => forceRefresh()}
+            disabled={isFetching || !isOnline}
           >
             <RefreshCw className={`w-5 h-5 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
+        </div>
+
+        {/* Sync Status Badge */}
+        <div className="mt-2">
+          <ERPSyncBadge
+            cacheStatus={cacheStatus}
+            isOnline={isOnline}
+            isSyncing={isFetching}
+            onRefresh={forceRefresh}
+          />
         </div>
 
         {/* Date, Status Circles and Search */}
@@ -517,7 +506,7 @@ export default function DailyOrdersPage() {
                 Erro ao carregar pedidos: {(error as Error).message}
               </p>
               <div className="flex justify-center mt-4">
-                <Button variant="outline" onClick={() => refetch()}>
+                <Button variant="outline" onClick={() => forceRefresh()} disabled={!isOnline}>
                   Tentar novamente
                 </Button>
               </div>

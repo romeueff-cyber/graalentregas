@@ -4,53 +4,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
 import { erpOrdersCache, type ERPCacheStatus } from '@/lib/erp-cache';
 import { isOnline as checkOnline } from '@/lib/offline-storage';
+import type { DailyOrderData } from '@/hooks/useDailyOrders';
 
-interface OrderItem {
-  product: string;
-  quantity: number;
-  unit_price: number;
-  total: number;
+export { type DailyOrderData } from '@/hooks/useDailyOrders';
+
+interface UseERPOrdersOptions {
+  date?: string;
+  enabled?: boolean;
 }
 
-interface OrderEquipment {
-  type: string;
-  quantity: number;
-}
-
-export interface DailyOrderData {
-  order_number: string;
-  client_name: string;
-  phone: string | null;
-  expected_delivery: string | null;
-  expected_return: string | null;
-  observations: string | null;
-  address: {
-    street: string;
-    number: string;
-    complement: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-  };
-  items: OrderItem[];
-  equipments: OrderEquipment[];
-}
-
-export function useDailyOrders() {
+export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {}) {
   const queryClient = useQueryClient();
   const [isOnline, setIsOnline] = useState(checkOnline());
   const [cacheStatus, setCacheStatus] = useState<ERPCacheStatus | null>(null);
   const hasTriedAutoSync = useRef(false);
 
-  const today = useMemo(() => {
-    return getTodaySaoPaulo();
-  }, []);
+  const targetDate = useMemo(() => {
+    return date || getTodaySaoPaulo();
+  }, [date]);
+
+  // Reset auto-sync flag when date changes
+  useEffect(() => {
+    hasTriedAutoSync.current = false;
+  }, [targetDate]);
 
   // Update cache status
   const updateCacheStatus = useCallback(async () => {
-    const status = await erpOrdersCache.getStatus();
+    const status = await erpOrdersCache.getStatus(targetDate);
     setCacheStatus(status);
-  }, []);
+  }, [targetDate]);
 
   // Listen for online/offline changes
   useEffect(() => {
@@ -66,21 +48,19 @@ export function useDailyOrders() {
     };
   }, []);
 
-  // Load cache status on mount
+  // Load cache status on mount and when date changes
   useEffect(() => {
     updateCacheStatus();
-    // Cleanup old cache entries
-    erpOrdersCache.cleanup();
   }, [updateCacheStatus]);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
-    queryKey: ['daily-orders-hook', today],
+    queryKey: ['erp-orders', targetDate],
     queryFn: async () => {
       // Try to fetch from network first
       if (isOnline) {
         try {
           const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-            body: { date: today },
+            body: { date: targetDate },
           });
           
           if (error) throw error;
@@ -88,10 +68,10 @@ export function useDailyOrders() {
           const ordersData = data as DailyOrderData[];
           
           // Save to cache for offline use
-          await erpOrdersCache.save(today, ordersData);
+          await erpOrdersCache.save(targetDate, ordersData);
           await updateCacheStatus();
           
-          console.log(`[ERP Cache] Saved ${ordersData.length} orders for ${today}`);
+          console.log(`[ERP Cache] Saved ${ordersData.length} orders for ${targetDate}`);
           
           return ordersData;
         } catch (networkError) {
@@ -101,9 +81,9 @@ export function useDailyOrders() {
       }
 
       // Try to get from cache
-      const cachedOrders = await erpOrdersCache.get(today);
+      const cachedOrders = await erpOrdersCache.get(targetDate);
       if (cachedOrders) {
-        console.log(`[ERP Cache] Using cached data for ${today} (${cachedOrders.length} orders)`);
+        console.log(`[ERP Cache] Using cached data for ${targetDate} (${cachedOrders.length} orders)`);
         return cachedOrders;
       }
 
@@ -116,6 +96,7 @@ export function useDailyOrders() {
       throw new Error('Erro ao carregar pedidos do ERP');
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled,
     retry: (failureCount, error) => {
       // Don't retry if offline
       if (!checkOnline()) return false;
@@ -125,12 +106,12 @@ export function useDailyOrders() {
 
   // Auto-sync on app open when online
   useEffect(() => {
-    if (isOnline && !hasTriedAutoSync.current && cacheStatus?.isStale) {
+    if (enabled && isOnline && !hasTriedAutoSync.current && cacheStatus?.isStale) {
       hasTriedAutoSync.current = true;
-      console.log('[ERP Cache] Auto-syncing stale data...');
+      console.log(`[ERP Cache] Auto-syncing stale data for ${targetDate}...`);
       refetch();
     }
-  }, [isOnline, cacheStatus?.isStale, refetch]);
+  }, [enabled, isOnline, cacheStatus?.isStale, refetch, targetDate]);
 
   // Force refresh function
   const forceRefresh = useCallback(async () => {
@@ -140,37 +121,9 @@ export function useDailyOrders() {
     }
     
     // Invalidate query cache and refetch
-    await queryClient.invalidateQueries({ queryKey: ['daily-orders-hook', today] });
+    await queryClient.invalidateQueries({ queryKey: ['erp-orders', targetDate] });
     await refetch();
-  }, [isOnline, queryClient, today, refetch]);
-
-  const hasGrowler = (order: DailyOrderData) => {
-    return order.items.some(item => 
-      item.product.toLowerCase().includes('growler')
-    );
-  };
-
-  const hasBarrel = (order: DailyOrderData) => {
-    return order.equipments.some(eq => 
-      eq.type.toLowerCase().includes('barril')
-    );
-  };
-
-  const hasChopeira = (order: DailyOrderData) => {
-    return order.equipments.some(eq => 
-      eq.type.toLowerCase().includes('chopeira')
-    );
-  };
-
-  // Determine if the order requires collection date (only chopeira needs it)
-  const needsCollectionDate = (order: DailyOrderData) => {
-    return hasChopeira(order);
-  };
-
-  // Orders with only growler/barril should be marked as RECOLHIDO immediately
-  const shouldAutoCollect = (order: DailyOrderData) => {
-    return (hasGrowler(order) || hasBarrel(order)) && !hasChopeira(order);
-  };
+  }, [isOnline, queryClient, targetDate, refetch]);
 
   return {
     orders: orders || [],
@@ -181,10 +134,6 @@ export function useDailyOrders() {
     error,
     isOnline,
     cacheStatus,
-    hasGrowler,
-    hasBarrel,
-    hasChopeira,
-    needsCollectionDate,
-    shouldAutoCollect,
+    targetDate,
   };
 }
