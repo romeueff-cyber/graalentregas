@@ -26,9 +26,13 @@ export default function AuthPage() {
   // Redirect if already logged in (including cached offline session)
   useEffect(() => {
     if (!authLoading && user) {
+      console.log('User found (possibly from cache), redirecting to home');
       navigate('/');
     }
   }, [authLoading, user, navigate]);
+
+  // Show cached session recovery message when offline with no user
+  const showOfflineRecoveryMessage = isOffline && !user && !authLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,10 +104,16 @@ export default function AuthPage() {
           <CardDescription className="text-center">
             Acesse sua conta para gerenciar entregas
           </CardDescription>
-          {isOffline && (
-            <div className="flex items-center justify-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg p-2 mt-2">
-              <WifiOff className="w-4 h-4" />
-              <span>Você está offline. Conecte-se para fazer login.</span>
+          {showOfflineRecoveryMessage && (
+            <div className="flex flex-col items-center gap-2 text-sm text-warning bg-warning/10 rounded-lg p-3 mt-2">
+              <div className="flex items-center gap-2">
+                <WifiOff className="w-4 h-4" />
+                <span className="font-medium">Você está offline</span>
+              </div>
+              <span className="text-xs text-center text-warning/80">
+                Se você já fez login antes neste dispositivo, sua sessão deveria ter sido recuperada automaticamente.
+                Caso contrário, conecte-se à internet para fazer o primeiro login.
+              </span>
             </div>
           )}
         </CardHeader>
@@ -165,9 +175,7 @@ export default function AuthPage() {
 
           <div className="mt-6 pt-4 border-t text-center">
             <p className="text-sm text-muted-foreground">
-              {isOffline 
-                ? 'Já logou antes? Sua sessão será recuperada quando voltar online.'
-                : 'Novo entregador? Fale com o administrador.'}
+              Novo entregador? Fale com o administrador.
             </p>
           </div>
         </CardContent>

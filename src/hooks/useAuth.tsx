@@ -57,14 +57,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isValid = await authStorage.isValid();
       
       if (cachedAuth && isValid) {
+        console.log('Using cached auth data - valid session found');
         setUser(cachedAuth.user);
         setSession(cachedAuth.session);
         setProfile(cachedAuth.profile);
         setRole(cachedAuth.role);
-      }
-
-      // If completely offline, stop here with cached data
-      if (!isOnline()) {
+        
+        // If completely offline, stop here with cached data
+        if (!isOnline()) {
+          console.log('Offline mode - using cached credentials');
+          clearTimeout(timeoutId);
+          setIsLoading(false);
+          return;
+        }
+      } else if (!isOnline()) {
+        // Offline without valid cache - can't do anything
+        console.log('Offline without valid cache');
         clearTimeout(timeoutId);
         setIsLoading(false);
         return;
