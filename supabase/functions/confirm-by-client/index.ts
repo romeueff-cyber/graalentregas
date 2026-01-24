@@ -32,8 +32,9 @@ Deno.serve(async (req) => {
     const body: ConfirmRequest = await req.json();
     const { token, data_prevista_recolha, periodo_recolha } = body;
 
-    // Validate inputs
-    if (!token || typeof token !== 'string') {
+    // Validate inputs - check token exists and is proper UUID format
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!token || typeof token !== 'string' || !UUID_REGEX.test(token)) {
       return new Response(
         JSON.stringify({ error: 'Token inválido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
