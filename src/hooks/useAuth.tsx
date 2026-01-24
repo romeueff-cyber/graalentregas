@@ -15,6 +15,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  restoreFromCache: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,8 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setProfile(null);
             setRole(null);
-            // Clear cached auth on logout
-            authStorage.clear();
+            // Only clear cache if online - protect offline cache
+            if (isOnline()) {
+              authStorage.clear();
+            }
           }
         }
       );
@@ -223,6 +226,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(null);
   };
 
+  const restoreFromCache = async (): Promise<boolean> => {
+    const cachedAuth = await authStorage.get();
+    const isValid = await authStorage.isValid();
+    
+    if (cachedAuth && isValid) {
+      setUser(cachedAuth.user);
+      setSession(cachedAuth.session);
+      setProfile(cachedAuth.profile);
+      setRole(cachedAuth.role);
+      setIsLoading(false);
+      return true;
+    }
+    return false;
+  };
+
   const value: AuthContextType = {
     user,
     session,
@@ -233,7 +251,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isOffline,
     signIn,
     signUp,
-    signOut
+    signOut,
+    restoreFromCache
   };
 
   return (
