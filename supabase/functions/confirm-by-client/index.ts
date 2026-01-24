@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Token validity in days
+const TOKEN_VALIDITY_DAYS = 30;
+
 interface ConfirmRequest {
   token: string;
   data_prevista_recolha: string;
@@ -71,7 +74,7 @@ Deno.serve(async (req) => {
     // Find equipment by token (not used yet)
     const { data: equipment, error: fetchError } = await supabase
       .from('equipments')
-      .select('id, nome_cliente, pedido_dia, token_used_at, cliente_ira_avisar')
+      .select('id, nome_cliente, pedido_dia, token_used_at, cliente_ira_avisar, token_created_at')
       .eq('confirmation_token', token)
       .maybeSingle();
 
@@ -88,6 +91,23 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Link inválido ou expirado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Check if token is expired
+    if (equipment.token_created_at) {
+      const tokenAge = Date.now() - new Date(equipment.token_created_at).getTime();
+      const maxAge = TOKEN_VALIDITY_DAYS * 24 * 60 * 60 * 1000;
+      
+      if (tokenAge > maxAge) {
+        console.log(`Token expired for equipment ${equipment.id}. Token age: ${Math.floor(tokenAge / (24 * 60 * 60 * 1000))} days`);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Este link expirou. Entre em contato com o entregador para receber um novo link.',
+            expired: true 
+          }),
+          { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Check if token was already used

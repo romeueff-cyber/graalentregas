@@ -35,6 +35,7 @@ export type Database = {
           status: Database["public"]["Enums"]["equipment_status"]
           sync_status: Database["public"]["Enums"]["sync_status"]
           telefone_cliente: string | null
+          token_created_at: string | null
           token_used_at: string | null
           updated_at: string | null
         }
@@ -58,6 +59,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["equipment_status"]
           sync_status?: Database["public"]["Enums"]["sync_status"]
           telefone_cliente?: string | null
+          token_created_at?: string | null
           token_used_at?: string | null
           updated_at?: string | null
         }
@@ -81,6 +83,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["equipment_status"]
           sync_status?: Database["public"]["Enums"]["sync_status"]
           telefone_cliente?: string | null
+          token_created_at?: string | null
           token_used_at?: string | null
           updated_at?: string | null
         }
@@ -170,6 +173,7 @@ export type Database = {
           status: Database["public"]["Enums"]["equipment_status"]
           sync_status: Database["public"]["Enums"]["sync_status"]
           telefone_cliente: string | null
+          token_created_at: string | null
           token_used_at: string | null
           updated_at: string | null
         }
