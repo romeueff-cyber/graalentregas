@@ -18,7 +18,7 @@ const loginSchema = z.object({
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { signIn, isLoading: authLoading, user, isOffline } = useAuth();
+  const { signIn, isLoading: authLoading, user, isOffline, restoreFromCache } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,13 +60,18 @@ export default function AuthPage() {
         const isValid = await authStorage.isValid();
         
         if (cachedAuth && isValid && cachedAuth.user.email?.toLowerCase() === email.toLowerCase()) {
-          // Email matches cached user - restore session
-          toast.success('Login offline realizado com sucesso!');
-          navigate('/');
-          return;
-        } else if (cachedAuth && cachedAuth.user.email?.toLowerCase() !== email.toLowerCase()) {
+          // Email matches cached user - restore session to context
+          const restored = await restoreFromCache();
+          if (restored) {
+            toast.success('Login offline realizado com sucesso!');
+            navigate('/');
+            return;
+          }
+        }
+        
+        if (cachedAuth && cachedAuth.user.email?.toLowerCase() !== email.toLowerCase()) {
           toast.error('Este email não corresponde à sessão salva neste dispositivo');
-        } else {
+        } else if (!cachedAuth || !isValid) {
           toast.error('Nenhuma sessão salva encontrada. Conecte-se à internet para o primeiro login.');
         }
       } catch (err) {
