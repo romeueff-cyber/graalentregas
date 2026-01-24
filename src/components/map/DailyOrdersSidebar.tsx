@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { getTodaySaoPaulo, extractTime } from '@/lib/date-utils';
+import { ERPSyncBadge } from '@/components/ui/erp-sync-badge';
+import { extractTime } from '@/lib/date-utils';
+import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,24 +31,7 @@ interface OrderEquipment {
   quantity: number;
 }
 
-interface Order {
-  order_number: string;
-  client_name: string;
-  phone: string | null;
-  expected_delivery: string | null;
-  expected_return: string | null;
-  observations: string | null;
-  address: {
-    street: string;
-    number: string;
-    complement: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-  };
-  items: OrderItem[];
-  equipments: OrderEquipment[];
-}
+type Order = DailyOrderData;
 
 type EquipmentFilter = 'all' | 'growler' | 'barril' | 'chopeira';
 
@@ -72,21 +55,15 @@ export function DailyOrdersSidebar({
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
 
-  const today = useMemo(() => {
-    return getTodaySaoPaulo();
-  }, []);
-
-  const { data: orders, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['daily-orders-sidebar', today],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-        body: { date: today },
-      });
-      if (error) throw error;
-      return data as Order[];
-    },
-    staleTime: 1000 * 60 * 5,
-  });
+  // Use the shared hook with caching
+  const { 
+    orders, 
+    isLoading, 
+    isFetching, 
+    forceRefresh,
+    isOnline,
+    cacheStatus
+  } = useDailyOrders();
 
   const hasGrowler = (order: Order) => {
     return order.items.some(item => 
@@ -276,8 +253,8 @@ export function DailyOrdersSidebar({
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            onClick={() => refetch()}
-            disabled={isFetching}
+            onClick={() => forceRefresh()}
+            disabled={isFetching || !isOnline}
           >
             <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
           </Button>
@@ -290,6 +267,16 @@ export function DailyOrdersSidebar({
             <ChevronLeft className="w-3 h-3" />
           </Button>
         </div>
+      </div>
+
+      {/* Sync Status Badge */}
+      <div className="px-2 py-1.5 border-b bg-muted/30">
+        <ERPSyncBadge
+          cacheStatus={cacheStatus}
+          isOnline={isOnline}
+          isSyncing={isFetching}
+          onRefresh={forceRefresh}
+        />
       </div>
 
       {/* Equipment Filter Row */}
