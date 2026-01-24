@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Plus,
+  Navigation,
 } from 'lucide-react';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
@@ -239,7 +240,7 @@ export function DailyOrdersSidebar({
 
   // Expanded state - full sidebar
   return (
-    <div className="absolute left-2 top-2 bottom-20 w-64 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
+    <div className="absolute left-2 top-2 bottom-20 w-80 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
@@ -376,14 +377,17 @@ export function DailyOrdersSidebar({
                     className="flex items-center gap-1.5 p-1.5 cursor-pointer"
                     onClick={() => onOrderSelect?.(order)}
                   >
-                    {/* Order Number and Time */}
-                    <div className="flex items-center gap-1 min-w-0">
+                    {/* Order Number, Client Name and Time */}
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
                       <span className={cn(
                         "font-mono font-semibold text-xs",
                         isOrderDelivered && "text-status-ready"
                       )}>
                         #{order.order_number}
                         {isOrderDelivered && ' ✓'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[60px]" title={order.client_name}>
+                        {order.client_name.substring(0, 6)}
                       </span>
                       {order.expected_delivery && extractTime(order.expected_delivery) && (
                         <span className="text-[9px] text-muted-foreground font-medium">
@@ -465,16 +469,38 @@ export function DailyOrdersSidebar({
                         {order.address.neighborhood && `, ${order.address.neighborhood}`}
                       </p>
                       
-                      {/* Register Delivery Button */}
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full h-7 text-[10px] bg-gradient-primary"
-                        onClick={(e) => handleRegisterDelivery(order, e)}
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Registrar Entrega
-                      </Button>
+                      {/* Action Buttons */}
+                      <div className="flex gap-1.5">
+                        {/* Route Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-7 text-[10px]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const { street, number, neighborhood, city, state } = order.address;
+                            const addressParts = [street, number, neighborhood, city, state].filter(Boolean);
+                            const address = addressParts.join(', ');
+                            if (address) {
+                              window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+                            }
+                          }}
+                        >
+                          <Navigation className="w-3 h-3 mr-1" />
+                          Rota
+                        </Button>
+                        
+                        {/* Register Delivery Button */}
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1 h-7 text-[10px] bg-gradient-primary"
+                          onClick={(e) => handleRegisterDelivery(order, e)}
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Entrega
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
