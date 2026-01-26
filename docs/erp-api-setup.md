@@ -297,8 +297,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
       const phoneQuery = `
         SELECT FIRST 1 co.DESCRICAO
         FROM CONTATO co
-        JOIN CLIENTES c ON co.ID_PESSOA = c.ID_PESSOA
-        JOIN ORDENS_VENDA ov ON ov.ID_CLIENTE = c.ID_CLIENTES
+        JOIN CLIENTES cl ON co.ID_PESSOA = cl.ID_PESSOA
+        JOIN ORDENS_VENDA ov ON ov.ID_CLIENTE = cl.ID_CLIENTE
         WHERE ov.N_PEDIDO = ?
           AND co.ID_TIPO_CONTATO IN (1, 2)
         ORDER BY co.ID_TIPO_CONTATO ASC
