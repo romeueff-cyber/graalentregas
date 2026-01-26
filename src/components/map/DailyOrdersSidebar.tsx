@@ -377,7 +377,7 @@ export function DailyOrdersSidebar({
                     className="flex items-center gap-1.5 p-1.5 cursor-pointer"
                     onClick={() => onOrderSelect?.(order)}
                   >
-                    {/* Order Number, Client Name and Time */}
+                    {/* Order Number, Client Name, Status and Time */}
                     <div className="flex items-center gap-1 min-w-0 flex-1">
                       <span className={cn(
                         "font-mono font-semibold text-xs",
@@ -386,9 +386,14 @@ export function DailyOrdersSidebar({
                         #{order.order_number}
                         {isOrderDelivered && ' ✓'}
                       </span>
-                      <span className="text-[10px] text-muted-foreground truncate max-w-[60px]" title={order.client_name}>
-                        {order.client_name.substring(0, 6)}
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[50px]" title={order.client_name}>
+                        {order.client_name.substring(0, 5)}
                       </span>
+                      {order.erp_status && (
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 bg-muted/50 whitespace-nowrap">
+                          {order.erp_status.length > 8 ? order.erp_status.substring(0, 8) : order.erp_status}
+                        </Badge>
+                      )}
                       {order.expected_delivery && extractTime(order.expected_delivery) && (
                         <span className="text-[9px] text-muted-foreground font-medium">
                           {extractTime(order.expected_delivery)}
