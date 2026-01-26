@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { OverlayView, OverlayViewF } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
 import { daysSince, formatDaysWithClient, getDaysColor } from '@/lib/date-utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface MarkerLabelProps {
   equipment: EquipmentWithCreator;
@@ -21,6 +23,17 @@ const periodLabels: Record<string, string> = {
   NOITE: 'Noite',
   CLIENTE_IRA_AVISAR: 'Cliente Avisará',
 };
+
+// Format date to dd/MM
+function formatShortDate(dateStr: string | null): string {
+  if (!dateStr) return '--/--';
+  try {
+    const date = new Date(dateStr);
+    return format(date, 'dd/MM', { locale: ptBR });
+  } catch {
+    return '--/--';
+  }
+}
 
 export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -65,7 +78,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
           fontFamily: 'system-ui, sans-serif',
           borderLeft: `4px solid ${colors.border}`,
           minWidth: isHovered ? '120px' : '80px',
-          maxWidth: hasPhoto && isHovered ? '200px' : isHovered ? '180px' : '140px',
+          maxWidth: hasPhoto && isHovered ? '200px' : isHovered ? '180px' : '160px',
           overflow: 'hidden',
           opacity: isHovered ? 1 : 0.75,
           transform: isHovered ? 'scale(1.02)' : 'scale(1)',
@@ -109,7 +122,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
             {equipment.pedido_dia} - {equipment.nome_cliente}
           </div>
           
-          {/* Status and info - always visible */}
+          {/* Status and days counter */}
           <div style={{ 
             fontSize: '11px', 
             color: 'hsl(220 10% 45%)',
@@ -117,6 +130,7 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
             gap: '6px',
             alignItems: 'center',
             flexWrap: 'wrap',
+            marginBottom: '4px',
           }}>
             <span style={{
               backgroundColor: colors.bg,
@@ -147,9 +161,26 @@ export function MarkerLabel({ equipment, onClick }: MarkerLabelProps) {
                 {formatDaysWithClient(daysWithClient)}
               </span>
             )}
-            <span style={{ fontSize: '10px' }}>
-              {periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}
-            </span>
+          </div>
+
+          {/* Delivery and Collection dates */}
+          <div style={{
+            fontSize: '10px',
+            color: 'hsl(220 10% 40%)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <span style={{ color: 'hsl(220 10% 55%)', fontWeight: 500 }}>Entrega:</span>
+              <span>{formatShortDate(equipment.data_entrega)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <span style={{ color: 'hsl(220 10% 55%)', fontWeight: 500 }}>Recolha:</span>
+              <span>{formatShortDate(equipment.data_prevista_recolha)}</span>
+              <span style={{ color: 'hsl(220 10% 55%)' }}>-</span>
+              <span style={{ fontWeight: 500 }}>{periodLabels[equipment.periodo_recolha] || equipment.periodo_recolha}</span>
+            </div>
           </div>
         </div>
       </div>
