@@ -228,15 +228,11 @@ export default function DailyOrdersPage() {
     };
   }, [equipments, selectedDate]);
 
-  // Get delivered order numbers for the selected date
+  // Get delivered order numbers - match by order number (pedido_dia)
+  // An ERP order is considered "delivered" if there's an equipment with the same order number
   const deliveredOrderNumbers = useMemo(() => {
-    // Filter equipments by the selected date's delivery date
-    const dateEquipments = equipments.filter(eq => {
-      const eqDate = eq.data_entrega?.split('T')[0];
-      return eqDate === selectedDate;
-    });
-    return new Set(dateEquipments.map(e => e.pedido_dia));
-  }, [equipments, selectedDate]);
+    return new Set(equipments.map(e => e.pedido_dia));
+  }, [equipments]);
 
   // Check if order has valid address data
   const hasValidAddress = (order: Order) => {
