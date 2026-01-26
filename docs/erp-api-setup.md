@@ -261,7 +261,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
         ov.DATA_PREV_ENTREGA,
         ov.OBS,
         p.NOME,
-        c.APELIDO,
+        p.APELIDO,
         e.DESCRICAO AS UF,
         ci.DESCRICAO AS CIDADE,
         b.DESCRICAO AS BAIRRO,
@@ -270,8 +270,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
         ov.COMPLEMENTO,
         s.DESCRICAO AS STATUS_DESCRICAO
       FROM ORDENS_VENDA ov
-      LEFT JOIN CLIENTES c ON ov.ID_CLIENTE = c.ID_CLIENTES
-      LEFT JOIN PESSOAS p ON c.ID_PESSOA = p.ID_PESSOAS
+      LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
+      LEFT JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
       LEFT JOIN ESTADO e ON ov.ID_ESTADO = e.ID_ESTADO
       LEFT JOIN CIDADE ci ON ov.ID_CIDADE = ci.ID_CIDADE
       LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
