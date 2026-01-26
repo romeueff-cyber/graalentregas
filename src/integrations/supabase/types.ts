@@ -148,12 +148,7 @@ export type Database = {
       }
     }
     Views: {
-      delivered_orders: {
-        Row: {
-          pedido_dia: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       confirm_collection: {
@@ -188,6 +183,12 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_delivered_order_numbers: {
+        Args: never
+        Returns: {
+          pedido_dia: string
+        }[]
       }
       has_role: {
         Args: {
