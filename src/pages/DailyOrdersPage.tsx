@@ -103,6 +103,17 @@ async function geocodeAddress(
   }
 }
 
+function normalizeOrderKey(value: unknown): string {
+  if (value === null || value === undefined) return '';
+
+  const raw = String(value).trim();
+  // ERP/DB can sometimes include spaces or formatting; compare using digits when possible.
+  const digitsOnly = raw.replace(/\D+/g, '');
+  if (!digitsOnly) return raw;
+  const withoutLeadingZeros = digitsOnly.replace(/^0+/, '');
+  return withoutLeadingZeros || '0';
+}
+
 export default function DailyOrdersPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,7 +242,7 @@ export default function DailyOrdersPage() {
   // Get delivered order numbers - match by order number (pedido_dia)
   // An ERP order is considered "delivered" if there's an equipment with the same order number
   const deliveredOrderNumbers = useMemo(() => {
-    return new Set(equipments.map(e => e.pedido_dia));
+    return new Set(equipments.map((e) => normalizeOrderKey(e.pedido_dia)));
   }, [equipments]);
 
   // Check if order has valid address data
@@ -288,7 +299,7 @@ export default function DailyOrdersPage() {
           expectedDelivery: order.expected_delivery,
           lat: coords.lat,
           lng: coords.lng,
-          isDelivered: deliveredOrderNumbers.has(order.order_number),
+           isDelivered: deliveredOrderNumbers.has(normalizeOrderKey(order.order_number)),
         });
       });
 
@@ -310,10 +321,10 @@ export default function DailyOrdersPage() {
   useEffect(() => {
     if (orderLocations.length > 0) {
       setOrderLocations((prev) =>
-        prev.map((loc) => ({
-          ...loc,
-          isDelivered: deliveredOrderNumbers.has(loc.orderNumber),
-        }))
+          prev.map((loc) => ({
+            ...loc,
+            isDelivered: deliveredOrderNumbers.has(normalizeOrderKey(loc.orderNumber)),
+          }))
       );
     }
   }, [deliveredOrderNumbers]);
@@ -529,7 +540,7 @@ export default function DailyOrdersPage() {
               const orderHasChopeira = hasChopeira(order);
               const growlerCount = getGrowlerCount(order);
               const chopeiraCount = getChopeiraCount(order);
-              const isOrderDelivered = deliveredOrderNumbers.has(order.order_number);
+              const isOrderDelivered = deliveredOrderNumbers.has(normalizeOrderKey(order.order_number));
               const hasLocationIssue = ordersWithoutLocation.includes(order.order_number) || !hasValidAddress(order);
 
               return (
