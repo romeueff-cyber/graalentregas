@@ -148,7 +148,12 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      delivered_orders: {
+        Row: {
+          pedido_dia: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       confirm_collection: {
