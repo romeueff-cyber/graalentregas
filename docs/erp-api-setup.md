@@ -252,7 +252,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
     
     console.log(`Buscando pedidos para data: ${firebirdDate}`);
     
-    // Query para buscar pedidos do dia
+    // Query para buscar pedidos do dia (agora com status)
     const ordersQuery = `
       SELECT 
         ov.N_PEDIDO,
@@ -267,7 +267,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
         b.DESCRICAO AS BAIRRO,
         r.DESCRICAO AS RUA,
         ov.NUMERO,
-        ov.COMPLEMENTO
+        ov.COMPLEMENTO,
+        s.DESCRICAO AS STATUS_DESCRICAO
       FROM ORDENS_VENDA ov
       LEFT JOIN CLIENTES c ON ov.ID_CLIENTE = c.ID_CLIENTES
       LEFT JOIN PESSOAS p ON c.ID_PESSOA = p.ID_PESSOAS
@@ -275,6 +276,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
       LEFT JOIN CIDADE ci ON ov.ID_CIDADE = ci.ID_CIDADE
       LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
       LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
+      LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
       WHERE CAST(ov.DATA_PREV_ENTREGA AS DATE) = ?
         AND (ov.DELETED IS NULL OR ov.DELETED = 0)
       ORDER BY ov.N_PEDIDO DESC
@@ -347,6 +349,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
         expected_delivery: order.DATA_PREV_ENTREGA || null,
         expected_return: order.DATA_PREV_RETORNO || null,
         observations: order.OBS || null,
+        erp_status: order.STATUS_DESCRICAO || null,
         address: {
           street: order.RUA || '',
           number: order.NUMERO || '',

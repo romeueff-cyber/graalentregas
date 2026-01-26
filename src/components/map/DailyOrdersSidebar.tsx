@@ -461,9 +461,16 @@ export function DailyOrdersSidebar({
                   {/* Expanded Content */}
                   {isOrderExpanded && (
                     <div className="px-2 pb-2 pt-1 border-t text-[10px] space-y-2">
-                      <p className="font-medium text-foreground truncate">
-                        {order.client_name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground truncate flex-1">
+                          {order.client_name}
+                        </p>
+                        {order.erp_status && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted/50 whitespace-nowrap">
+                            {order.erp_status}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-muted-foreground">
                         {order.address.city || 'Cidade não informada'}
                         {order.address.neighborhood && `, ${order.address.neighborhood}`}
