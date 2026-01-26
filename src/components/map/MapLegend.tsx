@@ -100,7 +100,7 @@ export function MapLegend({ isExpanded: initialExpanded = false }: MapLegendProp
                 <div className="flex items-center gap-2">
                   <CalendarCheck className="w-4 h-4 text-primary" />
                   <div>
-                    <span className="text-[11px] font-medium">X para hoje</span>
+                    <span className="text-[11px] font-medium">X recolha prevista hoje</span>
                     <p className="text-[9px] text-muted-foreground">Recolhas agendadas para hoje</p>
                   </div>
                 </div>
