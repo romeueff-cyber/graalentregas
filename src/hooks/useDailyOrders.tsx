@@ -24,6 +24,7 @@ export interface DailyOrderData {
   expected_delivery: string | null;
   expected_return: string | null;
   observations: string | null;
+  erp_status: string | null;
   address: {
     street: string;
     number: string;

@@ -28,6 +28,7 @@ interface Order {
   expected_delivery: string | null;
   expected_return: string | null;
   observations: string | null;
+  erp_status: string | null;
   address: {
     street: string;
     number: string;
@@ -110,7 +111,14 @@ export function DailyOrderDialog({
         <div className="space-y-4">
           {/* Client Info */}
           <div>
-            <p className="font-semibold text-lg">{order.client_name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-lg">{order.client_name}</p>
+              {order.erp_status && (
+                <Badge variant="outline" className="text-xs">
+                  {order.erp_status}
+                </Badge>
+              )}
+            </div>
             {order.phone && (
               <a
                 href={`tel:${order.phone}`}
