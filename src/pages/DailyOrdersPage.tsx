@@ -228,10 +228,15 @@ export default function DailyOrdersPage() {
     };
   }, [equipments, selectedDate]);
 
-  // Get delivered order numbers
+  // Get delivered order numbers for the selected date
   const deliveredOrderNumbers = useMemo(() => {
-    return new Set(equipments.map(e => e.pedido_dia));
-  }, [equipments]);
+    // Filter equipments by the selected date's delivery date
+    const dateEquipments = equipments.filter(eq => {
+      const eqDate = eq.data_entrega?.split('T')[0];
+      return eqDate === selectedDate;
+    });
+    return new Set(dateEquipments.map(e => e.pedido_dia));
+  }, [equipments, selectedDate]);
 
   // Check if order has valid address data
   const hasValidAddress = (order: Order) => {
