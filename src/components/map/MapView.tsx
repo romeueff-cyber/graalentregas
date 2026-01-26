@@ -8,6 +8,7 @@ import { GoogleMapsSetup } from './GoogleMapsSetup';
 import { MarkerLabel } from './MarkerLabel';
 import { EquipmentDialog } from './EquipmentDialog';
 import { DailyOrderMarker } from './DailyOrderMarker';
+import { MapLegend } from './MapLegend';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 
 interface DailyOrderLocation {
@@ -225,7 +226,7 @@ export function MapView({
   };
 
   return (
-    <>
+    <div className="relative w-full h-full">
       <LoadScript
         key={apiKey}
         id="google-map-script"
@@ -307,6 +308,9 @@ export function MapView({
         }}
         isAdmin={isAdmin}
       />
-    </>
+
+      {/* Map Legend */}
+      <MapLegend />
+    </div>
   );
 }
