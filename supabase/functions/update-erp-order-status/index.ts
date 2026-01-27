@@ -44,7 +44,7 @@ serve(async (req) => {
         'X-API-KEY': erpApiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ statusId: targetStatusId }),
+      body: JSON.stringify({ status: targetStatusId, statusId: targetStatusId }),
     });
 
     console.log(`ERP API response status: ${response.status}`);
