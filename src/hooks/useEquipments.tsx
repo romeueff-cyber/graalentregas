@@ -158,6 +158,20 @@ export function useEquipments() {
           .insert(newEquipment);
 
         if (error) throw error;
+        
+        // Update ERP status to 19 (Entregue) - fire and forget, don't block the flow
+        supabase.functions.invoke('update-erp-order-status', {
+          body: { orderNumber: data.pedido_dia, status: 19 }
+        }).then(({ error: erpError }) => {
+          if (erpError) {
+            console.warn('Failed to update ERP status:', erpError);
+          } else {
+            console.log('ERP status updated to 19 for order:', data.pedido_dia);
+          }
+        }).catch(err => {
+          console.warn('ERP status update error:', err);
+        });
+        
         toast.success('Entrega registrada com sucesso!');
       } else {
         await equipmentStorage.addPending(newEquipment);
