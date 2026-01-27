@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ERPSyncBadge } from '@/components/ui/erp-sync-badge';
+import { ERPStatusBadge } from '@/components/ui/erp-status-badge';
 import { extractTime } from '@/lib/date-utils';
 import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
 import {
@@ -390,9 +391,7 @@ export function DailyOrdersSidebar({
                         {order.client_name.substring(0, 5)}
                       </span>
                       {order.erp_status && (
-                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 bg-muted/50 whitespace-nowrap">
-                          {order.erp_status.length > 8 ? order.erp_status.substring(0, 8) : order.erp_status}
-                        </Badge>
+                        <ERPStatusBadge status={order.erp_status} />
                       )}
                       {order.expected_delivery && extractTime(order.expected_delivery) && (
                         <span className="text-[9px] text-muted-foreground font-medium">
