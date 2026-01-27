@@ -360,6 +360,21 @@ export default function NewDeliveryPage() {
         ...(willAutoCollect && { status: 'RECOLHIDO' as const }),
       });
 
+      // Update ERP status to ENTREGUE (ID 4) - fire and forget, don't block navigation
+      if (online) {
+        supabase.functions.invoke('update-erp-order-status', {
+          body: { orderNumber: pedidoDia.trim(), statusId: 4 }
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error('Failed to update ERP status:', error);
+          } else {
+            console.log('ERP status updated:', data);
+          }
+        }).catch(err => {
+          console.error('Error calling update-erp-order-status:', err);
+        });
+      }
+
       // Small delay to ensure state propagates before navigation
       setTimeout(() => {
         navigate('/');
