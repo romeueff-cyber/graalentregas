@@ -371,6 +371,59 @@ app.get('/api/orders', authenticate, async (req, res) => {
   }
 });
 
+// Endpoint para atualizar status do pedido
+app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
+  try {
+    const orderNumber = req.params.orderNumber;
+    const { statusId } = req.body;
+    
+    if (!statusId) {
+      return res.status(400).json({ error: 'statusId é obrigatório' });
+    }
+    
+    console.log(`Atualizando pedido ${orderNumber} para status ${statusId}`);
+    
+    // Buscar o pedido para verificar se existe
+    const checkQuery = `
+      SELECT ID_ORDENS_VENDA, ID_STATUS 
+      FROM ORDENS_VENDA 
+      WHERE N_PEDIDO = ? 
+        AND (DELETED IS NULL OR DELETED = 0)
+    `;
+    
+    const orders = await executeQuery(checkQuery, [parseInt(orderNumber)]);
+    
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    const orderId = orders[0].ID_ORDENS_VENDA;
+    const previousStatus = orders[0].ID_STATUS;
+    
+    // Atualizar o status
+    const updateQuery = `
+      UPDATE ORDENS_VENDA 
+      SET ID_STATUS = ?, DATE_UPDATE = CURRENT_TIMESTAMP 
+      WHERE ID_ORDENS_VENDA = ?
+    `;
+    
+    await executeQuery(updateQuery, [statusId, orderId]);
+    
+    console.log(`Pedido ${orderNumber} atualizado: status ${previousStatus} -> ${statusId}`);
+    
+    res.json({
+      success: true,
+      order_number: orderNumber,
+      previous_status: previousStatus,
+      new_status: statusId
+    });
+    
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
