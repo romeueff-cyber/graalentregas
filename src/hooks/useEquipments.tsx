@@ -238,15 +238,15 @@ export function useEquipments() {
     }
   };
 
-  // Delete equipment (admin only via edge function)
+  // Delete equipment directly via Supabase (RLS policy handles authorization)
   const deleteEquipment = async (id: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('delete-equipment', {
-        body: { equipmentId: id }
-      });
+      const { error } = await supabase
+        .from('equipments')
+        .delete()
+        .eq('id', id);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
       toast.success('Entrega excluída com sucesso!');
       await fetchEquipments();
