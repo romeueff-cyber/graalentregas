@@ -240,7 +240,7 @@ export function DailyOrdersSidebar({
 
   // Expanded state - full sidebar
   return (
-    <div className="absolute left-2 top-2 bottom-20 w-80 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
+    <div className="absolute left-2 top-2 bottom-20 w-96 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
