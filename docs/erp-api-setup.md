@@ -371,41 +371,6 @@ app.get('/api/orders', authenticate, async (req, res) => {
   }
 });
 
-// Endpoint para atualizar status do pedido
-app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
-  try {
-    const orderNumber = req.params.orderNumber;
-    const { status } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({ error: 'Parâmetro status é obrigatório' });
-    }
-    
-    console.log(`Atualizando status do pedido ${orderNumber} para ${status}`);
-    
-    // Query para atualizar o status
-    const updateQuery = `
-      UPDATE ORDENS_VENDA
-      SET ID_STATUS = ?
-      WHERE N_PEDIDO = ?
-        AND (DELETED IS NULL OR DELETED = 0)
-    `;
-    
-    await executeQuery(updateQuery, [parseInt(status), parseInt(orderNumber)]);
-    
-    console.log(`Status do pedido ${orderNumber} atualizado para ${status}`);
-    
-    res.json({ 
-      success: true, 
-      message: `Status do pedido ${orderNumber} atualizado para ${status}` 
-    });
-    
-  } catch (error) {
-    console.error('Erro ao atualizar status:', error);
-    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
-  }
-});
-
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
