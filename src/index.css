@@ -42,6 +42,12 @@
     --status-collected: 220 10% 60%;
     --status-waiting: 38 92% 50%;
 
+    /* Hygiene urgency colors */
+    --hygiene-green: 142 71% 45%;
+    --hygiene-yellow: 48 96% 53%;
+    --hygiene-orange: 25 95% 53%;
+    --hygiene-red: 0 72% 51%;
+
     --border: 35 20% 88%;
     --input: 35 20% 88%;
     --ring: 35 85% 45%;

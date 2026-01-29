@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, Marker, LoadScript } from '@react-google-maps/api';
 import type { EquipmentWithCreator } from '@/types/database';
 import type { DriverLocation } from '@/lib/offline-storage';
+import type { HygieneMapLocation } from '@/types/hygiene';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { GoogleMapsSetup } from './GoogleMapsSetup';
 import { MarkerLabel } from './MarkerLabel';
 import { EquipmentDialog } from './EquipmentDialog';
 import { DailyOrderMarker } from './DailyOrderMarker';
+import { HygieneMarker } from './HygieneMarker';
 import { MapLegend } from './MapLegend';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 
@@ -32,6 +34,8 @@ interface MapViewProps {
   dailyOrderLocations?: DailyOrderLocation[];
   selectedDailyOrder?: string | null;
   onDailyOrderClick?: (orderNumber: string) => void;
+  hygieneLocations?: HygieneMapLocation[];
+  onHygieneClick?: (clientId: string) => void;
 }
 
 const mapContainerStyle = {
@@ -95,6 +99,8 @@ export function MapView({
   dailyOrderLocations = [],
   selectedDailyOrder,
   onDailyOrderClick,
+  hygieneLocations = [],
+  onHygieneClick,
 }: MapViewProps) {
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -289,6 +295,15 @@ export function MapView({
               isSelected={selectedDailyOrder === order.orderNumber}
               isDelivered={order.isDelivered}
               onClick={() => onDailyOrderClick?.(order.orderNumber)}
+            />
+          ))}
+
+          {/* Hygiene markers */}
+          {hygieneLocations.map((location) => (
+            <HygieneMarker
+              key={location.id}
+              location={location}
+              onClick={() => onHygieneClick?.(location.clientId)}
             />
           ))}
         </GoogleMap>

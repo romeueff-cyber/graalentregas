@@ -89,6 +89,139 @@ export type Database = {
         }
         Relationships: []
       }
+      hygiene_clients: {
+        Row: {
+          created_at: string | null
+          created_by_user_id: string
+          endereco: string
+          id: string
+          intervalo_limpeza_dias: number
+          latitude: number
+          longitude: number
+          nome_cliente: string
+          observacoes: string | null
+          telefone_cliente: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by_user_id: string
+          endereco: string
+          id?: string
+          intervalo_limpeza_dias?: number
+          latitude: number
+          longitude: number
+          nome_cliente: string
+          observacoes?: string | null
+          telefone_cliente?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by_user_id?: string
+          endereco?: string
+          id?: string
+          intervalo_limpeza_dias?: number
+          latitude?: number
+          longitude?: number
+          nome_cliente?: string
+          observacoes?: string | null
+          telefone_cliente?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      hygiene_equipment: {
+        Row: {
+          ativo: boolean
+          client_id: string
+          created_at: string | null
+          id: string
+          numero_serie: string
+          proxima_limpeza: string | null
+          tipo_equipamento: Database["public"]["Enums"]["hygiene_equipment_type"]
+          ultima_limpeza: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          client_id: string
+          created_at?: string | null
+          id?: string
+          numero_serie: string
+          proxima_limpeza?: string | null
+          tipo_equipamento: Database["public"]["Enums"]["hygiene_equipment_type"]
+          ultima_limpeza?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          numero_serie?: string
+          proxima_limpeza?: string | null
+          tipo_equipamento?: Database["public"]["Enums"]["hygiene_equipment_type"]
+          ultima_limpeza?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hygiene_equipment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "hygiene_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hygiene_services: {
+        Row: {
+          created_at: string | null
+          data_servico: string
+          equipment_id: string
+          executado_por_user_id: string
+          foto_url: string | null
+          id: string
+          motivo_troca: string | null
+          novo_numero_serie: string | null
+          observacoes: string | null
+          tipo_servico: Database["public"]["Enums"]["hygiene_service_type"]
+        }
+        Insert: {
+          created_at?: string | null
+          data_servico?: string
+          equipment_id: string
+          executado_por_user_id: string
+          foto_url?: string | null
+          id?: string
+          motivo_troca?: string | null
+          novo_numero_serie?: string | null
+          observacoes?: string | null
+          tipo_servico: Database["public"]["Enums"]["hygiene_service_type"]
+        }
+        Update: {
+          created_at?: string | null
+          data_servico?: string
+          equipment_id?: string
+          executado_por_user_id?: string
+          foto_url?: string | null
+          id?: string
+          motivo_troca?: string | null
+          novo_numero_serie?: string | null
+          observacoes?: string | null
+          tipo_servico?: Database["public"]["Enums"]["hygiene_service_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hygiene_services_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "hygiene_equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -207,6 +340,8 @@ export type Database = {
         | "NOITE"
         | "CLIENTE_IRA_AVISAR"
       equipment_status: "ENTREGUE" | "LIBERADO_PARA_RECOLHA" | "RECOLHIDO"
+      hygiene_equipment_type: "chopeira" | "kegotater"
+      hygiene_service_type: "limpeza" | "troca"
       sync_status: "synced" | "pending"
     }
     CompositeTypes: {
@@ -344,6 +479,8 @@ export const Constants = {
         "CLIENTE_IRA_AVISAR",
       ],
       equipment_status: ["ENTREGUE", "LIBERADO_PARA_RECOLHA", "RECOLHIDO"],
+      hygiene_equipment_type: ["chopeira", "kegotater"],
+      hygiene_service_type: ["limpeza", "troca"],
       sync_status: ["synced", "pending"],
     },
   },

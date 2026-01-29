@@ -16,6 +16,7 @@ import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import ClientConfirmationPage from "./pages/ClientConfirmationPage";
 import DailyOrdersPage from "./pages/DailyOrdersPage";
+import HygienePage from "./pages/HygienePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/install" element={<InstallPage />} />
             <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
             <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
+            <Route path="/higienizacao" element={<HygienePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <PWAInstallBanner />

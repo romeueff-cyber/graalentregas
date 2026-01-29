@@ -4,11 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
 import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
+import { useHygieneClients } from '@/hooks/useHygieneClients';
 import { MapView } from '@/components/map/MapView';
 import { DailyOrdersSidebar, type DailyOrder } from '@/components/map/DailyOrdersSidebar';
 import { Button } from '@/components/ui/button';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
+import { SprayCanIcon } from '@/components/icons';
 import {
   Plus,
   Menu,
@@ -22,6 +24,8 @@ import {
   AlertTriangle,
   ClipboardList,
   PackageCheck,
+  MoreVertical,
+  Droplets,
 } from 'lucide-react';
 import {
   Sheet,
@@ -30,6 +34,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { isToday, isPastDate, daysSince } from '@/lib/date-utils';
 import type { EquipmentWithCreator } from '@/types/database';
 
@@ -40,6 +51,7 @@ export default function MainMapPage() {
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
   const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation, getOrderLocation } = useDailyOrderLocations();
+  const { summary: hygieneSummary, mapLocations: hygieneMapLocations } = useHygieneClients();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -98,8 +110,8 @@ export default function MainMapPage() {
 
   // Filtered equipments based on active filter
   const filteredEquipments = useMemo(() => {
-    // When dailyOrders filter is active, hide all equipments
-    if (activeFilter === 'dailyOrders') return [];
+    // When dailyOrders or hygiene filter is active, hide all equipments
+    if (activeFilter === 'dailyOrders' || activeFilter === 'hygiene') return [];
     if (!activeFilter) return equipments;
     
     switch (activeFilter) {
@@ -124,6 +136,7 @@ export default function MainMapPage() {
   // Show daily order locations only when dailyOrders filter is active or no filter
   // EXCLUDE orders that are already delivered (they show as regular equipment markers now)
   const visibleDailyOrderLocations = useMemo(() => {
+    if (activeFilter === 'hygiene') return []; // Hide when hygiene filter is active
     if (activeFilter === 'dailyOrders' || !activeFilter) {
       // Filter out already-delivered orders from map markers
       return dailyOrderLocations
@@ -135,6 +148,14 @@ export default function MainMapPage() {
     }
     return [];
   }, [activeFilter, dailyOrderLocations, deliveredOrderNumbers]);
+
+  // Show hygiene locations only when hygiene filter is active
+  const visibleHygieneLocations = useMemo(() => {
+    if (activeFilter === 'hygiene') {
+      return hygieneMapLocations;
+    }
+    return [];
+  }, [activeFilter, hygieneMapLocations]);
 
   // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
@@ -190,6 +211,7 @@ export default function MainMapPage() {
       {/* Header */}
       <div className="glass border-b px-4 py-3 safe-area-top z-20">
         <div className="flex items-center justify-between">
+          {/* Left side - Logo and status */}
           <div className="flex items-center gap-3">
             <Sheet open={showMenu} onOpenChange={setShowMenu}>
               <SheetTrigger asChild>
@@ -213,17 +235,6 @@ export default function MainMapPage() {
                 </SheetHeader>
 
                 <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3"
-                    onClick={() => {
-                      setShowMenu(false);
-                      navigate('/pedidos-dia');
-                    }}
-                  >
-                    <ClipboardList className="w-5 h-5" />
-                    Pedidos do Dia
-                  </Button>
                   {isAdmin && (
                     <>
                       <Button
@@ -268,9 +279,10 @@ export default function MainMapPage() {
             </div>
           </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-2">
-            <div className="flex bg-secondary rounded-lg p-1">
+          {/* Right side - Quick actions */}
+          <div className="flex items-center gap-1">
+            {/* View Toggle */}
+            <div className="flex bg-secondary rounded-lg p-1 mr-1">
               <Button
                 variant={viewMode === 'map' ? 'default' : 'ghost'}
                 size="sm"
@@ -288,6 +300,42 @@ export default function MainMapPage() {
                 <List className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Pedidos do Dia (3 dots) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() => navigate('/pedidos-dia')}
+              title="Pedidos do Dia"
+            >
+              <MoreVertical className="w-5 h-5" />
+              {dailyOrders && dailyOrders.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {dailyOrders.length}
+                </span>
+              )}
+            </Button>
+
+            {/* Higienização */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() => navigate('/higienizacao')}
+              title="Agenda de Higienização"
+            >
+              <SprayCanIcon className="w-5 h-5" />
+              {(hygieneSummary.next7Days > 0 || hygieneSummary.overdue > 0) && (
+                <span className={`absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center ${
+                  hygieneSummary.overdue > 0 
+                    ? 'bg-destructive text-destructive-foreground' 
+                    : 'bg-amber-500 text-white'
+                }`}>
+                  {hygieneSummary.overdue > 0 ? hygieneSummary.overdue : hygieneSummary.next7Days}
+                </span>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -303,6 +351,17 @@ export default function MainMapPage() {
           >
             <PackageCheck className={`w-3 h-3 ${activeFilter === 'dailyOrders' ? '' : 'text-primary'}`} />
             <span>{dailyOrders?.length || 0} Pedidos</span>
+          </button>
+          <button
+            onClick={() => toggleFilter('hygiene')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all whitespace-nowrap ${
+              activeFilter === 'hygiene'
+                ? 'bg-status-ready text-white'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <Droplets className={`w-3 h-3 ${activeFilter === 'hygiene' ? '' : 'text-status-ready'}`} />
+            <span>{hygieneSummary.totalClients} Higienização</span>
           </button>
           <button
             onClick={() => toggleFilter('delivered')}
@@ -414,6 +473,10 @@ export default function MainMapPage() {
                     } 
                   });
                 }
+              }}
+              hygieneLocations={visibleHygieneLocations}
+              onHygieneClick={(clientId) => {
+                navigate('/higienizacao');
               }}
             />
           </>
