@@ -80,35 +80,13 @@ export function HygieneClientDialog({
   const handleSelectExisting = (clientName: string) => {
     const existing = equipments.find(e => e.nome_cliente === clientName);
     if (existing) {
-      // Geocode the address to get proper coordinates if needed
-      const addressParts = [existing.nome_cliente];
-      
       setFormData(prev => ({
         ...prev,
         nome_cliente: existing.nome_cliente,
         telefone_cliente: existing.telefone_cliente || '',
-        endereco: existing.observacoes?.includes('Endereço:') 
-          ? existing.observacoes.split('Endereço:')[1]?.trim() || ''
-          : '',
         latitude: existing.latitude,
         longitude: existing.longitude,
       }));
-      
-      // Try to get address from Google Geocoder using coordinates
-      if (window.google?.maps?.Geocoder && existing.latitude && existing.longitude) {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode(
-          { location: { lat: existing.latitude, lng: existing.longitude } },
-          (results, status) => {
-            if (status === 'OK' && results?.[0]) {
-              setFormData(prev => ({
-                ...prev,
-                endereco: prev.endereco || results[0].formatted_address,
-              }));
-            }
-          }
-        );
-      }
     }
   };
 
