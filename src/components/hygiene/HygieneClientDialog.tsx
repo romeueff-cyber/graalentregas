@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LoadScript } from '@react-google-maps/api';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
@@ -40,9 +40,14 @@ export function HygieneClientDialog({
   const { user } = useAuth();
   const { equipments } = useEquipments();
   const { apiKey } = useGoogleMapsKey();
+  
+  // Load Google Maps API
+  const { isLoaded: mapsLoaded } = useJsApiLoader({
+    googleMapsApiKey: apiKey,
+  });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isGeolocating, setIsGeolocating] = useState(false);
-  const [mapsReady, setMapsReady] = useState(!!window.google?.maps);
 
   const [formData, setFormData] = useState({
     nome_cliente: '',
@@ -119,7 +124,8 @@ export function HygieneClientDialog({
   };
 
   const handleSearchAddress = async () => {
-    if (!formData.endereco || !mapsReady) {
+    if (!formData.endereco || !mapsLoaded || !window.google?.maps) {
+      console.log('Cannot search:', { endereco: formData.endereco, mapsLoaded, hasGoogle: !!window.google?.maps });
       return;
     }
     
@@ -262,14 +268,16 @@ export function HygieneClientDialog({
                 variant="outline"
                 className="flex-1"
                 onClick={handleSearchAddress}
-                disabled={isGeolocating || !formData.endereco}
+                disabled={isGeolocating || !formData.endereco || !mapsLoaded}
               >
                 {isGeolocating ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : !mapsLoaded ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Search className="w-4 h-4 mr-2" />
                 )}
-                Buscar pelo Endereço
+                {!mapsLoaded ? 'Carregando...' : 'Buscar pelo Endereço'}
               </Button>
             </div>
             {formData.latitude !== 0 && (
@@ -322,19 +330,5 @@ export function HygieneClientDialog({
     </Dialog>
   );
 
-  // If maps is already loaded globally, just render the dialog
-  if (mapsReady) {
-    return dialogContent;
-  }
-
-  // Otherwise wrap with LoadScript to load Google Maps API
-  return (
-    <LoadScript 
-      googleMapsApiKey={apiKey} 
-      onLoad={() => setMapsReady(true)}
-      loadingElement={dialogContent}
-    >
-      {dialogContent}
-    </LoadScript>
-  );
+  return dialogContent;
 }
