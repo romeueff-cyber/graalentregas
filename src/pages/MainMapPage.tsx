@@ -24,7 +24,6 @@ import {
   AlertTriangle,
   ClipboardList,
   PackageCheck,
-  MoreVertical,
   Droplets,
 } from 'lucide-react';
 import {
@@ -301,7 +300,7 @@ export default function MainMapPage() {
               </Button>
             </div>
 
-            {/* Pedidos do Dia (3 dots) */}
+            {/* Pedidos do Dia */}
             <Button
               variant="ghost"
               size="icon"
@@ -309,7 +308,7 @@ export default function MainMapPage() {
               onClick={() => navigate('/pedidos-dia')}
               title="Pedidos do Dia"
             >
-              <MoreVertical className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5" />
               {dailyOrders && dailyOrders.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
                   {dailyOrders.length}
