@@ -343,155 +343,81 @@ export default function MainMapPage() {
           </div>
         </div>
 
-        {/* Status Filters - Icon Only with Tooltips */}
-        <div className="flex items-center gap-1 mt-3">
-          {/* Daily Orders Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('dailyOrders')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'dailyOrders'
-                    ? 'bg-primary text-primary-foreground shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <PackageCheck className="w-4 h-4" />
-                {(dailyOrders?.length || 0) > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {dailyOrders?.length || 0}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {dailyOrders?.length || 0} Pedidos do Dia
-            </TooltipContent>
-          </Tooltip>
+        {/* Status Filters - Chips with scroll */}
+        <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            onClick={() => toggleFilter('dailyOrders')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'dailyOrders'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <PackageCheck className="w-3.5 h-3.5" />
+            <span>{dailyOrders?.length || 0} Pedidos</span>
+          </button>
 
-          {/* Hygiene Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('hygiene')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'hygiene'
-                    ? 'bg-status-ready text-white shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary text-status-ready'
-                }`}
-              >
-                <Droplets className="w-4 h-4" />
-                {hygieneSummary.totalClients > 0 && (
-                  <span className={`absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center ${
-                    hygieneSummary.overdue > 0 ? 'bg-destructive text-white' : 'bg-status-ready text-white'
-                  }`}>
-                    {hygieneSummary.totalClients}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {hygieneSummary.totalClients} Higienização
-            </TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => toggleFilter('hygiene')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'hygiene'
+                ? 'bg-status-ready text-white shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <Droplets className="w-3.5 h-3.5" />
+            <span>{hygieneSummary.totalClients} Higiene</span>
+          </button>
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border self-center flex-shrink-0" />
 
-          {/* Delivered Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('delivered')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'delivered'
-                    ? 'bg-destructive text-destructive-foreground shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
-                {statusCounts.delivered > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {statusCounts.delivered}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {statusCounts.delivered} Entregue
-            </TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => toggleFilter('delivered')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'delivered'
+                ? 'bg-destructive text-destructive-foreground shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
+            <span>{statusCounts.delivered} Entregue</span>
+          </button>
 
-          {/* Ready Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('ready')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'ready'
-                    ? 'bg-status-ready text-white shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
-                {statusCounts.ready > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-status-ready text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {statusCounts.ready}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {statusCounts.ready} Liberado
-            </TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => toggleFilter('ready')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'ready'
+                ? 'bg-status-ready text-white shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
+            <span>{statusCounts.ready} Liberado</span>
+          </button>
 
-          {/* Collected Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('collected')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'collected'
-                    ? 'bg-status-collected text-white shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
-                {statusCounts.collected > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-status-collected text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {statusCounts.collected}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {statusCounts.collected} Recolhido
-            </TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => toggleFilter('collected')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'collected'
+                ? 'bg-status-collected text-white shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
+            <span>{statusCounts.collected} Recolhido</span>
+          </button>
 
-          {/* Waiting Filter */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggleFilter('clienteAvisara')}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                  activeFilter === 'clienteAvisara'
-                    ? 'bg-status-waiting text-white shadow-md scale-110'
-                    : 'bg-secondary/50 hover:bg-secondary'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
-                {statusCounts.clienteAvisara > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-status-waiting text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {statusCounts.clienteAvisara}
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {statusCounts.clienteAvisara} Aguardando
-            </TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => toggleFilter('clienteAvisara')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              activeFilter === 'clienteAvisara'
+                ? 'bg-status-waiting text-white shadow-sm'
+                : 'bg-secondary/60 text-foreground hover:bg-secondary'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
+            <span>{statusCounts.clienteAvisara} Aguardando</span>
+          </button>
         </div>
 
         {/* Day Summary Card */}
