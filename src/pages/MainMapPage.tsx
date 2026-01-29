@@ -6,7 +6,9 @@ import { useDriverLocation } from '@/hooks/useDriverLocation';
 import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
 import { useHygieneClients } from '@/hooks/useHygieneClients';
 import { MapView } from '@/components/map/MapView';
-import { DailyOrdersSidebar, type DailyOrder } from '@/components/map/DailyOrdersSidebar';
+import { HygieneSidebar } from '@/components/map/HygieneSidebar';
+import { HygieneServiceDialog } from '@/components/hygiene/HygieneServiceDialog';
+import type { HygieneEquipmentWithServices, HygieneClientWithEquipments } from '@/types/hygiene';
 import { Button } from '@/components/ui/button';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
@@ -24,7 +26,6 @@ import {
   AlertTriangle,
   ClipboardList,
   PackageCheck,
-  MoreVertical,
   Droplets,
 } from 'lucide-react';
 import {
@@ -51,14 +52,25 @@ export default function MainMapPage() {
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
   const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation, getOrderLocation } = useDailyOrderLocations();
-  const { summary: hygieneSummary, mapLocations: hygieneMapLocations } = useHygieneClients();
+  const { 
+    summary: hygieneSummary, 
+    mapLocations: hygieneMapLocations,
+    clients: hygieneClients,
+    registerService,
+  } = useHygieneClients();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
   const [selectedDailyOrder, setSelectedDailyOrder] = useState<string | null>(null);
+  const [selectedHygieneClient, setSelectedHygieneClient] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [serviceDialogData, setServiceDialogData] = useState<{
+    open: boolean;
+    equipment: HygieneEquipmentWithServices | null;
+    clientName: string;
+  }>({ open: false, equipment: null, clientName: '' });
 
   // All useMemo hooks MUST be before any conditional returns
   // Count by status (separating "Cliente irá avisar" from regular delivered)
@@ -301,7 +313,7 @@ export default function MainMapPage() {
               </Button>
             </div>
 
-            {/* Pedidos do Dia (3 dots) */}
+            {/* Pedidos do Dia */}
             <Button
               variant="ghost"
               size="icon"
@@ -309,7 +321,7 @@ export default function MainMapPage() {
               onClick={() => navigate('/pedidos-dia')}
               title="Pedidos do Dia"
             >
-              <MoreVertical className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5" />
               {dailyOrders && dailyOrders.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
                   {dailyOrders.length}
@@ -432,21 +444,15 @@ export default function MainMapPage() {
       <div className="flex-1 relative">
         {viewMode === 'map' ? (
           <>
-            {/* Daily Orders Sidebar */}
-            <DailyOrdersSidebar
-              onOrderSelect={(order: DailyOrder) => setSelectedDailyOrder(order.order_number)}
-              selectedOrderNumber={selectedDailyOrder}
-              ordersWithoutLocation={ordersWithoutLocation}
-              deliveredOrderNumbers={deliveredOrderNumbers}
-              onRegisterDelivery={(order: DailyOrder) => {
-                const orderLoc = getOrderLocation(order.order_number);
-                navigate('/new-delivery', { 
-                  state: { 
-                    orderData: order,
-                    fromDailyOrders: true,
-                    orderLocation: orderLoc || undefined,
-                  } 
-                });
+            {/* Hygiene Sidebar */}
+            <HygieneSidebar
+              onClientSelect={(client: HygieneClientWithEquipments) => {
+                setSelectedHygieneClient(client.id);
+                // Center map on client location if needed
+              }}
+              selectedClientId={selectedHygieneClient}
+              onRegisterService={(equipment: HygieneEquipmentWithServices, clientName: string) => {
+                setServiceDialogData({ open: true, equipment, clientName });
               }}
             />
             <MapView
@@ -547,6 +553,18 @@ export default function MainMapPage() {
           <Plus className="w-6 h-6" />
         </Button>
       </div>
+
+      {/* Hygiene Service Dialog */}
+      <HygieneServiceDialog
+        open={serviceDialogData.open}
+        onOpenChange={(open) => setServiceDialogData(prev => ({ ...prev, open }))}
+        equipment={serviceDialogData.equipment}
+        clientName={serviceDialogData.clientName}
+        onSave={async (data) => {
+          await registerService(data as any);
+          setServiceDialogData({ open: false, equipment: null, clientName: '' });
+        }}
+      />
     </div>
   );
 }
