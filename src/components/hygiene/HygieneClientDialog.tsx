@@ -77,13 +77,37 @@ export function HygieneClientDialog({
     }
   }, [client, open]);
 
-  const handleSelectExisting = (clientName: string) => {
+  const handleSelectExisting = async (clientName: string) => {
     const existing = equipments.find(e => e.nome_cliente === clientName);
     if (existing) {
+      // Try reverse geocoding to get address from coordinates
+      let address = '';
+      if (existing.latitude && existing.longitude && window.google?.maps) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          const result = await new Promise<string>((resolve) => {
+            geocoder.geocode(
+              { location: { lat: existing.latitude, lng: existing.longitude } },
+              (results, status) => {
+                if (status === 'OK' && results?.[0]) {
+                  resolve(results[0].formatted_address);
+                } else {
+                  resolve('');
+                }
+              }
+            );
+          });
+          address = result;
+        } catch (error) {
+          console.error('Reverse geocoding error:', error);
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
         nome_cliente: existing.nome_cliente,
         telefone_cliente: existing.telefone_cliente || '',
+        endereco: address || prev.endereco,
         latitude: existing.latitude,
         longitude: existing.longitude,
       }));

@@ -1,4 +1,6 @@
-export type HygieneEquipmentType = 'chopeira' | 'kegotater';
+export type HygieneEquipmentType = 'chopeira' | 'geladeira' | 'balcao';
+
+export type ChoperiaModelo = '30L_1VIA' | '50L_1VIA' | '50L_2VIAS' | '90L_1VIA' | '90L_2VIAS' | '90L_3VIAS';
 export type HygieneServiceType = 'limpeza' | 'troca';
 
 export interface HygieneClient {
@@ -19,6 +21,7 @@ export interface HygieneEquipment {
   id: string;
   client_id: string;
   tipo_equipamento: HygieneEquipmentType;
+  modelo_chopeira: string | null;
   numero_serie: string;
   ultima_limpeza: string | null;
   proxima_limpeza: string | null;
@@ -82,7 +85,17 @@ export function getUrgencyColor(level: 'green' | 'yellow' | 'orange' | 'red'): s
 
 export const equipmentTypeLabels: Record<HygieneEquipmentType, string> = {
   chopeira: 'Chopeira',
-  kegotater: 'Kegotater',
+  geladeira: 'Geladeira',
+  balcao: 'Balcão',
+};
+
+export const choperaModeloLabels: Record<ChoperiaModelo, string> = {
+  '30L_1VIA': '30L/h - 1 via',
+  '50L_1VIA': '50L/h - 1 via',
+  '50L_2VIAS': '50L/h - 2 vias',
+  '90L_1VIA': '90L/h - 1 via',
+  '90L_2VIAS': '90L/h - 2 vias',
+  '90L_3VIAS': '90L/h - 3 vias',
 };
 
 export const serviceTypeLabels: Record<HygieneServiceType, string> = {

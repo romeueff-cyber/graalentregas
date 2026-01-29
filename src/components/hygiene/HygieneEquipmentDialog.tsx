@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import type { HygieneEquipmentWithServices, HygieneEquipmentType } from '@/types/hygiene';
-import { equipmentTypeLabels } from '@/types/hygiene';
+import type { HygieneEquipmentWithServices, HygieneEquipmentType, ChoperiaModelo } from '@/types/hygiene';
+import { equipmentTypeLabels, choperaModeloLabels } from '@/types/hygiene';
 
 interface HygieneEquipmentDialogProps {
   open: boolean;
@@ -38,6 +38,7 @@ export function HygieneEquipmentDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     tipo_equipamento: 'chopeira' as HygieneEquipmentType,
+    modelo_chopeira: null as ChoperiaModelo | null,
     numero_serie: '',
   });
 
@@ -45,11 +46,13 @@ export function HygieneEquipmentDialog({
     if (equipment) {
       setFormData({
         tipo_equipamento: equipment.tipo_equipamento,
+        modelo_chopeira: (equipment.modelo_chopeira as ChoperiaModelo) || null,
         numero_serie: equipment.numero_serie,
       });
     } else {
       setFormData({
         tipo_equipamento: 'chopeira',
+        modelo_chopeira: null,
         numero_serie: '',
       });
     }
@@ -57,12 +60,15 @@ export function HygieneEquipmentDialog({
 
   const handleSubmit = async () => {
     if (!formData.numero_serie) return;
+    // Require modelo for chopeira
+    if (formData.tipo_equipamento === 'chopeira' && !formData.modelo_chopeira) return;
 
     setIsLoading(true);
     try {
       await onSave({
         client_id: clientId,
         tipo_equipamento: formData.tipo_equipamento,
+        modelo_chopeira: formData.tipo_equipamento === 'chopeira' ? formData.modelo_chopeira : null,
         numero_serie: formData.numero_serie,
         ativo: true,
       });
@@ -86,7 +92,11 @@ export function HygieneEquipmentDialog({
             <Select
               value={formData.tipo_equipamento}
               onValueChange={(value: HygieneEquipmentType) => 
-                setFormData(prev => ({ ...prev, tipo_equipamento: value }))
+                setFormData(prev => ({ 
+                  ...prev, 
+                  tipo_equipamento: value,
+                  modelo_chopeira: value === 'chopeira' ? prev.modelo_chopeira : null
+                }))
               }
             >
               <SelectTrigger>
@@ -101,6 +111,30 @@ export function HygieneEquipmentDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Modelo da Chopeira - only show when tipo is chopeira */}
+          {formData.tipo_equipamento === 'chopeira' && (
+            <div className="space-y-2">
+              <Label>Modelo da Chopeira *</Label>
+              <Select
+                value={formData.modelo_chopeira || ''}
+                onValueChange={(value: ChoperiaModelo) => 
+                  setFormData(prev => ({ ...prev, modelo_chopeira: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o modelo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(choperaModeloLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="numero_serie">Número de Série *</Label>
@@ -119,7 +153,7 @@ export function HygieneEquipmentDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading || !formData.numero_serie}
+            disabled={isLoading || !formData.numero_serie || (formData.tipo_equipamento === 'chopeira' && !formData.modelo_chopeira)}
           >
             {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {equipment ? 'Salvar' : 'Adicionar'}

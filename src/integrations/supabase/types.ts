@@ -137,6 +137,7 @@ export type Database = {
           client_id: string
           created_at: string | null
           id: string
+          modelo_chopeira: string | null
           numero_serie: string
           proxima_limpeza: string | null
           tipo_equipamento: Database["public"]["Enums"]["hygiene_equipment_type"]
@@ -148,6 +149,7 @@ export type Database = {
           client_id: string
           created_at?: string | null
           id?: string
+          modelo_chopeira?: string | null
           numero_serie: string
           proxima_limpeza?: string | null
           tipo_equipamento: Database["public"]["Enums"]["hygiene_equipment_type"]
@@ -159,6 +161,7 @@ export type Database = {
           client_id?: string
           created_at?: string | null
           id?: string
+          modelo_chopeira?: string | null
           numero_serie?: string
           proxima_limpeza?: string | null
           tipo_equipamento?: Database["public"]["Enums"]["hygiene_equipment_type"]
@@ -340,7 +343,7 @@ export type Database = {
         | "NOITE"
         | "CLIENTE_IRA_AVISAR"
       equipment_status: "ENTREGUE" | "LIBERADO_PARA_RECOLHA" | "RECOLHIDO"
-      hygiene_equipment_type: "chopeira" | "kegotater"
+      hygiene_equipment_type: "chopeira" | "geladeira" | "balcao"
       hygiene_service_type: "limpeza" | "troca"
       sync_status: "synced" | "pending"
     }
@@ -479,7 +482,7 @@ export const Constants = {
         "CLIENTE_IRA_AVISAR",
       ],
       equipment_status: ["ENTREGUE", "LIBERADO_PARA_RECOLHA", "RECOLHIDO"],
-      hygiene_equipment_type: ["chopeira", "kegotater"],
+      hygiene_equipment_type: ["chopeira", "geladeira", "balcao"],
       hygiene_service_type: ["limpeza", "troca"],
       sync_status: ["synced", "pending"],
     },
