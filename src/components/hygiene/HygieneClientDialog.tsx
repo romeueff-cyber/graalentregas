@@ -114,23 +114,40 @@ export function HygieneClientDialog({
     }
   };
 
-  const handleGetLocation = () => {
+  const handleSearchAddress = async () => {
+    if (!formData.endereco || !window.google?.maps) {
+      return;
+    }
+    
     setIsGeolocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
+        geocoder.geocode(
+          { address: formData.endereco },
+          (results, status) => {
+            if (status === 'OK' && results?.[0]) {
+              resolve(results[0]);
+            } else {
+              resolve(null);
+            }
+          }
+        );
+      });
+      
+      if (result) {
         setFormData(prev => ({
           ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: result.geometry.location.lat(),
+          longitude: result.geometry.location.lng(),
+          endereco: result.formatted_address,
         }));
-        setIsGeolocating(false);
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        setIsGeolocating(false);
-      },
-      { enableHighAccuracy: true }
-    );
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    } finally {
+      setIsGeolocating(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -211,28 +228,29 @@ export function HygieneClientDialog({
             />
           </div>
 
-          {/* Location */}
+          {/* Location Search */}
           <div className="space-y-2">
-            <Label>Localização *</Label>
+            <Label>Buscar Localização *</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
                 variant="outline"
                 className="flex-1"
-                onClick={handleGetLocation}
-                disabled={isGeolocating}
+                onClick={handleSearchAddress}
+                disabled={isGeolocating || !formData.endereco}
               >
                 {isGeolocating ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <MapPin className="w-4 h-4 mr-2" />
+                  <Search className="w-4 h-4 mr-2" />
                 )}
-                Obter Localização
+                Buscar pelo Endereço
               </Button>
             </div>
             {formData.latitude !== 0 && (
-              <p className="text-xs text-muted-foreground">
-                Lat: {formData.latitude.toFixed(6)}, Lng: {formData.longitude.toFixed(6)}
+              <p className="text-xs text-success flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                Localização encontrada
               </p>
             )}
           </div>
