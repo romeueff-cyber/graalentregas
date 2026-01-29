@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { LoadScript } from '@react-google-maps/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import {
   Dialog,
   DialogContent,
@@ -37,8 +39,10 @@ export function HygieneClientDialog({
 }: HygieneClientDialogProps) {
   const { user } = useAuth();
   const { equipments } = useEquipments();
+  const { apiKey } = useGoogleMapsKey();
   const [isLoading, setIsLoading] = useState(false);
   const [isGeolocating, setIsGeolocating] = useState(false);
+  const [mapsReady, setMapsReady] = useState(!!window.google?.maps);
 
   const [formData, setFormData] = useState({
     nome_cliente: '',
@@ -115,7 +119,7 @@ export function HygieneClientDialog({
   };
 
   const handleSearchAddress = async () => {
-    if (!formData.endereco || !window.google?.maps) {
+    if (!formData.endereco || !mapsReady) {
       return;
     }
     
@@ -189,8 +193,7 @@ export function HygieneClientDialog({
       setIsLoading(false);
     }
   };
-
-  return (
+  const dialogContent = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -317,5 +320,21 @@ export function HygieneClientDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+
+  // If maps is already loaded globally, just render the dialog
+  if (mapsReady) {
+    return dialogContent;
+  }
+
+  // Otherwise wrap with LoadScript to load Google Maps API
+  return (
+    <LoadScript 
+      googleMapsApiKey={apiKey} 
+      onLoad={() => setMapsReady(true)}
+      loadingElement={dialogContent}
+    >
+      {dialogContent}
+    </LoadScript>
   );
 }
