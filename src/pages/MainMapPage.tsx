@@ -62,7 +62,7 @@ export default function MainMapPage() {
   const [selectedDailyOrder, setSelectedDailyOrder] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   // All useMemo hooks MUST be before any conditional returns
   // Count by status (separating "Cliente irá avisar" from regular delivered)
@@ -112,36 +112,49 @@ export default function MainMapPage() {
     };
   }, [equipments]);
 
-  // Filtered equipments based on active filter
+  // Filtered equipments based on active filters (multi-select)
   const filteredEquipments = useMemo(() => {
-    // When dailyOrders or hygiene filter is active, hide all equipments
-    if (activeFilter === 'dailyOrders' || activeFilter === 'hygiene') return [];
-    if (!activeFilter) return equipments;
+    // If no filters active, show all equipments
+    if (activeFilters.size === 0) return equipments;
     
-    switch (activeFilter) {
-      case 'delivered':
-        return regularEquipments.filter((e) => e.status === 'ENTREGUE');
-      case 'ready':
-        return regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA');
-      case 'collected':
-        return regularEquipments.filter((e) => e.status === 'RECOLHIDO');
-      case 'clienteAvisara':
-        return clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO');
-      default:
-        return equipments;
+    // Check if only category filters are active (dailyOrders or hygiene)
+    const hasEquipmentFilters = activeFilters.has('delivered') || 
+      activeFilters.has('ready') || 
+      activeFilters.has('collected') || 
+      activeFilters.has('clienteAvisara');
+    
+    // If no equipment filters, hide all equipments when dailyOrders or hygiene is selected
+    if (!hasEquipmentFilters) return [];
+    
+    // Filter by selected equipment statuses
+    const results: EquipmentWithCreator[] = [];
+    
+    if (activeFilters.has('delivered')) {
+      results.push(...regularEquipments.filter((e) => e.status === 'ENTREGUE'));
     }
-  }, [activeFilter, equipments, regularEquipments, clienteAvisaraEquipments]);
+    if (activeFilters.has('ready')) {
+      results.push(...regularEquipments.filter((e) => e.status === 'LIBERADO_PARA_RECOLHA'));
+    }
+    if (activeFilters.has('collected')) {
+      results.push(...regularEquipments.filter((e) => e.status === 'RECOLHIDO'));
+    }
+    if (activeFilters.has('clienteAvisara')) {
+      results.push(...clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO'));
+    }
+    
+    return results;
+  }, [activeFilters, equipments, regularEquipments, clienteAvisaraEquipments]);
 
   // Get set of delivered order numbers
   const deliveredOrderNumbers = useMemo(() => {
     return new Set(equipments.map(e => e.pedido_dia));
   }, [equipments]);
 
-  // Show daily order locations only when dailyOrders filter is active or no filter
+  // Show daily order locations when dailyOrders filter is active or no filter
   // EXCLUDE orders that are already delivered (they show as regular equipment markers now)
   const visibleDailyOrderLocations = useMemo(() => {
-    if (activeFilter === 'hygiene') return []; // Hide when hygiene filter is active
-    if (activeFilter === 'dailyOrders' || !activeFilter) {
+    // Show if dailyOrders is selected OR no filters are active
+    if (activeFilters.has('dailyOrders') || activeFilters.size === 0) {
       // Filter out already-delivered orders from map markers
       return dailyOrderLocations
         .filter(loc => !deliveredOrderNumbers.has(loc.orderNumber))
@@ -151,15 +164,15 @@ export default function MainMapPage() {
         }));
     }
     return [];
-  }, [activeFilter, dailyOrderLocations, deliveredOrderNumbers]);
+  }, [activeFilters, dailyOrderLocations, deliveredOrderNumbers]);
 
-  // Show hygiene locations only when hygiene filter is active
+  // Show hygiene locations when hygiene filter is active
   const visibleHygieneLocations = useMemo(() => {
-    if (activeFilter === 'hygiene') {
+    if (activeFilters.has('hygiene')) {
       return hygieneMapLocations;
     }
     return [];
-  }, [activeFilter, hygieneMapLocations]);
+  }, [activeFilters, hygieneMapLocations]);
 
   // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
@@ -207,7 +220,15 @@ export default function MainMapPage() {
   };
 
   const toggleFilter = (filter: string) => {
-    setActiveFilter(activeFilter === filter ? null : filter);
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
   };
 
   return (
@@ -350,7 +371,7 @@ export default function MainMapPage() {
             <button
               onClick={() => toggleFilter('dailyOrders')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeFilter === 'dailyOrders'
+                activeFilters.has('dailyOrders')
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
@@ -362,7 +383,7 @@ export default function MainMapPage() {
             <button
               onClick={() => toggleFilter('hygiene')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeFilter === 'hygiene'
+                activeFilters.has('hygiene')
                   ? 'bg-status-ready text-white shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
@@ -377,48 +398,48 @@ export default function MainMapPage() {
             <button
               onClick={() => toggleFilter('delivered')}
               className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilter === 'delivered'
+                activeFilters.has('delivered')
                   ? 'bg-destructive text-destructive-foreground shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilters.has('delivered') ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
               <span>{statusCounts.delivered}</span>
             </button>
 
             <button
               onClick={() => toggleFilter('ready')}
               className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilter === 'ready'
+                activeFilters.has('ready')
                   ? 'bg-status-ready text-white shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilters.has('ready') ? 'bg-white' : 'bg-status-ready'}`} />
               <span>{statusCounts.ready}</span>
             </button>
 
             <button
               onClick={() => toggleFilter('collected')}
               className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilter === 'collected'
+                activeFilters.has('collected')
                   ? 'bg-status-collected text-white shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilters.has('collected') ? 'bg-white' : 'bg-status-collected'}`} />
               <span>{statusCounts.collected}</span>
             </button>
 
             <button
               onClick={() => toggleFilter('clienteAvisara')}
               className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilter === 'clienteAvisara'
+                activeFilters.has('clienteAvisara')
                   ? 'bg-status-waiting text-white shadow-sm'
                   : 'bg-secondary/60 text-foreground hover:bg-secondary'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilters.has('clienteAvisara') ? 'bg-white' : 'bg-status-waiting'}`} />
               <span>{statusCounts.clienteAvisara}</span>
             </button>
           </div>
