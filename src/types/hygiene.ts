@@ -62,6 +62,17 @@ export interface HygieneMapLocation {
   urgencyLevel: 'green' | 'yellow' | 'orange' | 'red';
 }
 
+// Calculate days until next cleaning
+export function getDaysUntilNextCleaning(proximaLimpeza: string | null): number | null {
+  if (!proximaLimpeza) return null;
+  const nextDate = new Date(proximaLimpeza);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  nextDate.setHours(0, 0, 0, 0);
+  const diffTime = nextDate.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
 // Calculate urgency level based on days until cleaning
 export function getUrgencyLevel(daysUntil: number | null): 'green' | 'yellow' | 'orange' | 'red' {
   if (daysUntil === null) return 'green';
