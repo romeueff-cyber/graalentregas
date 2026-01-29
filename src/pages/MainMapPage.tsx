@@ -343,81 +343,85 @@ export default function MainMapPage() {
           </div>
         </div>
 
-        {/* Status Filters - Chips with scroll */}
-        <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => toggleFilter('dailyOrders')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'dailyOrders'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <PackageCheck className="w-3.5 h-3.5" />
-            <span>{dailyOrders?.length || 0} Pedidos</span>
-          </button>
+        {/* Status Filters - Two rows */}
+        <div className="flex flex-col gap-1.5 mt-3">
+          {/* Row 1: Pedidos & Higiene */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => toggleFilter('dailyOrders')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeFilter === 'dailyOrders'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>{dailyOrders?.length || 0} Pedidos</span>
+            </button>
 
-          <button
-            onClick={() => toggleFilter('hygiene')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'hygiene'
-                ? 'bg-status-ready text-white shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <Droplets className="w-3.5 h-3.5" />
-            <span>{hygieneSummary.totalClients} Higiene</span>
-          </button>
+            <button
+              onClick={() => toggleFilter('hygiene')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeFilter === 'hygiene'
+                  ? 'bg-status-ready text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Droplets className="w-3.5 h-3.5" />
+              <span>{hygieneSummary.totalClients} Higiene</span>
+            </button>
+          </div>
 
-          <div className="w-px h-6 bg-border self-center flex-shrink-0" />
+          {/* Row 2: Equipment Status */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => toggleFilter('delivered')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilter === 'delivered'
+                  ? 'bg-destructive text-destructive-foreground shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
+              <span>{statusCounts.delivered}</span>
+            </button>
 
-          <button
-            onClick={() => toggleFilter('delivered')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'delivered'
-                ? 'bg-destructive text-destructive-foreground shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'delivered' ? 'bg-destructive-foreground' : 'bg-destructive'}`} />
-            <span>{statusCounts.delivered} Entregue</span>
-          </button>
+            <button
+              onClick={() => toggleFilter('ready')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilter === 'ready'
+                  ? 'bg-status-ready text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
+              <span>{statusCounts.ready}</span>
+            </button>
 
-          <button
-            onClick={() => toggleFilter('ready')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'ready'
-                ? 'bg-status-ready text-white shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'ready' ? 'bg-white' : 'bg-status-ready'}`} />
-            <span>{statusCounts.ready} Liberado</span>
-          </button>
+            <button
+              onClick={() => toggleFilter('collected')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilter === 'collected'
+                  ? 'bg-status-collected text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
+              <span>{statusCounts.collected}</span>
+            </button>
 
-          <button
-            onClick={() => toggleFilter('collected')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'collected'
-                ? 'bg-status-collected text-white shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'collected' ? 'bg-white' : 'bg-status-collected'}`} />
-            <span>{statusCounts.collected} Recolhido</span>
-          </button>
-
-          <button
-            onClick={() => toggleFilter('clienteAvisara')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              activeFilter === 'clienteAvisara'
-                ? 'bg-status-waiting text-white shadow-sm'
-                : 'bg-secondary/60 text-foreground hover:bg-secondary'
-            }`}
-          >
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
-            <span>{statusCounts.clienteAvisara} Aguardando</span>
-          </button>
+            <button
+              onClick={() => toggleFilter('clienteAvisara')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilter === 'clienteAvisara'
+                  ? 'bg-status-waiting text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeFilter === 'clienteAvisara' ? 'bg-white' : 'bg-status-waiting'}`} />
+              <span>{statusCounts.clienteAvisara}</span>
+            </button>
+          </div>
         </div>
 
         {/* Day Summary Card */}
