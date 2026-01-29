@@ -122,14 +122,34 @@ export function HygieneClientDialog({
     setIsGeolocating(true);
     try {
       const geocoder = new window.google.maps.Geocoder();
+      
+      // Try with Brazil region bias for better results
+      const searchQuery = formData.endereco.includes('Brasil') || formData.endereco.includes('Brazil')
+        ? formData.endereco
+        : `${formData.endereco}, Brasil`;
+      
       const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
         geocoder.geocode(
-          { address: formData.endereco },
+          { 
+            address: searchQuery,
+            region: 'br',
+            componentRestrictions: { country: 'BR' }
+          },
           (results, status) => {
             if (status === 'OK' && results?.[0]) {
               resolve(results[0]);
             } else {
-              resolve(null);
+              // Fallback: try without country restriction for CEP/postal codes
+              geocoder.geocode(
+                { address: searchQuery, region: 'br' },
+                (fallbackResults, fallbackStatus) => {
+                  if (fallbackStatus === 'OK' && fallbackResults?.[0]) {
+                    resolve(fallbackResults[0]);
+                  } else {
+                    resolve(null);
+                  }
+                }
+              );
             }
           }
         );
@@ -142,6 +162,8 @@ export function HygieneClientDialog({
           longitude: result.geometry.location.lng(),
           endereco: result.formatted_address,
         }));
+      } else {
+        console.warn('Endereço não encontrado:', formData.endereco);
       }
     } catch (error) {
       console.error('Geocoding error:', error);
