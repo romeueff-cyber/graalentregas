@@ -185,15 +185,19 @@ async function createBoleto(
   // Get access token first
   const accessToken = await getAccessToken(isProduction);
 
+  // Sanitize document type (remove extra spaces from ERP data)
+  const cleanDocument = request.customer.document.replace(/\D/g, '');
+  const cleanDocumentType = request.customer.documentType?.trim().toUpperCase() || 
+    (cleanDocument.length <= 11 ? 'CPF' : 'CNPJ');
+
   // Build the request body according to Cora API spec
   const body: Record<string, unknown> = {
     code: request.orderNumber,
     customer: {
       name: request.customer.name.substring(0, 60),
       document: {
-        identity: request.customer.document.replace(/\D/g, ''),
-        type: request.customer.documentType || 
-          (request.customer.document.replace(/\D/g, '').length <= 11 ? 'CPF' : 'CNPJ'),
+        identity: cleanDocument,
+        type: cleanDocumentType,
       },
     },
     services: request.services.map(service => ({
