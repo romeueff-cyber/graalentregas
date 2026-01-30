@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,9 +9,18 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Copy, ExternalLink, QrCode } from 'lucide-react';
+import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
+import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Order {
   order_number: string;
@@ -41,19 +50,89 @@ interface BoletoDialogProps {
 
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, isLoading } = useBoleto();
+  const { 
+    fetchBoletoData, 
+    calculateDueDates, 
+    formatDocument: formatDocumentFromERP,
+    data: erpData,
+    isLoading: isLoadingERP,
+    error: erpError,
+    reset: resetERP
+  } = useERPBoletoData();
   
   const [step, setStep] = useState<'form' | 'result'>('form');
   const [boletoResult, setBoletoResult] = useState<BoletoResponse | null>(null);
+  const [hasLoadedERP, setHasLoadedERP] = useState(false);
   
   // Form state
   const [document, setDocument] = useState('');
   const [email, setEmail] = useState('');
-  const [dueDate, setDueDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7); // Default: 7 days from now
-    return date.toISOString().split('T')[0];
-  });
+  const [dueDate, setDueDate] = useState('');
+  const [selectedInstallment, setSelectedInstallment] = useState<string>('0');
   const [zipCode, setZipCode] = useState('');
+  const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
+
+  // Load ERP data when dialog opens
+  useEffect(() => {
+    if (open && order && !hasLoadedERP) {
+      setHasLoadedERP(true);
+      fetchBoletoData(order.order_number).then((data) => {
+        if (data) {
+          // Check if it's a boleto order
+          setIsBoleto(data.payment.method_type === 'BOL');
+          
+          // Auto-fill document
+          if (data.customer.document) {
+            setDocument(formatDocumentFromERP(data.customer.document, data.customer.document_type));
+          }
+          
+          // Auto-fill email
+          if (data.customer.email) {
+            setEmail(data.customer.email);
+          }
+          
+          // Calculate default due date from first installment
+          if (data.payment.due_days.length > 0) {
+            const dueDates = calculateDueDates(data.payment.terms_code);
+            if (dueDates[0]) {
+              setDueDate(dueDates[0].toISOString().split('T')[0]);
+            }
+          } else {
+            // Default to 7 days if no payment terms
+            const date = new Date();
+            date.setDate(date.getDate() + 7);
+            setDueDate(date.toISOString().split('T')[0]);
+          }
+        } else {
+          // Set default due date if ERP fetch failed
+          const date = new Date();
+          date.setDate(date.getDate() + 7);
+          setDueDate(date.toISOString().split('T')[0]);
+        }
+      });
+    }
+  }, [open, order, hasLoadedERP, fetchBoletoData, formatDocumentFromERP, calculateDueDates]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setHasLoadedERP(false);
+      setIsBoleto(null);
+      resetERP();
+    }
+  }, [open, resetERP]);
+
+  // Handle installment selection
+  const handleInstallmentChange = (value: string) => {
+    setSelectedInstallment(value);
+    if (erpData && erpData.payment.due_days.length > 0) {
+      const index = parseInt(value, 10);
+      const dueDates = calculateDueDates(erpData.payment.terms_code);
+      if (dueDates[index]) {
+        setDueDate(dueDates[index].toISOString().split('T')[0]);
+      }
+    }
+  };
 
   if (!order) return null;
 
@@ -69,6 +148,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       customer: {
         name: order.client_name,
         document: document,
+        documentType: erpData?.customer.document_type,
         email: email || undefined,
         address: order.address.street ? {
           street: order.address.street,
@@ -111,6 +191,8 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     setDocument('');
     setEmail('');
     setZipCode('');
+    setDueDate('');
+    setSelectedInstallment('0');
     onOpenChange(false);
   };
 
@@ -132,6 +214,13 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     }
   };
 
+  // Get installment options from ERP data
+  const installmentOptions = erpData?.payment.due_days.map((days, index) => ({
+    value: index.toString(),
+    label: `${index + 1}ª parcela - ${days} dias`,
+    days,
+  })) || [];
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
@@ -144,6 +233,42 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
 
         {step === 'form' && (
           <div className="space-y-4">
+            {/* Loading ERP Data */}
+            {isLoadingERP && (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Carregando dados do ERP...
+              </div>
+            )}
+
+            {/* ERP Error */}
+            {erpError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {erpError}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Not a boleto order warning */}
+            {isBoleto === false && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Este pedido não é boleto bancário no ERP ({erpData?.payment.method_description})
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* ERP Data loaded successfully */}
+            {erpData && isBoleto && (
+              <div className="flex items-center gap-2 text-sm" style={{ color: 'hsl(var(--success, 142 76% 36%))' }}>
+                <CheckCircle2 className="w-4 h-4" />
+                Dados do ERP carregados: {erpData.payment.terms_description}
+              </div>
+            )}
+
             {/* Order Summary */}
             <div className="bg-muted/50 p-3 rounded-lg">
               <p className="text-sm font-medium">Pedido #{order.order_number}</p>
@@ -163,6 +288,11 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 onChange={(e) => setDocument(formatDocument(e.target.value))}
                 maxLength={18}
               />
+              {erpData?.customer.document && (
+                <p className="text-xs text-muted-foreground">
+                  Preenchido automaticamente do ERP ({erpData.customer.document_type})
+                </p>
+              )}
             </div>
 
             {/* Email Input */}
@@ -175,10 +305,34 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Para enviar notificações de cobrança
-              </p>
+              {erpData?.customer.email && (
+                <p className="text-xs text-muted-foreground">
+                  Preenchido automaticamente do ERP
+                </p>
+              )}
             </div>
+
+            {/* Installment Selection (if multiple) */}
+            {installmentOptions.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="installment">Parcela</Label>
+                <Select value={selectedInstallment} onValueChange={handleInstallmentChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a parcela" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {installmentOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Condição: {erpData?.payment.terms_description}
+                </p>
+              </div>
+            )}
 
             {/* Due Date */}
             <div className="space-y-2">
@@ -190,6 +344,11 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 onChange={(e) => setDueDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
               />
+              {erpData && installmentOptions.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Calculado a partir da condição de pagamento
+                </p>
+              )}
             </div>
 
             {/* ZIP Code */}
@@ -210,7 +369,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
               </Button>
               <Button 
                 onClick={handleGenerate} 
-                disabled={isLoading || !document || !dueDate}
+                disabled={isLoading || isLoadingERP || !document || !dueDate}
               >
                 {isLoading ? (
                   <>
