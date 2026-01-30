@@ -272,14 +272,11 @@ export function useBoleto() {
     }
   };
 
-  // Open PDF in new window for printing
+  // Open PDF viewer in new window for printing
   const printBoleto = (url: string) => {
-    const printWindow = window.open(url, '_blank');
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    }
+    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}`;
+    window.open(viewerUrl, '_blank');
+    toast.info('Use Ctrl+P (ou Cmd+P no Mac) para imprimir');
   };
 
   return {
