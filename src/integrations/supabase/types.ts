@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      boletos: {
+        Row: {
+          barcode: string | null
+          cora_invoice_id: string
+          created_at: string
+          created_by_user_id: string | null
+          customer_document: string
+          customer_email: string | null
+          customer_name: string
+          digitable_line: string | null
+          due_date: string
+          id: string
+          order_number: string
+          pdf_url: string | null
+          pix_emv: string | null
+          pix_qr_code_url: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          cora_invoice_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          customer_document: string
+          customer_email?: string | null
+          customer_name: string
+          digitable_line?: string | null
+          due_date: string
+          id?: string
+          order_number: string
+          pdf_url?: string | null
+          pix_emv?: string | null
+          pix_qr_code_url?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          cora_invoice_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          customer_document?: string
+          customer_email?: string | null
+          customer_name?: string
+          digitable_line?: string | null
+          due_date?: string
+          id?: string
+          order_number?: string
+          pdf_url?: string | null
+          pix_emv?: string | null
+          pix_qr_code_url?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       equipments: {
         Row: {
           cliente_ira_avisar: boolean
