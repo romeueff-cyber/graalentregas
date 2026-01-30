@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.search-erp-order]
 verify_jwt = false
+
+[functions.list-erp-orders]
+verify_jwt = false
+
+[functions.update-erp-order-status]
+verify_jwt = false
+
+[functions.gerar-boleto]
+verify_jwt = false

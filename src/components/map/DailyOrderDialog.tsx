@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -6,8 +7,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Wine, Cylinder, GlassWater, MapPin, Phone, Plus, Navigation } from 'lucide-react';
+import { Wine, Cylinder, GlassWater, MapPin, Phone, Plus, Navigation, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BoletoDialog } from './BoletoDialog';
 
 interface OrderItem {
   product: string;
@@ -56,6 +58,8 @@ export function DailyOrderDialog({
   onRegisterDelivery,
   position,
 }: DailyOrderDialogProps) {
+  const [boletoDialogOpen, setBoletoDialogOpen] = useState(false);
+
   if (!order) return null;
 
   const hasGrowler = order.items.some(item => 
@@ -173,27 +177,46 @@ export function DailyOrderDialog({
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            {position && (
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex gap-2">
+              {position && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleNavigate}
+                >
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Navegar
+                </Button>
+              )}
               <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleNavigate}
+                className="flex-1 bg-gradient-primary"
+                onClick={handleRegister}
               >
-                <Navigation className="w-4 h-4 mr-2" />
-                Navegar
+                <Plus className="w-4 h-4 mr-2" />
+                Registrar Entrega
               </Button>
-            )}
+            </div>
+            
+            {/* Boleto Button */}
             <Button
-              className="flex-1 bg-gradient-primary"
-              onClick={handleRegister}
+              variant="outline"
+              className="w-full"
+              onClick={() => setBoletoDialogOpen(true)}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Registrar Entrega
+              <FileText className="w-4 h-4 mr-2" />
+              Gerar Boleto
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* Boleto Dialog */}
+      <BoletoDialog
+        order={order}
+        open={boletoDialogOpen}
+        onOpenChange={setBoletoDialogOpen}
+      />
     </Dialog>
   );
 }
