@@ -155,3 +155,37 @@ Após as correções:
 - [ ] Lembretes automáticos de higienização por WhatsApp/SMS
 - [ ] Agendamento automático de próximas visitas
 - [ ] Alertas para a equipe quando equipamento está muito tempo no cliente
+
+### 🔍 Busca e Filtros Avançados
+- [ ] Busca global unificada (clientes, equipamentos, pedidos)
+- [ ] Filtros salvos/favoritos para consultas frequentes
+- [ ] Histórico de buscas recentes
+
+### 📸 Gestão de Mídia
+- [ ] Galeria de fotos por cliente/equipamento
+- [ ] Comparativo visual antes/depois da higienização
+- [ ] Marca d'água automática nas fotos (data/hora/localização)
+
+### 📅 Agenda e Calendário
+- [ ] Visualização em calendário das entregas e higienizações
+- [ ] Agendamento drag-and-drop
+- [ ] Sincronização com Google Calendar
+
+### 🔔 Central de Notificações
+- [ ] Painel de notificações in-app com histórico
+- [ ] Configurações personalizadas por usuário
+- [ ] Resumo diário automático por email
+
+### 📱 QR Code Avançado
+- [ ] QR Code único por equipamento para rastreamento
+- [ ] Cliente escaneia para ver status em tempo real
+- [ ] Check-in/check-out automático por QR
+
+### 💬 Feedback do Cliente
+- [ ] Avaliação de satisfação pós-serviço
+- [ ] Comentários e sugestões dos clientes
+- [ ] NPS (Net Promoter Score) automático
+
+### 🌙 Experiência Visual
+- [ ] Modo escuro com alternância automática
+- [ ] Temas personalizáveis por empresa
