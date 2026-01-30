@@ -189,3 +189,11 @@ Após as correções:
 ### 🌙 Experiência Visual
 - [ ] Modo escuro com alternância automática
 - [ ] Temas personalizáveis por empresa
+
+### 🤖 Inteligência Artificial (Lovable AI)
+- [ ] Chatbot assistente para entregadores (dúvidas sobre rotas, procedimentos, entregas pendentes)
+- [ ] Análise inteligente de dados via linguagem natural ("Quais clientes têm higienização atrasada?")
+- [ ] Previsão de demanda baseada em histórico de entregas
+- [ ] Sugestão automática de agendamentos otimizados
+- [ ] Geração automática de relatórios e resumos em texto
+- [ ] Assistente de preenchimento de formulários por voz/texto
