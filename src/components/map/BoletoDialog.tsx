@@ -191,7 +191,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           email: email,
           rules: ['BEFORE_DUE_DATE', 'DUE_DATE', 'OVERDUE'],
         } : undefined,
-        production: false,
+        production: true,
       };
 
       const result = await createBoleto(request);
