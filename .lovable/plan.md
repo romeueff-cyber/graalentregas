@@ -1,5 +1,4 @@
 
-
 ## Correção do Login Offline - "Nenhuma sessão salva encontrada"
 
 ### Diagnóstico do Problema
@@ -128,3 +127,31 @@ Após as correções:
 - O contexto de autenticação será atualizado após login offline bem-sucedido
 - Nenhum "loop" de limpeza de cache ocorrerá
 
+---
+
+## 📋 Melhorias Futuras Planejadas
+
+### 📊 Relatórios e Dashboards
+- [ ] Dashboard com métricas: entregas por período, taxa de recolha, equipamentos ativos
+- [ ] Relatório de higienizações vencidas/próximas por cliente
+- [ ] Exportação de dados para Excel/PDF
+
+### 📱 Experiência Mobile
+- [ ] Notificações push para alertar sobre higienizações vencendo
+- [ ] Modo offline mais robusto para trabalho em campo
+- [ ] Captura de assinatura do cliente na entrega/recolha
+
+### 🗺️ Funcionalidades de Mapa
+- [ ] Otimização de rotas para entregas do dia
+- [ ] Clustering de marcadores quando há muitos pontos próximos
+- [ ] Filtros avançados no mapa (por período, status, urgência)
+
+### 👥 Gestão de Clientes
+- [ ] Histórico completo de interações por cliente
+- [ ] Sistema de notas/observações por visita
+- [ ] Categorização de clientes (VIP, recorrente, etc.)
+
+### 🔔 Automação
+- [ ] Lembretes automáticos de higienização por WhatsApp/SMS
+- [ ] Agendamento automático de próximas visitas
+- [ ] Alertas para a equipe quando equipamento está muito tempo no cliente
