@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
-import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
+import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle, RefreshCw, Printer, Eye } from 'lucide-react';
+import { useBoleto, type CreateBoletoRequest, type BoletoResponse, type ExistingBoleto } from '@/hooks/useBoleto';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -56,7 +56,7 @@ interface InstallmentStatus {
 }
 
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
-  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, isLoading } = useBoleto();
+  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, deleteExistingBoletos, isLoading } = useBoleto();
   const { 
     fetchBoletoData, 
     calculateDueDates, 
@@ -67,11 +67,13 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     reset: resetERP
   } = useERPBoletoData();
   
-  const [step, setStep] = useState<'form' | 'result'>('form');
+  const [step, setStep] = useState<'checking' | 'existing' | 'form' | 'result' | 'preview'>('checking');
   const [generatedBoletos, setGeneratedBoletos] = useState<GeneratedBoleto[]>([]);
+  const [existingBoletos, setExistingBoletos] = useState<ExistingBoleto[]>([]);
   const [hasLoadedERP, setHasLoadedERP] = useState(false);
   const [installmentStatuses, setInstallmentStatuses] = useState<InstallmentStatus[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   
   // Form state
   const [document, setDocument] = useState('');
@@ -79,10 +81,23 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [zipCode, setZipCode] = useState('');
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
 
-  // Load ERP data when dialog opens
+  // Check for existing boletos and load ERP data when dialog opens
   useEffect(() => {
     if (open && order && !hasLoadedERP) {
       setHasLoadedERP(true);
+      setStep('checking');
+      
+      // Check for existing boletos first
+      checkExistingBoletos(order.order_number).then((existing) => {
+        if (existing.length > 0) {
+          setExistingBoletos(existing);
+          setStep('existing');
+        } else {
+          setStep('form');
+        }
+      });
+      
+      // Load ERP data in parallel
       fetchBoletoData(order.order_number).then((data) => {
         if (data) {
           setIsBoleto(data.payment.method_type === 'BOL');
@@ -102,7 +117,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         }
       });
     }
-  }, [open, order, hasLoadedERP, fetchBoletoData, formatDocumentFromERP]);
+  }, [open, order, hasLoadedERP, fetchBoletoData, formatDocumentFromERP, checkExistingBoletos]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -110,12 +125,73 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setHasLoadedERP(false);
       setIsBoleto(null);
       setGeneratedBoletos([]);
-      setStep('form');
+      setExistingBoletos([]);
+      setStep('checking');
       setInstallmentStatuses([]);
       setIsGenerating(false);
+      setPreviewUrl(null);
       resetERP();
     }
   }, [open, resetERP]);
+
+  const handleRegenerate = async () => {
+    if (!order) return;
+    
+    const confirmed = window.confirm(
+      `Já existem ${existingBoletos.length} boleto(s) gerado(s) para este pedido.\n\nDeseja gerar novos boletos? Os registros anteriores serão removidos do sistema (os boletos já emitidos na Cora continuarão válidos).`
+    );
+    
+    if (confirmed) {
+      await deleteExistingBoletos(order.order_number);
+      setExistingBoletos([]);
+      setStep('form');
+      toast.success('Boletos anteriores removidos. Pronto para gerar novos.');
+    }
+  };
+
+  const handleViewExisting = () => {
+    // Convert existing boletos to generatedBoletos format for display
+    const converted: GeneratedBoleto[] = existingBoletos.map((b, index) => ({
+      installment: index + 1,
+      days: 0,
+      dueDate: b.due_date,
+      result: {
+        id: b.cora_invoice_id,
+        status: b.status,
+        created_at: b.created_at,
+        total_amount: b.total_amount,
+        total_paid: 0,
+        code: '',
+        customer: {
+          name: b.customer_name,
+          document: { identity: '', type: '' },
+        },
+        payment_options: {
+          bank_slip: {
+            barcode: '',
+            digitable: b.digitable_line || '',
+            registered: true,
+            url: b.pdf_url || '',
+            our_number: '',
+          },
+        },
+        pix: b.pix_emv ? { emv: b.pix_emv, qr_code_url: '' } : undefined,
+      },
+    }));
+    setGeneratedBoletos(converted);
+    setStep('result');
+  };
+
+  const handleOpenPreview = (url: string) => {
+    setPreviewUrl(url);
+    setStep('preview');
+  };
+
+  const handlePrint = () => {
+    if (previewUrl) {
+      printBoleto(previewUrl);
+    }
+  };
 
   if (!order) return null;
 
@@ -279,13 +355,65 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[90vh]">
+      <DialogContent className={step === 'preview' ? 'max-w-4xl max-h-[95vh]' : 'max-w-md max-h-[90vh]'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            {step === 'form' ? 'Gerar Boleto(s)' : `${generatedBoletos.length} Boleto(s) Gerado(s)`}
+            {step === 'checking' && 'Verificando...'}
+            {step === 'existing' && 'Boleto(s) já Emitido(s)'}
+            {step === 'form' && 'Gerar Boleto(s)'}
+            {step === 'result' && `${generatedBoletos.length} Boleto(s)`}
+            {step === 'preview' && 'Visualizar Boleto'}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Checking Step */}
+        {step === 'checking' && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
+
+        {/* Existing Boletos Warning */}
+        {step === 'existing' && (
+          <div className="space-y-4">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Já existe(m) <strong>{existingBoletos.length}</strong> boleto(s) gerado(s) para o pedido #{order.order_number}.
+              </AlertDescription>
+            </Alert>
+
+            <div className="border rounded-lg divide-y">
+              {existingBoletos.map((boleto, index) => (
+                <div key={boleto.id} className="flex items-center justify-between p-3">
+                  <div>
+                    <p className="font-medium">
+                      {existingBoletos.length > 1 ? `${index + 1}ª Parcela` : 'Boleto'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Venc: {formatDate(boleto.due_date)} • {formatCurrency(boleto.total_amount)}
+                    </p>
+                  </div>
+                  <Badge variant={boleto.status === 'PAID' ? 'default' : 'secondary'}>
+                    {boleto.status === 'PAID' ? 'Pago' : boleto.status === 'REGISTERED' ? 'Registrado' : 'Pendente'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleViewExisting}>
+                <Eye className="w-4 h-4 mr-2" />
+                Ver Boletos
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={handleRegenerate}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reemitir
+              </Button>
+            </div>
+          </div>
+        )}
 
         {step === 'form' && (
           <ScrollArea className="max-h-[60vh] pr-4">
@@ -428,24 +556,26 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                   </div>
 
                   {/* Digitable Line */}
-                  <div className="bg-muted/50 p-2 rounded">
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs flex-1 break-all">
-                        {boleto.result.payment_options.bank_slip.digitable}
-                      </code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(boleto.result.payment_options.bank_slip.digitable, 'barcode')}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
+                  {boleto.result.payment_options.bank_slip.digitable && (
+                    <div className="bg-muted/50 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs flex-1 break-all">
+                          {boleto.result.payment_options.bank_slip.digitable}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(boleto.result.payment_options.bank_slip.digitable, 'barcode')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    {boleto.result.pix && (
+                    {boleto.result.pix && boleto.result.pix.emv && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -456,15 +586,28 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                         PIX
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => openBoletoUrl(boleto.result.payment_options.bank_slip.url)}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-1" />
-                      PDF
-                    </Button>
+                    {boleto.result.payment_options.bank_slip.url && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleOpenPreview(boleto.result.payment_options.bank_slip.url)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Ver
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => openBoletoUrl(boleto.result.payment_options.bank_slip.url)}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          PDF
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -472,7 +615,30 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           </ScrollArea>
         )}
 
+        {/* PDF Preview Step */}
+        {step === 'preview' && previewUrl && (
+          <div className="space-y-4">
+            <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '70vh' }}>
+              <iframe
+                src={previewUrl}
+                className="w-full h-full"
+                title="Boleto PDF"
+              />
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
+          {step === 'checking' && (
+            <Button variant="outline" onClick={handleClose}>
+              Cancelar
+            </Button>
+          )}
+          {step === 'existing' && (
+            <Button variant="outline" onClick={handleClose}>
+              Fechar
+            </Button>
+          )}
           {step === 'form' && (
             <>
               <Button variant="outline" onClick={handleClose} disabled={isGenerating}>
@@ -500,6 +666,17 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
             <Button className="w-full" onClick={handleClose}>
               Fechar
             </Button>
+          )}
+          {step === 'preview' && (
+            <div className="flex gap-2 w-full">
+              <Button variant="outline" className="flex-1" onClick={() => setStep('result')}>
+                Voltar
+              </Button>
+              <Button className="flex-1" onClick={handlePrint}>
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

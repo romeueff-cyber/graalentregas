@@ -3,6 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
+export interface ExistingBoleto {
+  id: string;
+  order_number: string;
+  cora_invoice_id: string;
+  customer_name: string;
+  total_amount: number;
+  due_date: string;
+  status: string;
+  digitable_line: string | null;
+  pdf_url: string | null;
+  pix_emv: string | null;
+  created_at: string;
+}
+
 export interface BoletoCustomer {
   name: string;
   document: string;
@@ -84,6 +98,49 @@ export function useBoleto() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+
+  // Check if boletos already exist for an order (checks base order number)
+  const checkExistingBoletos = async (orderNumber: string): Promise<ExistingBoleto[]> => {
+    try {
+      // Search for boletos matching the order number (including installments like 7163-1, 7163-2)
+      const { data, error: queryError } = await supabase
+        .from('boletos')
+        .select('*')
+        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`)
+        .order('order_number', { ascending: true });
+
+      if (queryError) {
+        console.error('[Boleto] Error checking existing:', queryError);
+        return [];
+      }
+
+      return (data || []) as ExistingBoleto[];
+    } catch (err) {
+      console.error('[Boleto] Error checking existing boletos:', err);
+      return [];
+    }
+  };
+
+  // Delete existing boletos for regeneration
+  const deleteExistingBoletos = async (orderNumber: string): Promise<boolean> => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('boletos')
+        .delete()
+        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`);
+
+      if (deleteError) {
+        console.error('[Boleto] Error deleting existing:', deleteError);
+        toast.error('Erro ao remover boletos existentes');
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[Boleto] Error deleting boletos:', err);
+      return false;
+    }
+  };
 
   const saveBoletoToDatabase = async (
     orderNumber: string,
@@ -215,12 +272,25 @@ export function useBoleto() {
     }
   };
 
+  // Open PDF in new window for printing
+  const printBoleto = (url: string) => {
+    const printWindow = window.open(url, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   return {
     createBoleto,
     getBoleto,
+    checkExistingBoletos,
+    deleteExistingBoletos,
     formatCurrency,
     openBoletoUrl,
     copyToClipboard,
+    printBoleto,
     isLoading,
     error,
   };
