@@ -620,7 +620,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           <div className="space-y-4">
             <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '70vh' }}>
               <iframe
-                src={previewUrl}
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
                 className="w-full h-full"
                 title="Boleto PDF"
               />
