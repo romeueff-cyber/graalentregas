@@ -62,21 +62,39 @@ interface CoraTokenResponse {
 // Cache for access token
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// Normalize PEM content (handle single-line or multi-line formats)
+// Normalize PEM content (handle various formats from secrets)
 function normalizePEM(content: string, type: 'CERTIFICATE' | 'RSA PRIVATE KEY'): string {
   const header = `-----BEGIN ${type}-----`;
   const footer = `-----END ${type}-----`;
   
-  // Remove existing headers/footers and whitespace
-  let base64 = content
-    .replace(new RegExp(`-----BEGIN ${type}-----`, 'g'), '')
-    .replace(new RegExp(`-----END ${type}-----`, 'g'), '')
-    .replace(/\s+/g, '');
+  // Log raw content length for debugging
+  console.log(`[Cora] Normalizing ${type}, raw length: ${content.length}`);
   
-  // Split into 64-character lines
+  // Handle escaped newlines (\\n) that might come from environment variables
+  let processed = content.replace(/\\n/g, '\n');
+  
+  // Remove existing headers/footers
+  processed = processed
+    .replace(new RegExp(`-----BEGIN ${type}-----`, 'gi'), '')
+    .replace(new RegExp(`-----END ${type}-----`, 'gi'), '');
+  
+  // Remove all whitespace and newlines to get pure base64
+  const base64 = processed.replace(/[\s\r\n]+/g, '');
+  
+  console.log(`[Cora] ${type} base64 length: ${base64.length}`);
+  
+  // Validate base64 content
+  if (base64.length === 0) {
+    throw new Error(`${type} está vazio ou inválido`);
+  }
+  
+  // Split into 64-character lines (PEM standard)
   const lines = base64.match(/.{1,64}/g) || [];
   
-  return `${header}\n${lines.join('\n')}\n${footer}`;
+  const result = `${header}\n${lines.join('\n')}\n${footer}`;
+  console.log(`[Cora] ${type} normalized, total lines: ${lines.length + 2}`);
+  
+  return result;
 }
 
 function getCredentials(): { clientId: string; certificate: string; privateKey: string } {
@@ -84,9 +102,17 @@ function getCredentials(): { clientId: string; certificate: string; privateKey: 
   const rawCertificate = Deno.env.get('CORA_CERTIFICATE');
   const rawPrivateKey = Deno.env.get('CORA_PRIVATE_KEY');
 
-  if (!clientId || !rawCertificate || !rawPrivateKey) {
-    throw new Error('Credenciais da Cora não configuradas');
+  if (!clientId) {
+    throw new Error('CORA_CLIENT_ID não configurado');
   }
+  if (!rawCertificate) {
+    throw new Error('CORA_CERTIFICATE não configurado');
+  }
+  if (!rawPrivateKey) {
+    throw new Error('CORA_PRIVATE_KEY não configurado');
+  }
+
+  console.log(`[Cora] Client ID: ${clientId.substring(0, 10)}...`);
 
   const certificate = normalizePEM(rawCertificate, 'CERTIFICATE');
   const privateKey = normalizePEM(rawPrivateKey, 'RSA PRIVATE KEY');
