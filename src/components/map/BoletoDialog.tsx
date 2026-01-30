@@ -9,12 +9,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, ListChecks } from 'lucide-react';
+import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 
@@ -51,6 +50,11 @@ interface GeneratedBoleto {
   result: BoletoResponse;
 }
 
+interface InstallmentStatus {
+  index: number;
+  status: 'pending' | 'generating' | 'success' | 'error';
+}
+
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, isLoading } = useBoleto();
   const { 
@@ -63,15 +67,15 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     reset: resetERP
   } = useERPBoletoData();
   
-  const [step, setStep] = useState<'form' | 'generating' | 'result'>('form');
+  const [step, setStep] = useState<'form' | 'result'>('form');
   const [generatedBoletos, setGeneratedBoletos] = useState<GeneratedBoleto[]>([]);
   const [hasLoadedERP, setHasLoadedERP] = useState(false);
-  const [generatingProgress, setGeneratingProgress] = useState({ current: 0, total: 0 });
+  const [installmentStatuses, setInstallmentStatuses] = useState<InstallmentStatus[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // Form state
   const [document, setDocument] = useState('');
   const [email, setEmail] = useState('');
-  const [selectedInstallments, setSelectedInstallments] = useState<number[]>([]);
   const [zipCode, setZipCode] = useState('');
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
 
@@ -81,23 +85,20 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setHasLoadedERP(true);
       fetchBoletoData(order.order_number).then((data) => {
         if (data) {
-          // Check if it's a boleto order
           setIsBoleto(data.payment.method_type === 'BOL');
           
-          // Auto-fill document
           if (data.customer.document) {
             setDocument(formatDocumentFromERP(data.customer.document, data.customer.document_type));
           }
           
-          // Auto-fill email
           if (data.customer.email) {
             setEmail(data.customer.email);
           }
           
-          // Select all installments by default
-          if (data.payment.due_days.length > 0) {
-            setSelectedInstallments(data.payment.due_days.map((_, i) => i));
-          }
+          // Initialize installment statuses
+          setInstallmentStatuses(
+            data.payment.due_days.map((_, i) => ({ index: i, status: 'pending' }))
+          );
         }
       });
     }
@@ -110,73 +111,56 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setIsBoleto(null);
       setGeneratedBoletos([]);
       setStep('form');
-      setSelectedInstallments([]);
-      setGeneratingProgress({ current: 0, total: 0 });
+      setInstallmentStatuses([]);
+      setIsGenerating(false);
       resetERP();
     }
   }, [open, resetERP]);
 
-  // Toggle installment selection
-  const toggleInstallment = (index: number) => {
-    setSelectedInstallments(prev => 
-      prev.includes(index) 
-        ? prev.filter(i => i !== index)
-        : [...prev, index].sort((a, b) => a - b)
-    );
-  };
-
-  // Select/deselect all
-  const toggleAllInstallments = () => {
-    if (erpData) {
-      if (selectedInstallments.length === erpData.payment.due_days.length) {
-        setSelectedInstallments([]);
-      } else {
-        setSelectedInstallments(erpData.payment.due_days.map((_, i) => i));
-      }
-    }
-  };
-
   if (!order) return null;
 
   const totalAmount = order.items.reduce((sum, item) => sum + item.total, 0);
-  const installmentAmount = erpData && erpData.payment.due_days.length > 0
-    ? totalAmount / erpData.payment.due_days.length
-    : totalAmount;
+  const numInstallments = erpData?.payment.due_days.length || 1;
+  const installmentAmount = totalAmount / numInstallments;
 
-  // Calculate due dates based on payment terms
   const getDueDatesFromTerms = () => {
     if (!erpData) return [];
     return calculateDueDates(erpData.payment.terms_code);
   };
 
   const handleGenerate = async () => {
-    if (!document || selectedInstallments.length === 0) {
-      toast.error('Selecione pelo menos uma parcela');
+    if (!document) {
+      toast.error('Informe o CPF/CNPJ');
       return;
     }
 
     const dueDates = getDueDatesFromTerms();
-    const installmentsToGenerate = selectedInstallments.map(index => ({
+    const installmentsToGenerate = erpData?.payment.due_days.map((days, index) => ({
       index,
-      days: erpData?.payment.due_days[index] || 0,
+      days,
       dueDate: dueDates[index]?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-    }));
+    })) || [];
 
-    setStep('generating');
-    setGeneratingProgress({ current: 0, total: installmentsToGenerate.length });
-    
+    if (installmentsToGenerate.length === 0) {
+      toast.error('Nenhuma parcela para gerar');
+      return;
+    }
+
+    setIsGenerating(true);
     const results: GeneratedBoleto[] = [];
 
     for (let i = 0; i < installmentsToGenerate.length; i++) {
       const inst = installmentsToGenerate[i];
-      setGeneratingProgress({ current: i + 1, total: installmentsToGenerate.length });
+      
+      // Update status to generating
+      setInstallmentStatuses(prev => 
+        prev.map(s => s.index === inst.index ? { ...s, status: 'generating' } : s)
+      );
 
-      // Calculate amount per installment
-      const numInstallments = erpData?.payment.due_days.length || 1;
-      const installmentTotal = Math.round(totalAmount / numInstallments * 100); // in cents
+      const installmentTotal = Math.round(installmentAmount * 100);
 
       const request: CreateBoletoRequest = {
-        orderNumber: `${order.order_number}-${inst.index + 1}`, // Add installment suffix
+        orderNumber: numInstallments > 1 ? `${order.order_number}-${inst.index + 1}` : order.order_number,
         customer: {
           name: order.client_name,
           document: document,
@@ -193,7 +177,9 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           } : undefined,
         },
         services: [{
-          name: `Pedido ${order.order_number} - Parcela ${inst.index + 1}/${numInstallments}`,
+          name: numInstallments > 1 
+            ? `Pedido ${order.order_number} - Parcela ${inst.index + 1}/${numInstallments}`
+            : `Pedido ${order.order_number}`,
           description: order.items.map(item => `${item.quantity}x ${item.product}`).join(', ').substring(0, 100),
           amount: installmentTotal,
         }],
@@ -209,6 +195,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       };
 
       const result = await createBoleto(request);
+      
       if (result) {
         results.push({
           installment: inst.index + 1,
@@ -216,18 +203,24 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           dueDate: inst.dueDate,
           result,
         });
+        setInstallmentStatuses(prev => 
+          prev.map(s => s.index === inst.index ? { ...s, status: 'success' } : s)
+        );
       } else {
-        toast.error(`Erro ao gerar parcela ${inst.index + 1}`);
+        setInstallmentStatuses(prev => 
+          prev.map(s => s.index === inst.index ? { ...s, status: 'error' } : s)
+        );
       }
     }
+
+    setIsGenerating(false);
 
     if (results.length > 0) {
       setGeneratedBoletos(results);
       setStep('result');
-      toast.success(`${results.length} boleto(s) gerado(s) com sucesso!`);
+      toast.success(`${results.length} boleto(s) gerado(s)!`);
     } else {
       toast.error('Nenhum boleto foi gerado');
-      setStep('form');
     }
   };
 
@@ -237,7 +230,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     setDocument('');
     setEmail('');
     setZipCode('');
-    setSelectedInstallments([]);
+    setInstallmentStatuses([]);
     onOpenChange(false);
   };
 
@@ -262,17 +255,27 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     return date.toLocaleDateString('pt-BR');
   };
 
-  // Get installment options from ERP data
-  const installmentOptions = erpData?.payment.due_days.map((days, index) => {
-    const dueDates = getDueDatesFromTerms();
-    return {
-      index,
-      label: `${index + 1}ª parcela`,
-      days,
-      dueDate: dueDates[index]?.toISOString().split('T')[0] || '',
-      amount: installmentAmount,
-    };
-  }) || [];
+  const dueDates = getDueDatesFromTerms();
+  const installmentOptions = erpData?.payment.due_days.map((days, index) => ({
+    index,
+    days,
+    dueDate: dueDates[index]?.toISOString().split('T')[0] || '',
+    amount: installmentAmount,
+  })) || [];
+
+  const getStatusIcon = (index: number) => {
+    const status = installmentStatuses.find(s => s.index === index)?.status;
+    switch (status) {
+      case 'generating':
+        return <Loader2 className="w-5 h-5 animate-spin text-primary" />;
+      case 'success':
+        return <CheckCircle2 className="w-5 h-5" style={{ color: 'hsl(var(--success, 142 76% 36%))' }} />;
+      case 'error':
+        return <AlertCircle className="w-5 h-5 text-destructive" />;
+      default:
+        return <Circle className="w-5 h-5 text-muted-foreground/40" />;
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -280,9 +283,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            {step === 'form' && 'Gerar Boleto(s)'}
-            {step === 'generating' && 'Gerando Boletos...'}
-            {step === 'result' && `${generatedBoletos.length} Boleto(s) Gerado(s)`}
+            {step === 'form' ? 'Gerar Boleto(s)' : `${generatedBoletos.length} Boleto(s) Gerado(s)`}
           </DialogTitle>
         </DialogHeader>
 
@@ -301,9 +302,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
               {erpError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {erpError}
-                  </AlertDescription>
+                  <AlertDescription>{erpError}</AlertDescription>
                 </Alert>
               )}
 
@@ -312,17 +311,9 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Este pedido não é boleto bancário no ERP ({erpData?.payment.method_description})
+                    Este pedido não é boleto bancário ({erpData?.payment.method_description})
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {/* ERP Data loaded successfully */}
-              {erpData && isBoleto && (
-                <div className="flex items-center gap-2 text-sm" style={{ color: 'hsl(var(--success, 142 76% 36%))' }}>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Dados do ERP: {erpData.payment.terms_description}
-                </div>
               )}
 
               {/* Order Summary */}
@@ -332,11 +323,6 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 <p className="text-lg font-semibold mt-1">
                   Total: {formatCurrency(Math.round(totalAmount * 100))}
                 </p>
-                {installmentOptions.length > 1 && (
-                  <p className="text-sm text-muted-foreground">
-                    {installmentOptions.length}x de {formatCurrency(Math.round(installmentAmount * 100))}
-                  </p>
-                )}
               </div>
 
               {/* Document Input */}
@@ -348,10 +334,11 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                   value={document}
                   onChange={(e) => setDocument(formatDocumentInput(e.target.value))}
                   maxLength={18}
+                  disabled={isGenerating}
                 />
                 {erpData?.customer.document && (
                   <p className="text-xs text-muted-foreground">
-                    Preenchido automaticamente do ERP ({erpData.customer.document_type})
+                    Preenchido do ERP ({erpData.customer.document_type})
                   </p>
                 )}
               </div>
@@ -365,54 +352,9 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                   placeholder="cliente@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isGenerating}
                 />
               </div>
-
-              {/* Installment Selection */}
-              {installmentOptions.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Parcelas a gerar</Label>
-                    {installmentOptions.length > 1 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={toggleAllInstallments}
-                        className="h-auto py-1 px-2 text-xs"
-                      >
-                        <ListChecks className="w-3 h-3 mr-1" />
-                        {selectedInstallments.length === installmentOptions.length ? 'Desmarcar' : 'Selecionar'} todas
-                      </Button>
-                    )}
-                  </div>
-                  <div className="border rounded-lg divide-y">
-                    {installmentOptions.map((opt) => (
-                      <div 
-                        key={opt.index} 
-                        className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer"
-                        onClick={() => toggleInstallment(opt.index)}
-                      >
-                        <Checkbox 
-                          checked={selectedInstallments.includes(opt.index)}
-                          onCheckedChange={() => toggleInstallment(opt.index)}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{opt.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Venc: {formatDate(opt.dueDate)} ({opt.days} dias)
-                          </p>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {formatCurrency(Math.round(opt.amount * 100))}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedInstallments.length} de {installmentOptions.length} selecionada(s)
-                  </p>
-                </div>
-              )}
 
               {/* ZIP Code */}
               <div className="space-y-2">
@@ -423,22 +365,44 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').substring(0, 8))}
                   maxLength={9}
+                  disabled={isGenerating}
                 />
               </div>
+
+              {/* Installments List */}
+              {installmentOptions.length > 0 && (
+                <div className="space-y-2">
+                  <Label>
+                    {installmentOptions.length > 1 
+                      ? `Parcelas (${installmentOptions.length}x)`
+                      : 'Vencimento'
+                    }
+                  </Label>
+                  <div className="border rounded-lg divide-y">
+                    {installmentOptions.map((opt) => (
+                      <div key={opt.index} className="flex items-center gap-3 p-3">
+                        {getStatusIcon(opt.index)}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            {installmentOptions.length > 1 
+                              ? `${opt.index + 1}ª Parcela`
+                              : 'Boleto'
+                            }
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Vencimento: {formatDate(opt.dueDate)} • {opt.days} dias
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold">
+                          {formatCurrency(Math.round(opt.amount * 100))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </ScrollArea>
-        )}
-
-        {step === 'generating' && (
-          <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-lg font-medium">
-              Gerando boleto {generatingProgress.current} de {generatingProgress.total}...
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Aguarde enquanto processamos os boletos
-            </p>
-          </div>
         )}
 
         {step === 'result' && generatedBoletos.length > 0 && (
@@ -446,31 +410,25 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
             <div className="space-y-4">
               {generatedBoletos.map((boleto) => (
                 <div key={boleto.installment} className="border rounded-lg p-3 space-y-3">
-                  {/* Header */}
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {generatedBoletos.length > 1 ? `${boleto.installment}ª Parcela` : 'Boleto'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Venc: {formatDate(boleto.dueDate)} ({boleto.days} dias)
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5" style={{ color: 'hsl(var(--success, 142 76% 36%))' }} />
+                      <div>
+                        <p className="font-medium">
+                          {generatedBoletos.length > 1 ? `${boleto.installment}ª Parcela` : 'Boleto'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Venc: {formatDate(boleto.dueDate)}
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {boleto.result.status}
-                    </Badge>
+                    <span className="text-lg font-semibold">
+                      {formatCurrency(boleto.result.total_amount)}
+                    </span>
                   </div>
-
-                  {/* Amount */}
-                  <p className="text-lg font-semibold">
-                    {formatCurrency(boleto.result.total_amount)}
-                  </p>
 
                   {/* Digitable Line */}
                   <div className="bg-muted/50 p-2 rounded">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Linha Digitável
-                    </p>
                     <div className="flex items-center gap-2">
                       <code className="text-xs flex-1 break-all">
                         {boleto.result.payment_options.bank_slip.digitable}
@@ -478,41 +436,36 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => copyToClipboard(
-                          boleto.result.payment_options.bank_slip.digitable, 
-                          'barcode'
-                        )}
+                        onClick={() => copyToClipboard(boleto.result.payment_options.bank_slip.digitable, 'barcode')}
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
-                  {/* PIX */}
-                  {boleto.result.pix && (
-                    <div className="flex items-center gap-2">
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    {boleto.result.pix && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1"
                         onClick={() => copyToClipboard(boleto.result.pix!.emv, 'pix')}
                       >
-                        <QrCode className="w-4 h-4 mr-2" />
-                        Copiar PIX
+                        <QrCode className="w-4 h-4 mr-1" />
+                        PIX
                       </Button>
-                    </div>
-                  )}
-
-                  {/* PDF Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => openBoletoUrl(boleto.result.payment_options.bank_slip.url)}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Abrir PDF
-                  </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => openBoletoUrl(boleto.result.payment_options.bank_slip.url)}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      PDF
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -522,14 +475,14 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         <DialogFooter>
           {step === 'form' && (
             <>
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose} disabled={isGenerating}>
                 Cancelar
               </Button>
               <Button 
                 onClick={handleGenerate} 
-                disabled={isLoading || isLoadingERP || !document || selectedInstallments.length === 0}
+                disabled={isLoading || isLoadingERP || isGenerating || !document}
               >
-                {isLoading ? (
+                {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Gerando...
@@ -537,7 +490,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 ) : (
                   <>
                     <FileText className="w-4 h-4 mr-2" />
-                    Gerar {selectedInstallments.length > 1 ? `${selectedInstallments.length} Boletos` : 'Boleto'}
+                    Gerar {installmentOptions.length > 1 ? `${installmentOptions.length} Boletos` : 'Boleto'}
                   </>
                 )}
               </Button>
