@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface BoletoCustomer {
   name: string;
@@ -82,6 +83,43 @@ export interface BoletoResponse {
 export function useBoleto() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const saveBoletoToDatabase = async (
+    orderNumber: string,
+    customer: BoletoCustomer,
+    dueDate: string,
+    response: BoletoResponse
+  ) => {
+    try {
+      const { error: insertError } = await supabase
+        .from('boletos')
+        .insert({
+          order_number: orderNumber,
+          cora_invoice_id: response.id,
+          customer_name: customer.name,
+          customer_document: customer.document.replace(/\D/g, ''),
+          customer_email: customer.email || null,
+          total_amount: response.total_amount,
+          due_date: dueDate,
+          status: response.status,
+          digitable_line: response.payment_options.bank_slip.digitable,
+          barcode: response.payment_options.bank_slip.barcode,
+          pdf_url: response.payment_options.bank_slip.url,
+          pix_emv: response.pix?.emv || null,
+          pix_qr_code_url: response.pix?.qr_code_url || null,
+          created_by_user_id: user?.id || null,
+        });
+
+      if (insertError) {
+        console.error('[Boleto] Error saving to database:', insertError);
+      } else {
+        console.log('[Boleto] Saved to database successfully');
+      }
+    } catch (err) {
+      console.error('[Boleto] Error saving to database:', err);
+    }
+  };
 
   const createBoleto = async (request: CreateBoletoRequest): Promise<BoletoResponse | null> => {
     setIsLoading(true);
@@ -106,6 +144,10 @@ export function useBoleto() {
       }
 
       console.log('[Boleto] Created successfully:', data.id);
+      
+      // Save to database
+      await saveBoletoToDatabase(request.orderNumber, request.customer, request.dueDate, data);
+      
       toast.success('Boleto gerado com sucesso!');
       
       return data as BoletoResponse;

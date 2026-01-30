@@ -25,6 +25,7 @@ import {
   ClipboardList,
   PackageCheck,
   Droplets,
+  FileText,
 } from 'lucide-react';
 import {
   Sheet,
@@ -360,6 +361,16 @@ export default function MainMapPage() {
                   {hygieneSummary.overdue > 0 ? hygieneSummary.overdue : hygieneSummary.next7Days}
                 </span>
               )}
+            </Button>
+
+            {/* Financeiro */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/financeiro')}
+              title="Financeiro"
+            >
+              <FileText className="w-5 h-5" />
             </Button>
           </div>
         </div>

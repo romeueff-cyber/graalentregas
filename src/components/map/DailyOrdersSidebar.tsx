@@ -17,9 +17,11 @@ import {
   RefreshCw,
   Plus,
   Navigation,
+  FileText,
 } from 'lucide-react';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { BoletoDialog } from './BoletoDialog';
 
 interface OrderItem {
   product: string;
@@ -56,6 +58,7 @@ export function DailyOrdersSidebar({
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
+  const [boletoOrder, setBoletoOrder] = useState<Order | null>(null);
 
   // Use the shared hook with caching
   const { 
@@ -501,6 +504,20 @@ export function DailyOrdersSidebar({
                           Rota
                         </Button>
                         
+                        {/* Boleto Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px] px-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoletoOrder(order);
+                          }}
+                          title="Gerar Boleto"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </Button>
+                        
                         {/* Register Delivery Button */}
                         <Button
                           variant="default"
@@ -520,6 +537,19 @@ export function DailyOrdersSidebar({
           </div>
         )}
       </ScrollArea>
+
+      {/* Boleto Dialog */}
+      <BoletoDialog
+        order={boletoOrder ? {
+          order_number: boletoOrder.order_number,
+          client_name: boletoOrder.client_name,
+          phone: boletoOrder.phone,
+          address: boletoOrder.address,
+          items: boletoOrder.items,
+        } : null}
+        open={!!boletoOrder}
+        onOpenChange={(open) => !open && setBoletoOrder(null)}
+      />
     </div>
   );
 }
