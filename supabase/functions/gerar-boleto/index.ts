@@ -215,16 +215,24 @@ async function createBoleto(
     (body.customer as Record<string, unknown>).email = request.customer.email.substring(0, 60);
   }
 
+  // Only add address if zipCode is valid (not all zeros and has 8 digits)
   if (request.customer.address) {
-    (body.customer as Record<string, unknown>).address = {
-      street: request.customer.address.street,
-      number: request.customer.address.number,
-      district: request.customer.address.district,
-      city: request.customer.address.city,
-      state: request.customer.address.state.substring(0, 2).toUpperCase(),
-      complement: request.customer.address.complement || '',
-      zip_code: request.customer.address.zipCode.replace(/\D/g, ''),
-    };
+    const cleanZipCode = request.customer.address.zipCode.replace(/\D/g, '');
+    const isValidZipCode = cleanZipCode.length === 8 && cleanZipCode !== '00000000';
+    
+    if (isValidZipCode) {
+      (body.customer as Record<string, unknown>).address = {
+        street: request.customer.address.street,
+        number: request.customer.address.number,
+        district: request.customer.address.district,
+        city: request.customer.address.city,
+        state: request.customer.address.state.substring(0, 2).toUpperCase(),
+        complement: request.customer.address.complement || '',
+        zip_code: cleanZipCode,
+      };
+    } else {
+      console.log('[Cora] Skipping address - invalid zipCode:', cleanZipCode);
+    }
   }
 
   // Add optional payment terms
@@ -252,35 +260,9 @@ async function createBoleto(
     };
   }
 
-  // Add notification if provided
-  if (request.notification) {
-    const channels = [];
-    
-    if (request.notification.email) {
-      channels.push({
-        contact: request.notification.email,
-        channel: 'EMAIL',
-        rules: request.notification.rules || ['BEFORE_DUE_DATE', 'DUE_DATE', 'OVERDUE'],
-      });
-    }
-    
-    if (request.notification.phone) {
-      channels.push({
-        contact: request.notification.phone.startsWith('+55') 
-          ? request.notification.phone 
-          : `+55${request.notification.phone.replace(/\D/g, '')}`,
-        channel: 'SMS',
-        rules: request.notification.rules || ['BEFORE_DUE_DATE', 'DUE_DATE'],
-      });
-    }
-
-    if (channels.length > 0) {
-      body.notification = {
-        name: request.notification.name.substring(0, 60),
-        channels,
-      };
-    }
-  }
+  // NOTE: Notification feature temporarily disabled - Cora API returns 400
+  // The notification format may need adjustment per Cora's current API spec
+  // TODO: Review Cora API documentation for correct notification structure
 
   // Generate idempotency key from order number
   const idempotencyKey = crypto.randomUUID();
@@ -292,6 +274,8 @@ async function createBoleto(
   });
 
   try {
+    console.log('[Cora] Request payload:', JSON.stringify(body, null, 2));
+    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
