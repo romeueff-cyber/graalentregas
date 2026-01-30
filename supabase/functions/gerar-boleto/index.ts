@@ -5,11 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Cora API URLs
+// Cora API URLs - all mTLS endpoints
 const CORA_TOKEN_URL_STAGE = 'https://matls-clients.api.stage.cora.com.br/token';
 const CORA_TOKEN_URL_PROD = 'https://matls-clients.api.cora.com.br/token';
-const CORA_API_URL_STAGE = 'https://api.stage.cora.com.br';
-const CORA_API_URL_PROD = 'https://api.cora.com.br';
+const CORA_API_URL_STAGE = 'https://matls-clients.api.stage.cora.com.br';
+const CORA_API_URL_PROD = 'https://matls-clients.api.cora.com.br';
 
 interface BoletoRequest {
   orderNumber: string;
@@ -62,6 +62,38 @@ interface CoraTokenResponse {
 // Cache for access token
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Normalize PEM content (handle single-line or multi-line formats)
+function normalizePEM(content: string, type: 'CERTIFICATE' | 'RSA PRIVATE KEY'): string {
+  const header = `-----BEGIN ${type}-----`;
+  const footer = `-----END ${type}-----`;
+  
+  // Remove existing headers/footers and whitespace
+  let base64 = content
+    .replace(new RegExp(`-----BEGIN ${type}-----`, 'g'), '')
+    .replace(new RegExp(`-----END ${type}-----`, 'g'), '')
+    .replace(/\s+/g, '');
+  
+  // Split into 64-character lines
+  const lines = base64.match(/.{1,64}/g) || [];
+  
+  return `${header}\n${lines.join('\n')}\n${footer}`;
+}
+
+function getCredentials(): { clientId: string; certificate: string; privateKey: string } {
+  const clientId = Deno.env.get('CORA_CLIENT_ID');
+  const rawCertificate = Deno.env.get('CORA_CERTIFICATE');
+  const rawPrivateKey = Deno.env.get('CORA_PRIVATE_KEY');
+
+  if (!clientId || !rawCertificate || !rawPrivateKey) {
+    throw new Error('Credenciais da Cora não configuradas');
+  }
+
+  const certificate = normalizePEM(rawCertificate, 'CERTIFICATE');
+  const privateKey = normalizePEM(rawPrivateKey, 'RSA PRIVATE KEY');
+
+  return { clientId, certificate, privateKey };
+}
+
 async function getAccessToken(isProduction: boolean): Promise<string> {
   // Check if we have a valid cached token
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
@@ -69,13 +101,7 @@ async function getAccessToken(isProduction: boolean): Promise<string> {
     return cachedToken.token;
   }
 
-  const clientId = Deno.env.get('CORA_CLIENT_ID');
-  const certificate = Deno.env.get('CORA_CERTIFICATE');
-  const privateKey = Deno.env.get('CORA_PRIVATE_KEY');
-
-  if (!clientId || !certificate || !privateKey) {
-    throw new Error('Credenciais da Cora não configuradas');
-  }
+  const { clientId, certificate, privateKey } = getCredentials();
 
   const tokenUrl = isProduction ? CORA_TOKEN_URL_PROD : CORA_TOKEN_URL_STAGE;
 
@@ -119,7 +145,6 @@ async function getAccessToken(isProduction: boolean): Promise<string> {
 }
 
 async function createBoleto(
-  accessToken: string,
   request: BoletoRequest,
   isProduction: boolean
 ): Promise<unknown> {
@@ -127,6 +152,12 @@ async function createBoleto(
   const endpoint = `${apiUrl}/v2/invoices/`;
 
   console.log(`[Cora] Creating boleto at ${endpoint}`);
+
+  // Get credentials for mTLS
+  const { certificate, privateKey } = getCredentials();
+
+  // Get access token first
+  const accessToken = await getAccessToken(isProduction);
 
   // Build the request body according to Cora API spec
   const body: Record<string, unknown> = {
@@ -224,33 +255,44 @@ async function createBoleto(
   // Generate idempotency key from order number
   const idempotencyKey = crypto.randomUUID();
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'Idempotency-Key': idempotencyKey,
-    },
-    body: JSON.stringify(body),
+  // Use mTLS for API call too
+  const httpClient = Deno.createHttpClient({
+    cert: certificate,
+    key: privateKey,
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[Cora] Boleto creation error:', response.status, errorText);
-    
-    if (response.status === 401) {
-      // Clear cached token on auth error
-      cachedToken = null;
-      throw new Error('Token de acesso expirado. Tente novamente.');
-    }
-    
-    throw new Error(`Erro ao criar boleto: ${response.status} - ${errorText}`);
-  }
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(body),
+      client: httpClient,
+    });
 
-  const result = await response.json();
-  console.log('[Cora] Boleto created successfully:', result.id);
-  
-  return result;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Cora] Boleto creation error:', response.status, errorText);
+      
+      if (response.status === 401) {
+        // Clear cached token on auth error
+        cachedToken = null;
+        throw new Error('Token de acesso expirado. Tente novamente.');
+      }
+      
+      throw new Error(`Erro ao criar boleto: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[Cora] Boleto created successfully:', result.id);
+    
+    return result;
+  } finally {
+    httpClient.close();
+  }
 }
 
 serve(async (req) => {
@@ -290,11 +332,8 @@ serve(async (req) => {
         throw new Error('Valor mínimo do boleto é R$ 5,00');
       }
 
-      // Get access token
-      const accessToken = await getAccessToken(isProduction);
-
       // Create boleto
-      const result = await createBoleto(accessToken, boletoRequest, isProduction);
+      const result = await createBoleto(boletoRequest, isProduction);
 
       return new Response(
         JSON.stringify(result),
