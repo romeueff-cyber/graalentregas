@@ -132,7 +132,9 @@ async function fetchInvoiceStatus(invoiceId: string): Promise<CoraInvoice | null
       return null;
     }
 
-    return await response.json();
+    const invoice = await response.json();
+    console.log(`[SyncBoletos] Invoice ${invoiceId} status from Cora:`, invoice.status);
+    return invoice;
   } catch (error) {
     console.error(`[SyncBoletos] Error fetching invoice ${invoiceId}:`, error);
     return null;
