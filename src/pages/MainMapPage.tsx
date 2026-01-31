@@ -26,6 +26,7 @@ import {
   PackageCheck,
   Droplets,
   FileText,
+  Route,
 } from 'lucide-react';
 import {
   Sheet,
@@ -287,6 +288,17 @@ export default function MainMapPage() {
                       </Button>
                     </>
                   )}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/rotas');
+                    }}
+                  >
+                    <Route className="w-5 h-5" />
+                    Otimização de Rotas
+                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-3 text-destructive hover:text-destructive"
