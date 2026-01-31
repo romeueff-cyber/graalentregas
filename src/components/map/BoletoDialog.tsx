@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { parseDateInSaoPaulo } from '@/lib/date-utils';
 
 interface Order {
   order_number: string;
@@ -237,10 +238,9 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const getDueDatesFromTerms = () => {
     if (!erpData) return [];
     // Use expected_delivery as base date for due date calculation
-    // This ensures "à vista" boletos (0 days) use the delivery date, not today
-    const baseDate = order.expected_delivery 
-      ? new Date(order.expected_delivery) 
-      : new Date();
+    // Parse the date in São Paulo timezone to avoid UTC offset issues
+    // Example: "2026-01-31T01:12:00.000Z" is actually "2026-01-30 22:12" in São Paulo
+    const baseDate = parseDateInSaoPaulo(order.expected_delivery);
     return calculateDueDates(erpData.payment.terms_code, baseDate);
   };
 
