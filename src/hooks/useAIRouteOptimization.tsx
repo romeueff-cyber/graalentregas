@@ -67,6 +67,11 @@ export function useAIRouteOptimization() {
       });
 
       if (fnError) {
+        // Handle abort errors gracefully
+        if (fnError.message?.includes('abort') || fnError.name === 'AbortError') {
+          console.log('AI analysis request aborted');
+          return null;
+        }
         throw new Error(fnError.message || 'Erro ao analisar entregas');
       }
 
@@ -74,7 +79,12 @@ export function useAIRouteOptimization() {
       setSuggestion(result.driverSuggestion);
       return result.driverSuggestion;
 
-    } catch (err) {
+    } catch (err: any) {
+      // Handle abort errors gracefully
+      if (err?.name === 'AbortError' || err?.message?.includes('abort') || err?.message?.includes('signal')) {
+        console.log('AI analysis aborted');
+        return null;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
       console.error('Error analyzing deliveries:', err);
@@ -120,12 +130,22 @@ export function useAIRouteOptimization() {
       });
 
       if (fnError) {
+        // Handle abort errors gracefully
+        if (fnError.message?.includes('abort') || fnError.name === 'AbortError') {
+          console.log('AI optimization request aborted');
+          return null;
+        }
         throw new Error(fnError.message || 'Erro ao otimizar rotas');
       }
 
       return data as AIOptimizationResult;
 
-    } catch (err) {
+    } catch (err: any) {
+      // Handle abort errors gracefully
+      if (err?.name === 'AbortError' || err?.message?.includes('abort') || err?.message?.includes('signal')) {
+        console.log('AI optimization aborted');
+        return null;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
       console.error('Error optimizing with AI:', err);
