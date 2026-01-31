@@ -21,13 +21,31 @@ function formatTime(minutes: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
+// Check if time is a "round hour" (e.g., 08:00, 09:00, 10:00)
+// Only these are considered real scheduled times
+// Times like 00:00, 00:30, or irregular times are flexible
+function isRoundHour(time: string): boolean {
+  const [h, m] = time.split(':').map(Number);
+  // Round hours have :00 minutes AND are not midnight (00:00)
+  return m === 0 && h > 0;
+}
+
 // Calculate priority based on time window
+// Only round hours are considered as real time constraints
 function calculatePriority(expectedDelivery: string | null): number {
   if (!expectedDelivery) return 0; // No time = lowest priority
+  
+  // If not a round hour, treat as flexible (no priority)
+  if (!isRoundHour(expectedDelivery)) return 0;
   
   const timeMinutes = parseTime(expectedDelivery);
   // Earlier times get higher priority (inverted)
   return 1440 - timeMinutes; // 1440 = minutes in a day
+}
+
+// Check if delivery has a real time constraint (round hour)
+function hasRealTimeWindow(expectedDelivery: string | null): boolean {
+  return expectedDelivery ? isRoundHour(expectedDelivery) : false;
 }
 
 interface DirectionsResult {
@@ -96,12 +114,13 @@ export function useRouteOptimization() {
       assignments.set(i, []);
     }
 
-    // Separate orders with and without time windows
+    // Separate orders with REAL time windows (round hours only) vs flexible
     const withTimeWindow = points
-      .filter(p => p.expectedDelivery)
+      .filter(p => hasRealTimeWindow(p.expectedDelivery))
       .sort((a, b) => parseTime(a.expectedDelivery!) - parseTime(b.expectedDelivery!));
     
-    const withoutTimeWindow = points.filter(p => !p.expectedDelivery);
+    // Flexible orders: no time, or non-round hours like 00:00
+    const withoutTimeWindow = points.filter(p => !hasRealTimeWindow(p.expectedDelivery));
 
     // First pass: assign time-constrained orders
     // Try to balance while respecting time windows

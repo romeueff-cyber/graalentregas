@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
-import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
+import { useRouteOrderLocations } from '@/hooks/useRouteOrderLocations';
 import { useRouteOptimization } from '@/hooks/useRouteOptimization';
 import { RouteConfigForm } from '@/components/routes/RouteConfigForm';
 import { RouteResultSummary } from '@/components/routes/RouteResultSummary';
@@ -21,13 +22,18 @@ const DEFAULT_START = {
 export default function RoutesPage() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
+  
+  // Date selection state
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
+  
   const { 
     orders, 
     locations, 
     ordersWithoutLocation, 
     isLoading: ordersLoading, 
     isGoogleReady 
-  } = useDailyOrderLocations();
+  } = useRouteOrderLocations(selectedDateString);
   
   const { 
     optimizeRoutes, 
@@ -85,11 +91,16 @@ export default function RoutesPage() {
     });
   }, [orders, locations]);
 
-  const handleOptimize = useCallback(async (config: RouteConfig) => {
+  const handleOptimize = useCallback(async (config: RouteConfig, date: string) => {
     setStartLocation(config.startLocation);
     setSelectedRoute(null);
     await optimizeRoutes(deliveryPoints, config);
   }, [deliveryPoints, optimizeRoutes]);
+
+  const handleDateChange = useCallback((date: Date) => {
+    setSelectedDate(date);
+    clearResult(); // Clear previous results when date changes
+  }, [clearResult]);
 
   const handleResetRoutes = useCallback(() => {
     clearResult();
@@ -170,6 +181,8 @@ export default function RoutesPage() {
                   onOptimize={handleOptimize}
                   isOptimizing={isOptimizing}
                   progress={progress}
+                  selectedDate={selectedDate}
+                  onDateChange={handleDateChange}
                 />
               ) : (
                 <RouteResultSummary
