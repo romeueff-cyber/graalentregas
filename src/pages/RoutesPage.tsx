@@ -7,8 +7,10 @@ import { useRouteOrderLocations } from '@/hooks/useRouteOrderLocations';
 import { useRouteOptimization } from '@/hooks/useRouteOptimization';
 import { useAIRouteOptimization } from '@/hooks/useAIRouteOptimization';
 import { useSaveRoutes } from '@/hooks/useSaveRoutes';
+import { useDrivers } from '@/hooks/useDrivers';
 import { RouteConfigForm } from '@/components/routes/RouteConfigForm';
-import { RouteResultSummary } from '@/components/routes/RouteResultSummary';
+import { RouteDriverAssignment } from '@/components/routes/RouteDriverAssignment';
+import { DeliveryPointsList } from '@/components/routes/DeliveryPointsList';
 import { RouteMapView } from '@/components/routes/RouteMapView';
 import { RouteStopsList } from '@/components/routes/RouteStopsList';
 import { DriverSuggestionCard } from '@/components/routes/DriverSuggestionCard';
@@ -16,10 +18,10 @@ import { Button } from '@/components/ui/button';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, RefreshCw, AlertTriangle, Loader2, Settings, Route, Save } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Loader2, Settings, Route, Save, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DeliveryPoint, RouteConfig, RoutePeriod } from '@/types/routes';
-import { extractVolumeLiters, calculateServiceTime } from '@/types/routes';
+import type { DeliveryPoint, RouteConfig, RoutePeriod, OptimizedRoute, RouteOptimizationResult } from '@/types/routes';
+import { calculateServiceTime, getDriverColor } from '@/types/routes';
 
 // Default start location (Graal Beer)
 const DEFAULT_START = {
@@ -31,6 +33,7 @@ export default function RoutesPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { user, isLoading: authLoading } = useAuth();
+  const { drivers } = useDrivers();
   
   // Date selection state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -51,7 +54,8 @@ export default function RoutesPage() {
     progress, 
     result, 
     error,
-    clearResult 
+    clearResult,
+    setResult
   } = useRouteOptimization();
 
   const {
@@ -65,15 +69,29 @@ export default function RoutesPage() {
 
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
   const [startLocation, setStartLocation] = useState(DEFAULT_START);
-  const [mobileTab, setMobileTab] = useState<string>('config');
+  const [mobileTab, setMobileTab] = useState<string>('entregas');
   const [showRouteDetails, setShowRouteDetails] = useState(false);
   const [hasSavedRoutes, setHasSavedRoutes] = useState(false);
+  const [driverAssignments, setDriverAssignments] = useState<Record<number, string>>({});
   const hasAnalyzedRef = useRef(false);
 
   // Reset analysis flag when date or period changes
   useEffect(() => {
     hasAnalyzedRef.current = false;
   }, [selectedDateString, currentPeriod]);
+
+  // Auto-assign drivers when result is generated
+  useEffect(() => {
+    if (result && drivers.length > 0) {
+      const assignments: Record<number, string> = {};
+      result.routes.forEach((route, index) => {
+        if (drivers[index]) {
+          assignments[route.driverId] = drivers[index].id;
+        }
+      });
+      setDriverAssignments(assignments);
+    }
+  }, [result, drivers]);
 
   // Convert orders with locations to DeliveryPoints with volume
   const deliveryPoints: DeliveryPoint[] = useMemo(() => {
@@ -125,6 +143,18 @@ export default function RoutesPage() {
     });
   }, [orders, locations]);
 
+  // Orders without location for the list
+  const ordersWithoutLocationList = useMemo(() => {
+    if (!orders) return [];
+    return ordersWithoutLocation.map(orderNumber => {
+      const order = orders.find(o => o.order_number === orderNumber);
+      return {
+        orderNumber,
+        clientName: order?.client_name || 'Cliente desconhecido'
+      };
+    });
+  }, [ordersWithoutLocation, orders]);
+
   // Calculate total volume
   const totalVolume = useMemo(() => {
     return deliveryPoints.reduce((sum, p) => sum + (p.volumeLiters || 0), 0);
@@ -140,16 +170,12 @@ export default function RoutesPage() {
   }, [selectedDateString, currentPeriod, loadRoutes]);
 
   // Analyze deliveries when they change (for AI suggestion)
-  // Use a debounce-like approach to avoid multiple rapid calls
   useEffect(() => {
-    // Skip if no deliveries, already have result/suggestion, or already analyzing
     if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
-    // Extra protection: only analyze once per date/period session
     if (hasAnalyzedRef.current) return;
     
     hasAnalyzedRef.current = true;
     
-    // Small delay to avoid calling during rapid state changes
     const timeoutId = setTimeout(() => {
       analyzeDeliveries(deliveryPoints, {
         workStartTime: currentPeriod === 'manha' ? '08:00' : '13:00',
@@ -169,9 +195,8 @@ export default function RoutesPage() {
     setSelectedRoute(null);
     clearSuggestion();
     await optimizeRoutes(deliveryPoints, config);
-    // Switch to results tab on mobile after optimization
     if (isMobile) {
-      setMobileTab('results');
+      setMobileTab('rotas');
     }
   }, [deliveryPoints, optimizeRoutes, isMobile, clearSuggestion]);
 
@@ -179,13 +204,15 @@ export default function RoutesPage() {
     setSelectedDate(date);
     clearResult();
     clearSuggestion();
+    setDriverAssignments({});
   }, [clearResult, clearSuggestion]);
 
   const handleResetRoutes = useCallback(() => {
     clearResult();
     clearSuggestion();
     setSelectedRoute(null);
-    setMobileTab('config');
+    setDriverAssignments({});
+    setMobileTab('entregas');
   }, [clearResult, clearSuggestion]);
 
   const handleSelectRoute = useCallback((driverId: number | null) => {
@@ -195,19 +222,78 @@ export default function RoutesPage() {
     }
   }, [isMobile]);
 
+  const handleAssignDriver = useCallback((routeId: number, driverId: string) => {
+    setDriverAssignments(prev => ({
+      ...prev,
+      [routeId]: driverId
+    }));
+  }, []);
+
+  const handleMoveStop = useCallback((fromRouteId: number, toRouteId: number, stopIndex: number) => {
+    if (!result) return;
+
+    // Clone the routes
+    const newRoutes = result.routes.map(r => ({
+      ...r,
+      stops: [...r.stops]
+    }));
+
+    const fromRoute = newRoutes.find(r => r.driverId === fromRouteId);
+    const toRoute = newRoutes.find(r => r.driverId === toRouteId);
+
+    if (!fromRoute || !toRoute) return;
+
+    // Remove stop from source route
+    const [movedStop] = fromRoute.stops.splice(stopIndex, 1);
+    
+    // Add to destination route
+    toRoute.stops.push({
+      ...movedStop,
+      order: toRoute.stops.length + 1
+    });
+
+    // Recalculate stop orders
+    fromRoute.stops.forEach((stop, i) => {
+      stop.order = i + 1;
+    });
+
+    // Update the result
+    const newResult: RouteOptimizationResult = {
+      ...result,
+      routes: newRoutes.filter(r => r.stops.length > 0)
+    };
+
+    setResult(newResult);
+    toast.success('Entrega realocada com sucesso');
+  }, [result, setResult]);
+
   const handleSaveRoutes = useCallback(async () => {
     if (!result) return;
+    
+    // Validate all routes have drivers assigned
+    const unassignedRoutes = result.routes.filter(r => !driverAssignments[r.driverId]);
+    if (unassignedRoutes.length > 0) {
+      toast.error('Atribua entregadores a todas as rotas antes de salvar');
+      return;
+    }
+
     const success = await saveRoutes(result.routes, selectedDateString, currentPeriod);
     if (success) {
       setHasSavedRoutes(true);
     }
-  }, [result, selectedDateString, currentPeriod, saveRoutes]);
+  }, [result, driverAssignments, selectedDateString, currentPeriod, saveRoutes]);
 
   // Get selected route for detail view
   const selectedRouteData = useMemo(() => {
     if (selectedRoute === null || !result) return null;
     return result.routes.find(r => r.driverId === selectedRoute) || null;
   }, [selectedRoute, result]);
+
+  // Check if all drivers are assigned
+  const allDriversAssigned = useMemo(() => {
+    if (!result) return false;
+    return result.routes.every(r => !!driverAssignments[r.driverId]);
+  }, [result, driverAssignments]);
 
   // Conditional returns after all hooks
   if (authLoading) {
@@ -231,25 +317,6 @@ export default function RoutesPage() {
         </div>
       ) : (
         <>
-          {/* Warning for orders without location */}
-          {ordersWithoutLocation.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 dark:bg-amber-950/20 dark:border-amber-800">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium text-sm">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                {ordersWithoutLocation.length} pedidos sem localização
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Esses pedidos não serão incluídos nas rotas
-              </p>
-            </div>
-          )}
-
-          {/* Volume summary */}
-          <div className="bg-muted/50 rounded-lg p-3 flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Volume total:</span>
-            <span className="font-semibold">{totalVolume}L</span>
-          </div>
-
           {/* AI Driver Suggestion */}
           {!result && suggestion && (
             <DriverSuggestionCard 
@@ -261,16 +328,26 @@ export default function RoutesPage() {
           {/* Configuration or Results based on mobile tab or desktop view */}
           {isMobile ? (
             <Tabs value={mobileTab} onValueChange={setMobileTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="config" className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  Configurar
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="entregas" className="flex items-center gap-1 text-xs">
+                  <Package className="w-3 h-3" />
+                  Entregas
                 </TabsTrigger>
-                <TabsTrigger value="results" disabled={!result} className="flex items-center gap-2">
-                  <Route className="w-4 h-4" />
+                <TabsTrigger value="config" className="flex items-center gap-1 text-xs">
+                  <Settings className="w-3 h-3" />
+                  Config
+                </TabsTrigger>
+                <TabsTrigger value="rotas" disabled={!result} className="flex items-center gap-1 text-xs">
+                  <Route className="w-3 h-3" />
                   Rotas
                 </TabsTrigger>
               </TabsList>
+              <TabsContent value="entregas" className="mt-4">
+                <DeliveryPointsList 
+                  points={deliveryPoints}
+                  pointsWithoutLocation={ordersWithoutLocationList}
+                />
+              </TabsContent>
               <TabsContent value="config" className="mt-4">
                 <RouteConfigForm
                   deliveryCount={deliveryPoints.length}
@@ -282,17 +359,21 @@ export default function RoutesPage() {
                   suggestedDriverCount={suggestion?.recommendedDriverCount}
                 />
               </TabsContent>
-              <TabsContent value="results" className="mt-4 space-y-4">
+              <TabsContent value="rotas" className="mt-4 space-y-4">
                 {result && (
                   <>
-                    <RouteResultSummary
+                    <RouteDriverAssignment
                       result={result}
+                      drivers={drivers}
+                      driverAssignments={driverAssignments}
+                      onAssignDriver={handleAssignDriver}
+                      onMoveStop={handleMoveStop}
                       selectedRoute={selectedRoute}
                       onSelectRoute={handleSelectRoute}
                     />
                     <Button 
                       onClick={handleSaveRoutes} 
-                      disabled={isSaving}
+                      disabled={isSaving || !allDriversAssigned}
                       className="w-full"
                     >
                       {isSaving ? (
@@ -302,43 +383,67 @@ export default function RoutesPage() {
                       )}
                       Salvar Rotas
                     </Button>
+                    {!allDriversAssigned && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Atribua entregadores a todas as rotas para salvar
+                      </p>
+                    )}
                   </>
                 )}
               </TabsContent>
             </Tabs>
           ) : (
-            // Desktop: show config or results based on whether we have results
-            !result ? (
-              <RouteConfigForm
-                deliveryCount={deliveryPoints.length}
-                onOptimize={handleOptimize}
-                isOptimizing={isOptimizing}
-                progress={progress}
-                selectedDate={selectedDate}
-                onDateChange={handleDateChange}
-                suggestedDriverCount={suggestion?.recommendedDriverCount}
-              />
-            ) : (
-              <div className="space-y-4">
-                <RouteResultSummary
-                  result={result}
-                  selectedRoute={selectedRoute}
-                  onSelectRoute={handleSelectRoute}
+            // Desktop: show all sections
+            <div className="space-y-4">
+              {/* Delivery Points List */}
+              {!result && (
+                <DeliveryPointsList 
+                  points={deliveryPoints}
+                  pointsWithoutLocation={ordersWithoutLocationList}
                 />
-                <Button 
-                  onClick={handleSaveRoutes} 
-                  disabled={isSaving}
-                  className="w-full"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
+              )}
+              
+              {!result ? (
+                <RouteConfigForm
+                  deliveryCount={deliveryPoints.length}
+                  onOptimize={handleOptimize}
+                  isOptimizing={isOptimizing}
+                  progress={progress}
+                  selectedDate={selectedDate}
+                  onDateChange={handleDateChange}
+                  suggestedDriverCount={suggestion?.recommendedDriverCount}
+                />
+              ) : (
+                <>
+                  <RouteDriverAssignment
+                    result={result}
+                    drivers={drivers}
+                    driverAssignments={driverAssignments}
+                    onAssignDriver={handleAssignDriver}
+                    onMoveStop={handleMoveStop}
+                    selectedRoute={selectedRoute}
+                    onSelectRoute={handleSelectRoute}
+                  />
+                  <Button 
+                    onClick={handleSaveRoutes} 
+                    disabled={isSaving || !allDriversAssigned}
+                    className="w-full"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Salvar Rotas
+                  </Button>
+                  {!allDriversAssigned && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Atribua entregadores a todas as rotas para salvar
+                    </p>
                   )}
-                  Salvar Rotas
-                </Button>
-              </div>
-            )
+                </>
+              )}
+            </div>
           )}
         </>
       )}
@@ -382,13 +487,13 @@ export default function RoutesPage() {
         
         {/* Mobile: Map on top */}
         {isMobile && (
-          <div className="h-[250px] flex-shrink-0 relative">
+          <div className="h-[200px] flex-shrink-0 relative">
             <RouteMapView
               result={result}
               selectedRoute={selectedRoute}
               startLocation={startLocation}
               allPoints={deliveryPoints}
-              height="250px"
+              height="200px"
             />
           </div>
         )}
@@ -397,7 +502,7 @@ export default function RoutesPage() {
         <div className={`
           ${isMobile 
             ? 'flex-1 overflow-y-auto' 
-            : 'w-80 border-r flex-shrink-0 overflow-y-auto'
+            : 'w-96 border-r flex-shrink-0 overflow-y-auto'
           } 
           bg-card p-4 space-y-4
         `}>
