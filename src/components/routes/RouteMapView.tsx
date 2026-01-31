@@ -9,13 +9,14 @@ interface RouteMapViewProps {
   selectedRoute: number | null;
   startLocation: google.maps.LatLngLiteral;
   allPoints: DeliveryPoint[];
+  height?: string;
 }
 
-const mapContainerStyle: React.CSSProperties = {
+const getMapContainerStyle = (height?: string): React.CSSProperties => ({
   width: '100%',
-  height: '100%',
-  minHeight: '400px',
-};
+  height: height || '100%',
+  minHeight: height || '400px',
+});
 
 const defaultCenter = {
   lat: -23.5505,
@@ -40,7 +41,8 @@ export function RouteMapView({
   result, 
   selectedRoute, 
   startLocation, 
-  allPoints 
+  allPoints,
+  height 
 }: RouteMapViewProps) {
   const { apiKey } = useGoogleMapsKey();
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -135,7 +137,7 @@ export function RouteMapView({
 
   return (
     <GoogleMap
-      mapContainerStyle={mapContainerStyle}
+      mapContainerStyle={getMapContainerStyle(height)}
       center={defaultCenter}
       zoom={12}
       options={mapOptions}
