@@ -30,6 +30,9 @@ export type Database = {
           pdf_url: string | null
           pix_emv: string | null
           pix_qr_code_url: string | null
+          reconciled: boolean
+          reconciled_at: string | null
+          reconciled_by_user_id: string | null
           status: string
           total_amount: number
           updated_at: string
@@ -49,6 +52,9 @@ export type Database = {
           pdf_url?: string | null
           pix_emv?: string | null
           pix_qr_code_url?: string | null
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by_user_id?: string | null
           status?: string
           total_amount: number
           updated_at?: string
@@ -68,6 +74,9 @@ export type Database = {
           pdf_url?: string | null
           pix_emv?: string | null
           pix_qr_code_url?: string | null
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by_user_id?: string | null
           status?: string
           total_amount?: number
           updated_at?: string
