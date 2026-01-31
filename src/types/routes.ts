@@ -29,6 +29,8 @@ export interface DeliveryStop {
   durationFromPrevious: number; // seconds
 }
 
+export type RoutePeriod = 'manha' | 'tarde_noite';
+
 export interface RouteConfig {
   driverCount: number;
   startLocation: google.maps.LatLngLiteral;
@@ -36,6 +38,7 @@ export interface RouteConfig {
   serviceTimeMinutes: number;
   workStartTime: string; // "08:00"
   workEndTime: string; // "18:00"
+  period: RoutePeriod; // Period filter for deliveries
 }
 
 export interface RouteOptimizationResult {

@@ -48,6 +48,62 @@ function hasRealTimeWindow(expectedDelivery: string | null): boolean {
   return expectedDelivery ? isRoundHour(expectedDelivery) : false;
 }
 
+// Check if delivery time falls within a period
+function isInPeriod(expectedDelivery: string | null, period: 'manha' | 'tarde_noite'): boolean {
+  if (!expectedDelivery || !isRoundHour(expectedDelivery)) {
+    // Flexible deliveries (no time or non-round hours) go to afternoon
+    return period === 'tarde_noite';
+  }
+  
+  const timeMinutes = parseTime(expectedDelivery);
+  
+  if (period === 'manha') {
+    // Morning: 6:00 to 12:00 (360 to 720 minutes)
+    return timeMinutes >= 360 && timeMinutes < 720;
+  } else {
+    // Afternoon/Night: 12:00 to 23:59 (720 to 1440 minutes)
+    // Also include flexible orders
+    return timeMinutes >= 720 || !isRoundHour(expectedDelivery);
+  }
+}
+
+// Filter deliveries by period, but in morning mode try to include
+// nearby flexible orders if there's capacity
+function filterByPeriod(
+  points: DeliveryPoint[], 
+  period: 'manha' | 'tarde_noite',
+  includeFlexibleInMorning: boolean = true
+): { included: DeliveryPoint[]; excluded: DeliveryPoint[] } {
+  const included: DeliveryPoint[] = [];
+  const excluded: DeliveryPoint[] = [];
+  
+  for (const point of points) {
+    const hasFixedTime = hasRealTimeWindow(point.expectedDelivery);
+    
+    if (hasFixedTime) {
+      // Fixed time - check if it matches the period
+      if (isInPeriod(point.expectedDelivery, period)) {
+        included.push(point);
+      } else {
+        excluded.push(point);
+      }
+    } else {
+      // Flexible order (00:00 or no time)
+      if (period === 'tarde_noite') {
+        // Afternoon always includes flexible orders
+        included.push(point);
+      } else if (includeFlexibleInMorning) {
+        // Morning can optionally include some flexible orders
+        included.push(point);
+      } else {
+        excluded.push(point);
+      }
+    }
+  }
+  
+  return { included, excluded };
+}
+
 interface DirectionsResult {
   distance: number; // meters
   duration: number; // seconds
@@ -306,14 +362,43 @@ export function useRouteOptimization() {
         return emptyResult;
       }
 
+      // Step 0: Filter by period
+      // For morning: include fixed morning times + optionally flexible orders
+      // For afternoon: include fixed afternoon times + all flexible orders
+      const includeFlexibleInMorning = config.period === 'manha';
+      const { included: periodPoints, excluded: otherPeriodPoints } = filterByPeriod(
+        points, 
+        config.period,
+        includeFlexibleInMorning
+      );
+
+      const warnings: string[] = [];
+      
+      if (otherPeriodPoints.length > 0) {
+        const periodLabel = config.period === 'manha' ? 'tarde/noite' : 'manhã';
+        warnings.push(`${otherPeriodPoints.length} entregas com horário fixo para ${periodLabel} não incluídas`);
+      }
+
+      if (periodPoints.length === 0) {
+        const periodLabel = config.period === 'manha' ? 'manhã' : 'tarde/noite';
+        const emptyResult: RouteOptimizationResult = {
+          routes: [],
+          unassignedOrders: otherPeriodPoints,
+          totalDistance: 0,
+          totalDuration: 0,
+          warnings: [`Nenhuma entrega para o período da ${periodLabel}`],
+        };
+        setResult(emptyResult);
+        return emptyResult;
+      }
+
       // Step 1: Assign deliveries to drivers
       setProgress(10);
-      const assignments = assignDeliveriesToDrivers(points, config);
+      const assignments = assignDeliveriesToDrivers(periodPoints, config);
       
       // Step 2: Optimize each driver's route
       const routes: OptimizedRoute[] = [];
       const unassigned: DeliveryPoint[] = [];
-      const warnings: string[] = [];
       
       let completed = 0;
       const total = config.driverCount;
