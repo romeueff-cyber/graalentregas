@@ -4,7 +4,8 @@ import type {
   RouteConfig, 
   OptimizedRoute, 
   DeliveryStop,
-  RouteOptimizationResult 
+  RouteOptimizationResult,
+  RoutePeriod 
 } from '@/types/routes';
 import { getDriverColor } from '@/types/routes';
 
@@ -365,10 +366,11 @@ export function useRouteOptimization() {
       // Step 0: Filter by period
       // For morning: include fixed morning times + optionally flexible orders
       // For afternoon: include fixed afternoon times + all flexible orders
-      const includeFlexibleInMorning = config.period === 'manha';
+      const period = config.period || 'manha';
+      const includeFlexibleInMorning = period === 'manha';
       const { included: periodPoints, excluded: otherPeriodPoints } = filterByPeriod(
         points, 
-        config.period,
+        period,
         includeFlexibleInMorning
       );
 
