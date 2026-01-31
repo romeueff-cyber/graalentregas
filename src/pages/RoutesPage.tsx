@@ -134,8 +134,12 @@ export default function RoutesPage() {
   }, [selectedDateString, currentPeriod, loadRoutes]);
 
   // Analyze deliveries when they change (for AI suggestion)
+  // Use a debounce-like approach to avoid multiple rapid calls
   useEffect(() => {
-    if (deliveryPoints.length > 0 && !result) {
+    if (deliveryPoints.length === 0 || result || isAnalyzing) return;
+    
+    // Small delay to avoid calling during rapid state changes
+    const timeoutId = setTimeout(() => {
       analyzeDeliveries(deliveryPoints, {
         workStartTime: currentPeriod === 'manha' ? '08:00' : '13:00',
         workEndTime: currentPeriod === 'manha' ? '12:00' : '18:00',
@@ -143,8 +147,10 @@ export default function RoutesPage() {
         serviceTimeMinutes: 30,
         vehicleCapacityLiters: 400,
       });
-    }
-  }, [deliveryPoints, currentPeriod, result, analyzeDeliveries]);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [deliveryPoints.length, currentPeriod, result, isAnalyzing, analyzeDeliveries]);
 
   const handleOptimize = useCallback(async (config: RouteConfig, date: string) => {
     setStartLocation(config.startLocation);

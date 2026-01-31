@@ -104,16 +104,47 @@ export function useRouteOrderLocations(date: string) {
 
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ['route-orders', date],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-        body: { date },
-      });
-      if (error) throw error;
-      console.log(`Orders loaded for ${date}:`, data?.length || 0);
-      return data as Order[];
+    queryFn: async ({ signal }) => {
+      try {
+        const { data, error } = await supabase.functions.invoke('list-erp-orders', {
+          body: { date },
+        });
+        
+        // Check if request was aborted
+        if (signal?.aborted) {
+          console.log('Request aborted for date:', date);
+          return [];
+        }
+        
+        if (error) {
+          // Handle abort errors gracefully
+          if (error.message?.includes('abort') || error.name === 'AbortError') {
+            console.log('Request aborted:', date);
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log(`Orders loaded for ${date}:`, data?.length || 0);
+        return data as Order[];
+      } catch (err: any) {
+        // Handle abort errors gracefully
+        if (err?.name === 'AbortError' || err?.message?.includes('abort') || signal?.aborted) {
+          console.log('Request aborted during fetch:', date);
+          return [];
+        }
+        throw err;
+      }
     },
     staleTime: 1000 * 60 * 5,
     enabled: !!date,
+    retry: (failureCount, error: any) => {
+      // Don't retry on abort errors
+      if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // Restore locations from cache when date changes
