@@ -392,6 +392,62 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'cancel') {
+      const { invoiceId } = params;
+      
+      if (!invoiceId) {
+        throw new Error('ID do boleto é obrigatório');
+      }
+
+      console.log(`[Cora] Canceling invoice: ${invoiceId}`);
+      
+      const { certificate, privateKey } = getCredentials();
+      const accessToken = await getAccessToken(isProduction);
+      const apiUrl = isProduction ? CORA_API_URL_PROD : CORA_API_URL_STAGE;
+      
+      // Use mTLS for the cancel request
+      const httpClient = Deno.createHttpClient({
+        cert: certificate,
+        key: privateKey,
+      });
+
+      try {
+        // Cora API uses DELETE to cancel/void an invoice
+        const response = await fetch(`${apiUrl}/v2/invoices/${invoiceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          client: httpClient,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Cora] Cancel error:', response.status, errorText);
+          
+          // Check if it's already canceled or paid
+          if (response.status === 400 || response.status === 422) {
+            throw new Error('Não é possível cancelar este boleto. Ele pode já estar pago ou cancelado.');
+          }
+          
+          throw new Error(`Erro ao cancelar boleto: ${response.status} - ${errorText}`);
+        }
+
+        console.log('[Cora] Invoice canceled successfully');
+        
+        return new Response(
+          JSON.stringify({ success: true, message: 'Boleto cancelado com sucesso' }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      } finally {
+        httpClient.close();
+      }
+    }
+
     throw new Error(`Ação não reconhecida: ${action}`);
 
   } catch (error) {

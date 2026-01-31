@@ -143,21 +143,70 @@ export function useBoleto() {
     }
   };
 
-  // Cancel a boleto (remove from database - the actual boleto in Cora continues valid)
+  // Cancel boletos in Cora and remove from database
   const cancelBoleto = async (orderNumber: string): Promise<boolean> => {
     try {
+      // First, get existing boletos to get their Cora invoice IDs
+      const existingBoletos = await checkExistingBoletos(orderNumber);
+      
+      if (existingBoletos.length === 0) {
+        toast.error('Nenhum boleto encontrado para cancelar');
+        return false;
+      }
+
+      console.log(`[Boleto] Canceling ${existingBoletos.length} boleto(s) for order ${orderNumber}`);
+
+      // Cancel each boleto in Cora
+      let allCanceled = true;
+      for (const boleto of existingBoletos) {
+        try {
+          console.log(`[Boleto] Canceling invoice ${boleto.cora_invoice_id}`);
+          
+          const { data, error: fnError } = await supabase.functions.invoke('gerar-boleto', {
+            body: {
+              action: 'cancel',
+              invoiceId: boleto.cora_invoice_id,
+              production: true,
+            },
+          });
+
+          if (fnError) {
+            console.error(`[Boleto] Error canceling ${boleto.cora_invoice_id}:`, fnError);
+            allCanceled = false;
+            continue;
+          }
+
+          if (data?.error) {
+            console.error(`[Boleto] Cora error for ${boleto.cora_invoice_id}:`, data.error);
+            // If already canceled or can't be canceled, we still want to remove from DB
+            if (!data.error.includes('já está pago')) {
+              // Continue with local deletion even if Cora fails
+            }
+          }
+        } catch (err) {
+          console.error(`[Boleto] Exception canceling ${boleto.cora_invoice_id}:`, err);
+          allCanceled = false;
+        }
+      }
+
+      // Delete from local database regardless of Cora result
       const { error: deleteError } = await supabase
         .from('boletos')
         .delete()
         .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`);
 
       if (deleteError) {
-        console.error('[Boleto] Error canceling:', deleteError);
-        toast.error('Erro ao cancelar boleto');
+        console.error('[Boleto] Error deleting from database:', deleteError);
+        toast.error('Erro ao remover boleto do sistema');
         return false;
       }
 
-      toast.success('Boleto(s) cancelado(s) com sucesso');
+      if (allCanceled) {
+        toast.success('Boleto(s) cancelado(s) com sucesso na Cora e no sistema');
+      } else {
+        toast.warning('Boleto(s) removido(s) do sistema. Alguns podem não ter sido cancelados na Cora.');
+      }
+      
       return true;
     } catch (err) {
       console.error('[Boleto] Error canceling boleto:', err);
