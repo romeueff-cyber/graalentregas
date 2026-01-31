@@ -27,6 +27,7 @@ interface RouteConfigFormProps {
   progress: number;
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  suggestedDriverCount?: number;
 }
 
 export function RouteConfigForm({ 
@@ -36,8 +37,9 @@ export function RouteConfigForm({
   progress,
   selectedDate,
   onDateChange,
+  suggestedDriverCount,
 }: RouteConfigFormProps) {
-  const [driverCount, setDriverCount] = useState(2);
+  const [driverCount, setDriverCount] = useState(suggestedDriverCount || 2);
   const [serviceTime, setServiceTime] = useState(30);
   const [workStartTime, setWorkStartTime] = useState('08:00');
   const [workEndTime, setWorkEndTime] = useState('12:00');
@@ -45,6 +47,13 @@ export function RouteConfigForm({
   const [startLocation, setStartLocation] = useState({ lat: DEFAULT_START.lat, lng: DEFAULT_START.lng });
   const [period, setPeriod] = useState<RoutePeriod>('manha');
   const [isGeocodingStart, setIsGeocodingStart] = useState(false);
+
+  // Update driver count when AI suggestion changes
+  useEffect(() => {
+    if (suggestedDriverCount && suggestedDriverCount !== driverCount) {
+      setDriverCount(suggestedDriverCount);
+    }
+  }, [suggestedDriverCount]);
 
   // Update work hours based on period
   useEffect(() => {
@@ -103,6 +112,7 @@ export function RouteConfigForm({
       workStartTime,
       workEndTime,
       period,
+      vehicleCapacityLiters: 400,
     }, dateString);
   };
 

@@ -294,6 +294,57 @@ export type Database = {
           },
         ]
       }
+      optimized_routes: {
+        Row: {
+          color: string
+          created_at: string
+          created_by_user_id: string
+          driver_index: number
+          driver_label: string
+          end_time: string
+          id: string
+          period: string
+          route_date: string
+          start_time: string
+          status: string
+          total_distance: number
+          total_duration: number
+          total_volume_liters: number
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          created_by_user_id: string
+          driver_index: number
+          driver_label: string
+          end_time: string
+          id?: string
+          period: string
+          route_date: string
+          start_time: string
+          status?: string
+          total_distance?: number
+          total_duration?: number
+          total_volume_liters?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by_user_id?: string
+          driver_index?: number
+          driver_label?: string
+          end_time?: string
+          id?: string
+          period?: string
+          route_date?: string
+          start_time?: string
+          status?: string
+          total_distance?: number
+          total_duration?: number
+          total_volume_liters?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -314,6 +365,71 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      route_stops: {
+        Row: {
+          address: string
+          arrival_time: string
+          client_name: string
+          departure_time: string
+          distance_from_previous: number
+          duration_from_previous: number
+          estimated_service_time: number
+          expected_delivery: string | null
+          id: string
+          latitude: number
+          longitude: number
+          order_number: string
+          route_id: string
+          status: string
+          stop_order: number
+          volume_liters: number
+        }
+        Insert: {
+          address: string
+          arrival_time: string
+          client_name: string
+          departure_time: string
+          distance_from_previous?: number
+          duration_from_previous?: number
+          estimated_service_time?: number
+          expected_delivery?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          order_number: string
+          route_id: string
+          status?: string
+          stop_order: number
+          volume_liters?: number
+        }
+        Update: {
+          address?: string
+          arrival_time?: string
+          client_name?: string
+          departure_time?: string
+          distance_from_previous?: number
+          duration_from_previous?: number
+          estimated_service_time?: number
+          expected_delivery?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          order_number?: string
+          route_id?: string
+          status?: string
+          stop_order?: number
+          volume_liters?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "optimized_routes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {

@@ -1,20 +1,25 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouteOrderLocations } from '@/hooks/useRouteOrderLocations';
 import { useRouteOptimization } from '@/hooks/useRouteOptimization';
+import { useAIRouteOptimization } from '@/hooks/useAIRouteOptimization';
+import { useSaveRoutes } from '@/hooks/useSaveRoutes';
 import { RouteConfigForm } from '@/components/routes/RouteConfigForm';
 import { RouteResultSummary } from '@/components/routes/RouteResultSummary';
 import { RouteMapView } from '@/components/routes/RouteMapView';
 import { RouteStopsList } from '@/components/routes/RouteStopsList';
+import { DriverSuggestionCard } from '@/components/routes/DriverSuggestionCard';
 import { Button } from '@/components/ui/button';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, RefreshCw, AlertTriangle, Loader2, Settings, Route } from 'lucide-react';
-import type { DeliveryPoint, RouteConfig } from '@/types/routes';
+import { ArrowLeft, RefreshCw, AlertTriangle, Loader2, Settings, Route, Save } from 'lucide-react';
+import { toast } from 'sonner';
+import type { DeliveryPoint, RouteConfig, RoutePeriod } from '@/types/routes';
+import { extractVolumeLiters, calculateServiceTime } from '@/types/routes';
 
 // Default start location (Graal Beer)
 const DEFAULT_START = {
@@ -29,6 +34,7 @@ export default function RoutesPage() {
   
   // Date selection state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentPeriod, setCurrentPeriod] = useState<RoutePeriod>('manha');
   const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
   
   const { 
@@ -48,12 +54,22 @@ export default function RoutesPage() {
     clearResult 
   } = useRouteOptimization();
 
+  const {
+    analyzeDeliveries,
+    isAnalyzing,
+    suggestion,
+    clearSuggestion,
+  } = useAIRouteOptimization();
+
+  const { saveRoutes, loadRoutes, isSaving } = useSaveRoutes();
+
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
   const [startLocation, setStartLocation] = useState(DEFAULT_START);
   const [mobileTab, setMobileTab] = useState<string>('config');
   const [showRouteDetails, setShowRouteDetails] = useState(false);
+  const [hasSavedRoutes, setHasSavedRoutes] = useState(false);
 
-  // Convert orders with locations to DeliveryPoints
+  // Convert orders with locations to DeliveryPoints with volume
   const deliveryPoints: DeliveryPoint[] = useMemo(() => {
     if (!orders || !locations) return [];
 
@@ -84,6 +100,10 @@ export default function RoutesPage() {
         addr?.city,
       ].filter(Boolean);
 
+      // Extract volume - default to 30L if no equipment info
+      const volumeLiters = 30; // Default volume
+      const estimatedServiceTime = calculateServiceTime(volumeLiters);
+
       return {
         orderNumber: loc.orderNumber,
         clientName: loc.clientName,
@@ -91,32 +111,65 @@ export default function RoutesPage() {
         lat: loc.lat,
         lng: loc.lng,
         expectedDelivery: expectedTime,
-        estimatedServiceTime: 30,
+        estimatedServiceTime,
         priority: expectedTime ? 1440 - parseInt(expectedTime.split(':')[0]) * 60 : 0,
+        volumeLiters,
+        equipmentDescription: '',
       };
     });
   }, [orders, locations]);
 
+  // Calculate total volume
+  const totalVolume = useMemo(() => {
+    return deliveryPoints.reduce((sum, p) => sum + (p.volumeLiters || 0), 0);
+  }, [deliveryPoints]);
+
+  // Load saved routes when date/period changes
+  useEffect(() => {
+    async function checkSavedRoutes() {
+      const saved = await loadRoutes(selectedDateString, currentPeriod);
+      setHasSavedRoutes(!!saved && saved.length > 0);
+    }
+    checkSavedRoutes();
+  }, [selectedDateString, currentPeriod, loadRoutes]);
+
+  // Analyze deliveries when they change (for AI suggestion)
+  useEffect(() => {
+    if (deliveryPoints.length > 0 && !result) {
+      analyzeDeliveries(deliveryPoints, {
+        workStartTime: currentPeriod === 'manha' ? '08:00' : '13:00',
+        workEndTime: currentPeriod === 'manha' ? '12:00' : '18:00',
+        period: currentPeriod,
+        serviceTimeMinutes: 30,
+        vehicleCapacityLiters: 400,
+      });
+    }
+  }, [deliveryPoints, currentPeriod, result, analyzeDeliveries]);
+
   const handleOptimize = useCallback(async (config: RouteConfig, date: string) => {
     setStartLocation(config.startLocation);
+    setCurrentPeriod(config.period);
     setSelectedRoute(null);
+    clearSuggestion();
     await optimizeRoutes(deliveryPoints, config);
     // Switch to results tab on mobile after optimization
     if (isMobile) {
       setMobileTab('results');
     }
-  }, [deliveryPoints, optimizeRoutes, isMobile]);
+  }, [deliveryPoints, optimizeRoutes, isMobile, clearSuggestion]);
 
   const handleDateChange = useCallback((date: Date) => {
     setSelectedDate(date);
-    clearResult(); // Clear previous results when date changes
-  }, [clearResult]);
+    clearResult();
+    clearSuggestion();
+  }, [clearResult, clearSuggestion]);
 
   const handleResetRoutes = useCallback(() => {
     clearResult();
+    clearSuggestion();
     setSelectedRoute(null);
     setMobileTab('config');
-  }, [clearResult]);
+  }, [clearResult, clearSuggestion]);
 
   const handleSelectRoute = useCallback((driverId: number | null) => {
     setSelectedRoute(driverId);
@@ -124,6 +177,14 @@ export default function RoutesPage() {
       setShowRouteDetails(true);
     }
   }, [isMobile]);
+
+  const handleSaveRoutes = useCallback(async () => {
+    if (!result) return;
+    const success = await saveRoutes(result.routes, selectedDateString, currentPeriod);
+    if (success) {
+      setHasSavedRoutes(true);
+    }
+  }, [result, selectedDateString, currentPeriod, saveRoutes]);
 
   // Get selected route for detail view
   const selectedRouteData = useMemo(() => {
@@ -166,6 +227,20 @@ export default function RoutesPage() {
             </div>
           )}
 
+          {/* Volume summary */}
+          <div className="bg-muted/50 rounded-lg p-3 flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Volume total:</span>
+            <span className="font-semibold">{totalVolume}L</span>
+          </div>
+
+          {/* AI Driver Suggestion */}
+          {!result && suggestion && (
+            <DriverSuggestionCard 
+              suggestion={suggestion} 
+              isLoading={isAnalyzing}
+            />
+          )}
+
           {/* Configuration or Results based on mobile tab or desktop view */}
           {isMobile ? (
             <Tabs value={mobileTab} onValueChange={setMobileTab} className="w-full">
@@ -187,15 +262,30 @@ export default function RoutesPage() {
                   progress={progress}
                   selectedDate={selectedDate}
                   onDateChange={handleDateChange}
+                  suggestedDriverCount={suggestion?.recommendedDriverCount}
                 />
               </TabsContent>
-              <TabsContent value="results" className="mt-4">
+              <TabsContent value="results" className="mt-4 space-y-4">
                 {result && (
-                  <RouteResultSummary
-                    result={result}
-                    selectedRoute={selectedRoute}
-                    onSelectRoute={handleSelectRoute}
-                  />
+                  <>
+                    <RouteResultSummary
+                      result={result}
+                      selectedRoute={selectedRoute}
+                      onSelectRoute={handleSelectRoute}
+                    />
+                    <Button 
+                      onClick={handleSaveRoutes} 
+                      disabled={isSaving}
+                      className="w-full"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      Salvar Rotas
+                    </Button>
+                  </>
                 )}
               </TabsContent>
             </Tabs>
@@ -209,13 +299,28 @@ export default function RoutesPage() {
                 progress={progress}
                 selectedDate={selectedDate}
                 onDateChange={handleDateChange}
+                suggestedDriverCount={suggestion?.recommendedDriverCount}
               />
             ) : (
-              <RouteResultSummary
-                result={result}
-                selectedRoute={selectedRoute}
-                onSelectRoute={handleSelectRoute}
-              />
+              <div className="space-y-4">
+                <RouteResultSummary
+                  result={result}
+                  selectedRoute={selectedRoute}
+                  onSelectRoute={handleSelectRoute}
+                />
+                <Button 
+                  onClick={handleSaveRoutes} 
+                  disabled={isSaving}
+                  className="w-full"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Rotas
+                </Button>
+              </div>
             )
           )}
         </>
@@ -235,16 +340,23 @@ export default function RoutesPage() {
             <div>
               <h1 className="font-semibold text-foreground">Otimização de Rotas</h1>
               <p className="text-xs text-muted-foreground">
-                {isLoading ? 'Carregando pedidos...' : `${deliveryPoints.length} entregas geocodificadas`}
+                {isLoading ? 'Carregando pedidos...' : `${deliveryPoints.length} entregas • ${totalVolume}L`}
               </p>
             </div>
           </div>
-          {result && (
-            <Button variant="outline" size="sm" onClick={handleResetRoutes}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Recalcular</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasSavedRoutes && !result && (
+              <span className="text-xs text-green-600 dark:text-green-400">
+                Rotas salvas
+              </span>
+            )}
+            {result && (
+              <Button variant="outline" size="sm" onClick={handleResetRoutes}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Recalcular</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

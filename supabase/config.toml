@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.sync-boletos-status]
 verify_jwt = false
+
+[functions.optimize-routes-ai]
+verify_jwt = false
