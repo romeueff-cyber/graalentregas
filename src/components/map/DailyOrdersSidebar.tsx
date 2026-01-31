@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { ERPSyncBadge } from '@/components/ui/erp-sync-badge';
 import { ERPStatusBadge } from '@/components/ui/erp-status-badge';
 import { extractTime } from '@/lib/date-utils';
 import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
+import { useBoletoStatus } from '@/hooks/useBoletoStatus';
 import {
   ChevronLeft,
   ChevronRight,
@@ -59,6 +60,7 @@ export function DailyOrdersSidebar({
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
   const [boletoOrder, setBoletoOrder] = useState<Order | null>(null);
+  const [boletoDialogKey, setBoletoDialogKey] = useState(0);
 
   // Use the shared hook with caching
   const { 
@@ -69,6 +71,15 @@ export function DailyOrdersSidebar({
     isOnline,
     cacheStatus
   } = useDailyOrders();
+
+  // Get order numbers for boleto status check
+  const orderNumbers = useMemo(() => 
+    orders?.map(o => o.order_number) || [], 
+    [orders]
+  );
+
+  // Boleto status hook
+  const { getStatus: getBoletoStatus, refreshStatus: refreshBoletoStatus } = useBoletoStatus(orderNumbers);
 
   const hasGrowler = (order: Order) => {
     return order.items.some(item => 
@@ -505,18 +516,40 @@ export function DailyOrdersSidebar({
                         </Button>
                         
                         {/* Boleto Button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[10px] px-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBoletoOrder(order);
-                          }}
-                          title="Gerar Boleto"
-                        >
-                          <FileText className="w-3 h-3" />
-                        </Button>
+                        {(() => {
+                          const boletoStatus = getBoletoStatus(order.order_number);
+                          const hasGeneratedBoleto = boletoStatus.hasGenerated;
+                          const isBoletoPayment = boletoStatus.isBoletoPayment;
+                          const isDisabled = isBoletoPayment === false;
+                          
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "h-7 text-[10px] px-2",
+                                hasGeneratedBoleto && "border-status-ready text-status-ready hover:bg-status-ready/10"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBoletoOrder(order);
+                              }}
+                              disabled={isDisabled}
+                              title={
+                                isDisabled 
+                                  ? "Forma de pagamento não é boleto" 
+                                  : hasGeneratedBoleto 
+                                    ? "Boleto já gerado - clique para ver" 
+                                    : "Gerar Boleto"
+                              }
+                            >
+                              <FileText className={cn(
+                                "w-3 h-3",
+                                hasGeneratedBoleto && "text-status-ready"
+                              )} />
+                            </Button>
+                          );
+                        })()}
                         
                         {/* Register Delivery Button */}
                         <Button
@@ -540,6 +573,7 @@ export function DailyOrdersSidebar({
 
       {/* Boleto Dialog */}
       <BoletoDialog
+        key={boletoDialogKey}
         order={boletoOrder ? {
           order_number: boletoOrder.order_number,
           client_name: boletoOrder.client_name,
@@ -548,7 +582,14 @@ export function DailyOrdersSidebar({
           items: boletoOrder.items,
         } : null}
         open={!!boletoOrder}
-        onOpenChange={(open) => !open && setBoletoOrder(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBoletoOrder(null);
+            // Refresh boleto status when dialog closes
+            refreshBoletoStatus();
+            setBoletoDialogKey(prev => prev + 1);
+          }
+        }}
       />
     </div>
   );
