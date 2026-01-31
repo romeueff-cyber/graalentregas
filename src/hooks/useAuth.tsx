@@ -4,6 +4,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { authStorage, isOnline } from '@/lib/offline-storage';
 import type { AppRole, Profile } from '@/types/database';
 
+function isAbortErrorLike(err: unknown): boolean {
+  const anyErr = err as any;
+  const message = String(anyErr?.message ?? '');
+  return (
+    anyErr?.name === 'AbortError' ||
+    /signal is aborted/i.test(message) ||
+    /abort/i.test(message) ||
+    anyErr?.cause?.name === 'AbortError'
+  );
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -189,16 +200,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Clear any stale/expired session before attempting login
-      await supabase.auth.signOut({ scope: 'local' });
-      await authStorage.clear();
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      return { error: error as Error | null };
+      // Clear any stale/expired session before attempting login.
+      // IMPORTANT: don't let an aborted cleanup call block login.
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (cleanupErr) {
+        if (!isAbortErrorLike(cleanupErr)) {
+          console.warn('Pre-login cleanup signOut failed:', cleanupErr);
+        }
+      }
+
+      try {
+        await authStorage.clear();
+      } catch (storageErr) {
+        // Not critical for online login.
+        console.warn('Pre-login cache clear failed:', storageErr);
+      }
+
+      const attemptLogin = () =>
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      const first = await attemptLogin();
+      if (!first.error) return { error: null };
+
+      // If the request was aborted (common on flaky mobile/PWA startup), retry once.
+      if (isAbortErrorLike(first.error)) {
+        await new Promise((r) => setTimeout(r, 250));
+        const second = await attemptLogin();
+        if (!second.error) return { error: null };
+        if (isAbortErrorLike(second.error)) {
+          return { error: new Error('Conexão interrompida. Tente novamente.') };
+        }
+        return { error: second.error as Error };
+      }
+
+      return { error: first.error as Error };
     } catch (err) {
+      if (isAbortErrorLike(err)) {
+        return { error: new Error('Conexão interrompida. Tente novamente.') };
+      }
       return { error: err as Error };
     }
   };

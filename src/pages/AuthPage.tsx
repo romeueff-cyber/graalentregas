@@ -11,6 +11,17 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { authStorage } from '@/lib/offline-storage';
 
+function isAbortErrorLike(err: unknown): boolean {
+  const anyErr = err as any;
+  const message = String(anyErr?.message ?? '');
+  return (
+    anyErr?.name === 'AbortError' ||
+    /signal is aborted/i.test(message) ||
+    /abort/i.test(message) ||
+    anyErr?.cause?.name === 'AbortError'
+  );
+}
+
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
@@ -87,6 +98,10 @@ export default function AuthPage() {
       const { error } = await signIn(email, password);
       
       if (error) {
+        if (isAbortErrorLike(error)) {
+          toast.error('Conexão interrompida. Tente novamente.');
+          return;
+        }
         if (error.message.includes('Invalid login credentials')) {
           toast.error('Email ou senha incorretos');
         } else {
@@ -97,7 +112,11 @@ export default function AuthPage() {
         navigate('/');
       }
     } catch (err: any) {
-      toast.error('Erro ao fazer login');
+      if (isAbortErrorLike(err)) {
+        toast.error('Conexão interrompida. Tente novamente.');
+      } else {
+        toast.error('Erro ao fazer login');
+      }
     } finally {
       setIsLoading(false);
     }
