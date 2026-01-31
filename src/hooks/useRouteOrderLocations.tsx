@@ -2,6 +2,17 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+function isAbortErrorLike(err: unknown): boolean {
+  const anyErr = err as any;
+  const message = String(anyErr?.message ?? '');
+  return (
+    anyErr?.name === 'AbortError' ||
+    /signal is aborted/i.test(message) ||
+    /abort/i.test(message) ||
+    anyErr?.cause?.name === 'AbortError'
+  );
+}
+
 interface OrderAddress {
   street: string;
   number: string;
@@ -108,17 +119,12 @@ export function useRouteOrderLocations(date: string) {
       try {
         const { data, error } = await supabase.functions.invoke('list-erp-orders', {
           body: { date },
+          signal,
         });
-        
-        // Check if request was aborted
-        if (signal?.aborted) {
-          console.log('Request aborted for date:', date);
-          return [];
-        }
         
         if (error) {
           // Handle abort errors gracefully
-          if (error.message?.includes('abort') || error.name === 'AbortError') {
+          if (signal?.aborted || isAbortErrorLike(error)) {
             console.log('Request aborted:', date);
             return [];
           }
@@ -129,7 +135,7 @@ export function useRouteOrderLocations(date: string) {
         return data as Order[];
       } catch (err: any) {
         // Handle abort errors gracefully
-        if (err?.name === 'AbortError' || err?.message?.includes('abort') || signal?.aborted) {
+        if (signal?.aborted || isAbortErrorLike(err)) {
           console.log('Request aborted during fetch:', date);
           return [];
         }
@@ -140,7 +146,7 @@ export function useRouteOrderLocations(date: string) {
     enabled: !!date,
     retry: (failureCount, error: any) => {
       // Don't retry on abort errors
-      if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
+      if (isAbortErrorLike(error)) {
         return false;
       }
       return failureCount < 2;
