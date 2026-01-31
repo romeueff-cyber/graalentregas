@@ -56,7 +56,7 @@ interface InstallmentStatus {
 }
 
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
-  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, deleteExistingBoletos, cancelBoleto, isLoading } = useBoleto();
+  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, getAllBoletos, deleteExistingBoletos, cancelBoleto, isLoading } = useBoleto();
   const { 
     fetchBoletoData, 
     calculateDueDates, 
@@ -70,6 +70,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [step, setStep] = useState<'checking' | 'existing' | 'form' | 'result' | 'preview'>('checking');
   const [generatedBoletos, setGeneratedBoletos] = useState<GeneratedBoleto[]>([]);
   const [existingBoletos, setExistingBoletos] = useState<ExistingBoleto[]>([]);
+  const [cancelledBoletos, setCancelledBoletos] = useState<ExistingBoleto[]>([]);
   const [hasLoadedERP, setHasLoadedERP] = useState(false);
   const [installmentStatuses, setInstallmentStatuses] = useState<InstallmentStatus[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -88,11 +89,20 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setHasLoadedERP(true);
       setStep('checking');
       
-      // Check for existing boletos first
-      checkExistingBoletos(order.order_number).then((existing) => {
-        if (existing.length > 0) {
-          setExistingBoletos(existing);
+      // Check for all boletos (including cancelled for history)
+      getAllBoletos(order.order_number).then((allBoletos) => {
+        const active = allBoletos.filter(b => b.status !== 'CANCELLED' && b.status !== 'CANCELADO');
+        const cancelled = allBoletos.filter(b => b.status === 'CANCELLED' || b.status === 'CANCELADO');
+        
+        setCancelledBoletos(cancelled);
+        
+        if (active.length > 0) {
+          setExistingBoletos(active);
           setStep('existing');
+        } else if (cancelled.length > 0) {
+          // Only cancelled boletos exist - show form to generate new ones but with history visible
+          setExistingBoletos([]);
+          setStep('form');
         } else {
           setStep('form');
         }
@@ -118,7 +128,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         }
       });
     }
-  }, [open, order, hasLoadedERP, fetchBoletoData, formatDocumentFromERP, checkExistingBoletos]);
+  }, [open, order, hasLoadedERP, fetchBoletoData, formatDocumentFromERP, getAllBoletos]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -127,6 +137,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setIsBoleto(null);
       setGeneratedBoletos([]);
       setExistingBoletos([]);
+      setCancelledBoletos([]);
       setStep('checking');
       setInstallmentStatuses([]);
       setIsGenerating(false);
@@ -155,7 +166,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     if (!order) return;
     
     const confirmed = window.confirm(
-      `Tem certeza que deseja cancelar ${existingBoletos.length} boleto(s) para o pedido #${order.order_number}?\n\nEsta ação irá:\n• Cancelar o(s) boleto(s) na instituição bancária (Cora)\n• Remover o(s) registro(s) do sistema\n\nBoletos já pagos não podem ser cancelados.`
+      `Tem certeza que deseja cancelar ${existingBoletos.length} boleto(s) para o pedido #${order.order_number}?\n\nEsta ação irá:\n• Cancelar o(s) boleto(s) na instituição bancária (Cora)\n• Manter o(s) registro(s) no histórico como cancelado(s)\n\nBoletos já pagos não podem ser cancelados.`
     );
     
     if (confirmed) {
@@ -164,8 +175,10 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setIsCanceling(false);
       
       if (success) {
+        // Move to cancelled list
+        setCancelledBoletos(prev => [...prev, ...existingBoletos.map(b => ({ ...b, status: 'CANCELLED' }))]);
         setExistingBoletos([]);
-        onOpenChange(false);
+        setStep('form'); // Go to form to allow generating new boletos
       }
     }
   };
@@ -476,6 +489,25 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     Este pedido não é boleto bancário ({erpData?.payment.method_description})
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Cancelled Boletos History */}
+              {cancelledBoletos.length > 0 && (
+                <Alert className="border-status-waiting/50 bg-status-waiting/5">
+                  <AlertCircle className="h-4 w-4 text-status-waiting" />
+                  <AlertDescription className="text-sm">
+                    <span className="font-medium">Histórico:</span> {cancelledBoletos.length} boleto(s) cancelado(s)
+                    <div className="mt-2 space-y-1">
+                      {cancelledBoletos.map((b, i) => (
+                        <div key={b.id} className="flex justify-between text-xs text-muted-foreground">
+                          <span>{b.order_number}</span>
+                          <span>Venc: {formatDate(b.due_date)}</span>
+                          <span>{formatCurrency(b.total_amount)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </AlertDescription>
                 </Alert>
               )}

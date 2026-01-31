@@ -101,14 +101,21 @@ export function useBoleto() {
   const { user } = useAuth();
 
   // Check if boletos already exist for an order (checks base order number)
-  const checkExistingBoletos = async (orderNumber: string): Promise<ExistingBoleto[]> => {
+  // By default, returns only active (non-cancelled) boletos
+  const checkExistingBoletos = async (orderNumber: string, includeAll = false): Promise<ExistingBoleto[]> => {
     try {
       // Search for boletos matching the order number (including installments like 7163-1, 7163-2)
-      const { data, error: queryError } = await supabase
+      let query = supabase
         .from('boletos')
         .select('*')
-        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`)
-        .order('order_number', { ascending: true });
+        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`);
+      
+      // By default, exclude cancelled boletos
+      if (!includeAll) {
+        query = query.not('status', 'in', '("CANCELLED","CANCELADO")');
+      }
+      
+      const { data, error: queryError } = await query.order('order_number', { ascending: true });
 
       if (queryError) {
         console.error('[Boleto] Error checking existing:', queryError);
@@ -120,6 +127,11 @@ export function useBoleto() {
       console.error('[Boleto] Error checking existing boletos:', err);
       return [];
     }
+  };
+
+  // Get all boletos including cancelled (for history)
+  const getAllBoletos = async (orderNumber: string): Promise<ExistingBoleto[]> => {
+    return checkExistingBoletos(orderNumber, true);
   };
 
   // Delete existing boletos for regeneration
@@ -143,22 +155,29 @@ export function useBoleto() {
     }
   };
 
-  // Cancel boletos in Cora and remove from database
+  // Cancel boletos in Cora and update status in database (keep history)
   const cancelBoleto = async (orderNumber: string): Promise<boolean> => {
     try {
       // First, get existing boletos to get their Cora invoice IDs
       const existingBoletos = await checkExistingBoletos(orderNumber);
       
-      if (existingBoletos.length === 0) {
-        toast.error('Nenhum boleto encontrado para cancelar');
+      // Filter only active boletos (not already cancelled)
+      const activeBoletos = existingBoletos.filter(b => 
+        b.status !== 'CANCELLED' && b.status !== 'CANCELADO'
+      );
+      
+      if (activeBoletos.length === 0) {
+        toast.error('Nenhum boleto ativo encontrado para cancelar');
         return false;
       }
 
-      console.log(`[Boleto] Canceling ${existingBoletos.length} boleto(s) for order ${orderNumber}`);
+      console.log(`[Boleto] Canceling ${activeBoletos.length} boleto(s) for order ${orderNumber}`);
 
-      // Cancel each boleto in Cora
+      // Cancel each boleto in Cora and update local status
       let allCanceled = true;
-      for (const boleto of existingBoletos) {
+      let canceledCount = 0;
+      
+      for (const boleto of activeBoletos) {
         try {
           console.log(`[Boleto] Canceling invoice ${boleto.cora_invoice_id}`);
           
@@ -170,17 +189,36 @@ export function useBoleto() {
             },
           });
 
+          let canceledInCora = true;
+          
           if (fnError) {
             console.error(`[Boleto] Error canceling ${boleto.cora_invoice_id}:`, fnError);
             allCanceled = false;
-            continue;
+            canceledInCora = false;
           }
 
           if (data?.error) {
             console.error(`[Boleto] Cora error for ${boleto.cora_invoice_id}:`, data.error);
-            // If already canceled or can't be canceled, we still want to remove from DB
-            if (!data.error.includes('já está pago')) {
-              // Continue with local deletion even if Cora fails
+            // Check if already paid - can't cancel
+            if (data.error.includes('já está pago') || data.error.includes('PAID')) {
+              toast.error(`Boleto ${boleto.order_number} já está pago e não pode ser cancelado`);
+              allCanceled = false;
+              canceledInCora = false;
+            }
+          }
+
+          // Update status to CANCELLED in local database (keep for history)
+          if (canceledInCora) {
+            const { error: updateError } = await supabase
+              .from('boletos')
+              .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+              .eq('id', boleto.id);
+
+            if (updateError) {
+              console.error('[Boleto] Error updating status:', updateError);
+            } else {
+              canceledCount++;
+              console.log(`[Boleto] Updated ${boleto.order_number} status to CANCELLED`);
             }
           }
         } catch (err) {
@@ -189,22 +227,15 @@ export function useBoleto() {
         }
       }
 
-      // Delete from local database regardless of Cora result
-      const { error: deleteError } = await supabase
-        .from('boletos')
-        .delete()
-        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`);
-
-      if (deleteError) {
-        console.error('[Boleto] Error deleting from database:', deleteError);
-        toast.error('Erro ao remover boleto do sistema');
+      if (canceledCount === 0) {
+        toast.error('Nenhum boleto foi cancelado');
         return false;
       }
 
       if (allCanceled) {
-        toast.success('Boleto(s) cancelado(s) com sucesso na Cora e no sistema');
+        toast.success(`${canceledCount} boleto(s) cancelado(s) com sucesso`);
       } else {
-        toast.warning('Boleto(s) removido(s) do sistema. Alguns podem não ter sido cancelados na Cora.');
+        toast.warning(`${canceledCount} de ${activeBoletos.length} boleto(s) cancelado(s)`);
       }
       
       return true;
@@ -356,6 +387,7 @@ export function useBoleto() {
     createBoleto,
     getBoleto,
     checkExistingBoletos,
+    getAllBoletos,
     deleteExistingBoletos,
     cancelBoleto,
     formatCurrency,

@@ -519,9 +519,10 @@ export function DailyOrdersSidebar({
                         {(() => {
                           const boletoStatus = getBoletoStatus(order.order_number);
                           const hasGeneratedBoleto = boletoStatus.hasGenerated;
+                          const hasCancelledBoleto = boletoStatus.hasCancelled;
                           const isBoletoPayment = boletoStatus.isBoletoPayment;
-                          // Only disable if NOT boleto payment AND no boleto was generated
-                          const isDisabled = isBoletoPayment === false && !hasGeneratedBoleto;
+                          // Only disable if NOT boleto payment AND no boleto was generated or cancelled
+                          const isDisabled = isBoletoPayment === false && !hasGeneratedBoleto && !hasCancelledBoleto;
                           
                           return (
                             <Button
@@ -529,7 +530,8 @@ export function DailyOrdersSidebar({
                               size="sm"
                               className={cn(
                                 "h-7 text-[10px] px-2",
-                                hasGeneratedBoleto && "border-status-ready text-status-ready hover:bg-status-ready/10"
+                                hasGeneratedBoleto && "border-status-ready text-status-ready hover:bg-status-ready/10",
+                                !hasGeneratedBoleto && hasCancelledBoleto && "border-status-waiting text-status-waiting hover:bg-status-waiting/10"
                               )}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -540,13 +542,16 @@ export function DailyOrdersSidebar({
                                 isDisabled 
                                   ? "Forma de pagamento não é boleto" 
                                   : hasGeneratedBoleto 
-                                    ? "Boleto já gerado - clique para ver" 
-                                    : "Gerar Boleto"
+                                    ? "Boleto ativo - clique para ver" 
+                                    : hasCancelledBoleto
+                                      ? "Boleto cancelado - clique para ver histórico"
+                                      : "Gerar Boleto"
                               }
                             >
                               <FileText className={cn(
                                 "w-3 h-3",
-                                hasGeneratedBoleto && "text-status-ready"
+                                hasGeneratedBoleto && "text-status-ready",
+                                !hasGeneratedBoleto && hasCancelledBoleto && "text-status-waiting"
                               )} />
                             </Button>
                           );
