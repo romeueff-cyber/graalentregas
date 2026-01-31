@@ -110,13 +110,23 @@ export function RouteMapView({
     mapRef.current = map;
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || !window.google?.maps?.SymbolPath) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted/20">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Create icon config safely after confirming Google Maps is loaded
+  const createCircleIcon = (color: string, scale: number = 16) => ({
+    path: google.maps.SymbolPath.CIRCLE,
+    scale,
+    fillColor: color,
+    fillOpacity: 1,
+    strokeColor: '#fff',
+    strokeWeight: 2,
+  });
 
   const visibleRoutes = result?.routes.filter(
     r => selectedRoute === null || r.driverId === selectedRoute
@@ -134,11 +144,7 @@ export function RouteMapView({
       <Marker
         position={startLocation}
         icon={{
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: '#000',
-          fillOpacity: 1,
-          strokeColor: '#fff',
+          ...createCircleIcon('#000', 12),
           strokeWeight: 3,
         }}
         title="Ponto de Partida"
@@ -177,14 +183,7 @@ export function RouteMapView({
               fontWeight: 'bold',
               fontSize: '12px',
             }}
-            icon={{
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 16,
-              fillColor: route.color,
-              fillOpacity: 1,
-              strokeColor: '#fff',
-              strokeWeight: 2,
-            }}
+            icon={createCircleIcon(route.color, 16)}
             title={`${stop.point.clientName} - ${stop.arrivalTime}`}
           />
         ))
@@ -195,14 +194,7 @@ export function RouteMapView({
         <Marker
           key={point.orderNumber}
           position={{ lat: point.lat, lng: point.lng }}
-          icon={{
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#94a3b8',
-            fillOpacity: 0.8,
-            strokeColor: '#fff',
-            strokeWeight: 2,
-          }}
+          icon={createCircleIcon('#94a3b8', 10)}
           title={point.clientName}
         />
       ))}
