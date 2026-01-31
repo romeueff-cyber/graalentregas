@@ -148,3 +148,24 @@ export function extractDatePart(dateTimeString: string | null | undefined): stri
   
   return null;
 }
+
+/**
+ * Parse an ISO date string and return a Date object representing the date
+ * in São Paulo timezone. This is useful for calculating due dates where
+ * the UTC offset can cause the date to shift.
+ * 
+ * Example: "2026-01-31T01:12:00.000Z" in UTC is actually "2026-01-30 22:12" in São Paulo
+ * This function returns a Date set to 2026-01-30 (the São Paulo date)
+ */
+export function parseDateInSaoPaulo(isoString: string | null | undefined): Date {
+  if (!isoString) return new Date();
+  
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return new Date();
+  
+  // Get the date string in São Paulo timezone (YYYY-MM-DD format)
+  const saoPauloDateStr = date.toLocaleDateString('sv-SE', { timeZone: SAO_PAULO_TIMEZONE });
+  
+  // Return a Date object set to noon on that date to avoid timezone edge cases
+  return new Date(saoPauloDateStr + 'T12:00:00');
+}
