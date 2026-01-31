@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.gerar-boleto]
 verify_jwt = false
+
+[functions.get-erp-boleto-data]
+verify_jwt = false
+
+[functions.sync-boletos-status]
+verify_jwt = false
