@@ -21,6 +21,7 @@ interface Order {
   order_number: string;
   client_name: string;
   phone: string | null;
+  expected_delivery: string | null;
   address: {
     street: string;
     number: string;
@@ -235,7 +236,12 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
 
   const getDueDatesFromTerms = () => {
     if (!erpData) return [];
-    return calculateDueDates(erpData.payment.terms_code);
+    // Use expected_delivery as base date for due date calculation
+    // This ensures "à vista" boletos (0 days) use the delivery date, not today
+    const baseDate = order.expected_delivery 
+      ? new Date(order.expected_delivery) 
+      : new Date();
+    return calculateDueDates(erpData.payment.terms_code, baseDate);
   };
 
   const handleGenerate = async () => {

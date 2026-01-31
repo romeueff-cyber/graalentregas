@@ -584,6 +584,7 @@ export function DailyOrdersSidebar({
           order_number: boletoOrder.order_number,
           client_name: boletoOrder.client_name,
           phone: boletoOrder.phone,
+          expected_delivery: boletoOrder.expected_delivery,
           address: boletoOrder.address,
           items: boletoOrder.items,
         } : null}
