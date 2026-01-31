@@ -520,7 +520,8 @@ export function DailyOrdersSidebar({
                           const boletoStatus = getBoletoStatus(order.order_number);
                           const hasGeneratedBoleto = boletoStatus.hasGenerated;
                           const isBoletoPayment = boletoStatus.isBoletoPayment;
-                          const isDisabled = isBoletoPayment === false;
+                          // Only disable if NOT boleto payment AND no boleto was generated
+                          const isDisabled = isBoletoPayment === false && !hasGeneratedBoleto;
                           
                           return (
                             <Button
