@@ -5,6 +5,7 @@ import { useERPBoletoData, type ERPBoletoData } from '@/hooks/useERPBoletoData';
 interface BoletoStatusMap {
   [orderNumber: string]: {
     hasGenerated: boolean;
+    hasCancelled: boolean;
     isBoletoPayment: boolean | null; // null = not checked yet
   };
 }
@@ -24,7 +25,7 @@ export function useBoletoStatus(orderNumbers: string[]) {
   const [isLoading, setIsLoading] = useState(false);
   const [paymentCache, setPaymentCache] = useState<PaymentInfoCache>({});
 
-  // Fetch generated boletos from database
+  // Fetch generated boletos from database (includes status for history)
   const fetchGeneratedBoletos = useCallback(async () => {
     if (orderNumbers.length === 0) return;
 
@@ -36,7 +37,7 @@ export function useBoletoStatus(orderNumbers: string[]) {
 
       const { data, error } = await supabase
         .from('boletos')
-        .select('order_number')
+        .select('order_number, status')
         .or(orConditions);
 
       if (error) {
@@ -44,20 +45,32 @@ export function useBoletoStatus(orderNumbers: string[]) {
         return;
       }
 
-      // Extract base order numbers from results
-      const generatedOrders = new Set<string>();
+      // Extract base order numbers from results, tracking status
+      const activeOrders = new Set<string>();
+      const cancelledOrders = new Set<string>();
+      
       (data || []).forEach(row => {
         // Handle installment format (7163-1 -> 7163)
         const baseOrderNumber = row.order_number.split('-')[0];
-        generatedOrders.add(baseOrderNumber);
+        
+        if (row.status === 'CANCELLED' || row.status === 'CANCELADO') {
+          cancelledOrders.add(baseOrderNumber);
+        } else {
+          activeOrders.add(baseOrderNumber);
+        }
       });
 
       // Update status map with generated info
+      // Active boletos override cancelled status (if order has both active and cancelled)
       setStatusMap(prev => {
         const newMap = { ...prev };
         orderNumbers.forEach(orderNum => {
+          const hasActive = activeOrders.has(orderNum);
+          const hasCancelled = cancelledOrders.has(orderNum) && !hasActive;
+          
           newMap[orderNum] = {
-            hasGenerated: generatedOrders.has(orderNum),
+            hasGenerated: hasActive,
+            hasCancelled: hasCancelled,
             isBoletoPayment: prev[orderNum]?.isBoletoPayment ?? null,
           };
         });
@@ -124,6 +137,7 @@ export function useBoletoStatus(orderNumbers: string[]) {
         results.forEach(({ orderNum, isBoleto }) => {
           newMap[orderNum] = {
             hasGenerated: prev[orderNum]?.hasGenerated ?? false,
+            hasCancelled: prev[orderNum]?.hasCancelled ?? false,
             isBoletoPayment: isBoleto,
           };
         });
@@ -153,7 +167,7 @@ export function useBoletoStatus(orderNumbers: string[]) {
 
   // Get status for a specific order
   const getStatus = useCallback((orderNumber: string) => {
-    return statusMap[orderNumber] || { hasGenerated: false, isBoletoPayment: null };
+    return statusMap[orderNumber] || { hasGenerated: false, hasCancelled: false, isBoletoPayment: null };
   }, [statusMap]);
 
   // Refresh status after boleto generation
