@@ -18,6 +18,7 @@ import ClientConfirmationPage from "./pages/ClientConfirmationPage";
 import DailyOrdersPage from "./pages/DailyOrdersPage";
 import HygienePage from "./pages/HygienePage";
 import FinanceiroPage from "./pages/FinanceiroPage";
+import RoutesPage from "./pages/RoutesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
             <Route path="/higienizacao" element={<HygienePage />} />
             <Route path="/financeiro" element={<FinanceiroPage />} />
+            <Route path="/rotas" element={<RoutesPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <PWAInstallBanner />
