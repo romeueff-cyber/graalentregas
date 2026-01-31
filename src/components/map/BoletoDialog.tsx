@@ -155,7 +155,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     if (!order) return;
     
     const confirmed = window.confirm(
-      `Tem certeza que deseja cancelar ${existingBoletos.length} boleto(s) para o pedido #${order.order_number}?\n\nOs boletos serão removidos do sistema. Os boletos já emitidos na instituição bancária continuarão válidos até o vencimento.`
+      `Tem certeza que deseja cancelar ${existingBoletos.length} boleto(s) para o pedido #${order.order_number}?\n\nEsta ação irá:\n• Cancelar o(s) boleto(s) na instituição bancária (Cora)\n• Remover o(s) registro(s) do sistema\n\nBoletos já pagos não podem ser cancelados.`
     );
     
     if (confirmed) {
