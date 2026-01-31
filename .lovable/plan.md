@@ -1,115 +1,98 @@
 
-# Plano: Layout Responsivo para Página de Rotas
+# Plano: Corrigir Loop Infinito na Análise de IA
 
 ## Problema Identificado
 
-Atualmente a página de rotas (`/rotas`) tem um layout fixo de desktop onde a sidebar tem largura fixa de 320px (`w-80`). Em dispositivos móveis, isso faz com que a sidebar ocupe quase toda a tela, deixando o mapa praticamente invisível conforme mostrado na screenshot.
+O menu "Gerar Rotas" está preso em um loop infinito mostrando "Analisando entregas com IA..." porque:
 
-## Solução Proposta
+1. O `useEffect` que dispara a análise de IA não verifica se já existe uma `suggestion` válida
+2. Quando a análise termina (`isAnalyzing` muda de `true` para `false`), o effect é re-executado
+3. Como `suggestion` não está nas condições de parada, uma nova análise é iniciada imediatamente
+4. Este ciclo se repete indefinidamente (os logs mostram chamadas a cada ~5 segundos)
 
-Implementar um layout responsivo **mobile-first** que funcione bem em todas as telas:
+## Solução
 
-### Estrutura de Layout
+### 1. Adicionar `suggestion` como condição de parada no useEffect
 
-```text
-┌─────────────────────────────────┐
-│           DESKTOP               │
-├─────────────────────────────────┤
-│ ┌────────┐┌───────────────────┐ │
-│ │Sidebar ││                   │ │
-│ │ 320px  ││      MAPA         │ │
-│ │(scroll)││   (flex-grow)     │ │
-│ │        ││                   │ │
-│ └────────┘└───────────────────┘ │
-└─────────────────────────────────┘
+**Arquivo:** `src/pages/RoutesPage.tsx`
 
-┌───────────────┐
-│    MOBILE     │
-├───────────────┤
-│ ┌───────────┐ │
-│ │   MAPA    │ │
-│ │  (fixo)   │ │
-│ │  250px    │ │
-│ └───────────┘ │
-│ ┌───────────┐ │
-│ │  Sidebar  │ │
-│ │  (scroll) │ │
-│ │ Abas para │ │
-│ │ alternar  │ │
-│ └───────────┘ │
-└───────────────┘
+Alterar a lógica do useEffect (linhas 138-153) para verificar se já existe uma sugestão:
+
+```typescript
+// ANTES (com bug):
+useEffect(() => {
+  if (deliveryPoints.length === 0 || result || isAnalyzing) return;
+  // ... análise é chamada mesmo se suggestion já existe
+}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, analyzeDeliveries]);
+
+// DEPOIS (corrigido):
+useEffect(() => {
+  // Adicionar verificação de suggestion existente
+  if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
+  
+  const timeoutId = setTimeout(() => {
+    analyzeDeliveries(deliveryPoints, {
+      workStartTime: currentPeriod === 'manha' ? '08:00' : '13:00',
+      workEndTime: currentPeriod === 'manha' ? '12:00' : '18:00',
+      period: currentPeriod,
+      serviceTimeMinutes: 30,
+      vehicleCapacityLiters: 400,
+    });
+  }, 500);
+
+  return () => clearTimeout(timeoutId);
+// Adicionar suggestion às dependências
+}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, suggestion, analyzeDeliveries]);
 ```
 
-### Mudanças no Layout
+### 2. Usar ref para controle de chamada única (proteção adicional)
 
-**Mobile (< 768px):**
-- Layout vertical: mapa fixo no topo (250px) + conteúdo abaixo com scroll
-- Usar Tabs para alternar entre "Configurar" e "Resultados" quando houver rotas geradas
-- O painel de detalhes (RouteStopsList) abre como Sheet/Drawer de baixo para cima
+Para garantir que a análise só seja chamada uma vez por sessão de dados, adicionar um `useRef`:
 
-**Desktop (>= 768px):**
-- Manter layout horizontal atual
-- Sidebar 320px à esquerda, mapa flexível à direita, painel de detalhes à direita quando selecionado
+```typescript
+const hasAnalyzedRef = useRef(false);
 
-## Arquivos a Modificar
+// Reset quando a data ou período muda
+useEffect(() => {
+  hasAnalyzedRef.current = false;
+}, [selectedDateString, currentPeriod]);
 
-### 1. `src/pages/RoutesPage.tsx`
-
-- Adicionar hook `useIsMobile()` para detectar dispositivo
-- Reestruturar layout principal:
-  - Mobile: `flex-col` com mapa no topo e sidebar embaixo
-  - Desktop: `flex-row` (atual)
-- Usar `Sheet` component para mostrar detalhes da rota em mobile
-- Ajustar classes CSS com breakpoints Tailwind (`md:`, `lg:`)
-
-### 2. `src/components/routes/RouteMapView.tsx`
-
-- Aceitar prop `height` dinâmica para controlar altura em mobile
-- Adicionar altura mínima responsiva
-
-### 3. `src/components/routes/RouteResultSummary.tsx`
-
-- Compactar layout para mobile (menor padding, fonte menor)
-- Cards de rota mais compactos em mobile
-
-## Detalhes Técnicos
-
-```tsx
-// Exemplo da nova estrutura em RoutesPage.tsx
-const isMobile = useIsMobile();
-
-// Mobile: vertical layout
-// Desktop: horizontal layout
-<div className={`flex-1 flex overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
+useEffect(() => {
+  if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
+  if (hasAnalyzedRef.current) return; // Proteção extra
   
-  {/* Mapa - primeiro em mobile */}
-  <div className={isMobile ? 'h-[250px] flex-shrink-0' : 'flex-1'}>
-    <RouteMapView ... />
-  </div>
+  hasAnalyzedRef.current = true;
   
-  {/* Sidebar - depois em mobile */}
-  <div className={isMobile ? 'flex-1 overflow-y-auto' : 'w-80 flex-shrink-0'}>
-    <RouteConfigForm ... /> ou <RouteResultSummary ... />
-  </div>
-  
-  {/* Detalhes - Sheet em mobile, painel em desktop */}
-  {selectedRouteData && (
-    isMobile ? (
-      <Sheet>
-        <RouteStopsList route={selectedRouteData} />
-      </Sheet>
-    ) : (
-      <div className="w-96 border-l">
-        <RouteStopsList route={selectedRouteData} />
-      </div>
-    )
-  )}
-</div>
+  const timeoutId = setTimeout(() => {
+    analyzeDeliveries(deliveryPoints, {...});
+  }, 500);
+
+  return () => clearTimeout(timeoutId);
+}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, suggestion, analyzeDeliveries]);
 ```
+
+### 3. Limpar suggestion quando a data muda
+
+A função `handleDateChange` já chama `clearSuggestion()`, então a sugestão será limpa e uma nova análise será disparada quando o usuário mudar a data.
+
+## Resumo das Alterações
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/RoutesPage.tsx` | Adicionar `suggestion` à condição de parada do useEffect e às dependências; Adicionar `useRef` para controle de chamada única |
 
 ## Benefícios
 
-- O mapa fica sempre visível em todas as telas
-- Experiência touch-friendly em mobile
-- Detalhes da rota acessíveis via drawer sem ocupar espaço do mapa
-- Layout mais intuitivo seguindo padrões mobile do resto do app
+- Interrompe o loop infinito de chamadas à IA
+- A análise só é feita uma vez por combinação de data/período
+- Mudar a data ou período reinicia o ciclo corretamente
+- Sem impacto na experiência do usuário - a sugestão continua aparecendo normalmente
+
+## Detalhes Técnicos
+
+A raiz do problema está na forma como React hooks funcionam:
+- Quando `isAnalyzing` muda de `true` → `false`, o effect é re-avaliado
+- Se `suggestion` não está na condição de guarda, o código dentro do effect executa novamente
+- A nova chamada a `analyzeDeliveries` seta `isAnalyzing = true`, criando o ciclo
+
+O fix é simples: se já temos uma `suggestion`, não precisamos analisar novamente.
