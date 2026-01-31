@@ -37,39 +37,37 @@ function RouteCard({
 }) {
   return (
     <div 
-      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+      className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all ${
         isSelected 
           ? 'border-primary bg-primary/5 shadow-md' 
           : 'border-border hover:border-primary/50 bg-card'
       }`}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
         <div className="flex items-center gap-2">
           <div 
-            className="w-4 h-4 rounded-full" 
+            className="w-3 h-3 sm:w-4 sm:h-4 rounded-full" 
             style={{ backgroundColor: route.color }}
           />
-          <span className="font-semibold">{route.driverLabel}</span>
+          <span className="font-semibold text-sm sm:text-base">{route.driverLabel}</span>
         </div>
-        <Badge variant="secondary">{route.stops.length} paradas</Badge>
+        <Badge variant="secondary" className="text-xs">{route.stops.length} paradas</Badge>
       </div>
       
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
         <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Route className="w-4 h-4" />
+          <Route className="w-3 h-3 sm:w-4 sm:h-4" />
           <span>{formatDistance(route.totalDistance)}</span>
         </div>
         <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Clock className="w-4 h-4" />
+          <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
           <span>{formatDuration(route.totalDuration)}</span>
         </div>
       </div>
       
       <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-        <span>Início: {route.startTime}</span>
-        <span>•</span>
-        <span>Fim: {route.endTime}</span>
+        <span>{route.startTime} - {route.endTime}</span>
       </div>
     </div>
   );
