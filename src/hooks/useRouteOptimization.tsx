@@ -243,6 +243,7 @@ export function useRouteOptimization() {
         stops: [],
         totalDistance: 0,
         totalDuration: 0,
+        totalVolume: 0,
         startTime: config.workStartTime,
         endTime: config.workStartTime,
       };
@@ -273,6 +274,7 @@ export function useRouteOptimization() {
         stops: [stop],
         totalDistance: directions.distance,
         totalDuration: directions.duration + (config.serviceTimeMinutes * 60),
+        totalVolume: points[0].volumeLiters || 0,
         startTime: config.workStartTime,
         endTime: formatTime(departureMinutes),
       };
@@ -336,6 +338,7 @@ export function useRouteOptimization() {
       stops,
       totalDistance: directions.distance,
       totalDuration: directions.duration + (stops.length * config.serviceTimeMinutes * 60),
+      totalVolume: points.reduce((sum, p) => sum + (p.volumeLiters || 0), 0),
       startTime: config.workStartTime,
       endTime: formatTime(currentTimeMinutes),
     };
@@ -357,6 +360,7 @@ export function useRouteOptimization() {
           unassignedOrders: [],
           totalDistance: 0,
           totalDuration: 0,
+          totalVolume: 0,
           warnings: ['Nenhum pedido para roteirizar'],
         };
         setResult(emptyResult);
@@ -388,6 +392,7 @@ export function useRouteOptimization() {
           unassignedOrders: otherPeriodPoints,
           totalDistance: 0,
           totalDuration: 0,
+          totalVolume: 0,
           warnings: [`Nenhuma entrega para o período da ${periodLabel}`],
         };
         setResult(emptyResult);
@@ -449,6 +454,7 @@ export function useRouteOptimization() {
         unassignedOrders: unassigned,
         totalDistance: routes.reduce((sum, r) => sum + r.totalDistance, 0),
         totalDuration: routes.reduce((sum, r) => sum + r.totalDuration, 0),
+        totalVolume: routes.reduce((sum, r) => sum + (r.totalVolume || 0), 0),
         warnings,
       };
 
