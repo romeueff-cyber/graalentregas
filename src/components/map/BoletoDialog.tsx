@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle, RefreshCw, Printer, Eye } from 'lucide-react';
+import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle, RefreshCw, Printer, Eye, Trash2 } from 'lucide-react';
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse, type ExistingBoleto } from '@/hooks/useBoleto';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +56,7 @@ interface InstallmentStatus {
 }
 
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
-  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, deleteExistingBoletos, isLoading } = useBoleto();
+  const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, deleteExistingBoletos, cancelBoleto, isLoading } = useBoleto();
   const { 
     fetchBoletoData, 
     calculateDueDates, 
@@ -73,6 +73,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [hasLoadedERP, setHasLoadedERP] = useState(false);
   const [installmentStatuses, setInstallmentStatuses] = useState<InstallmentStatus[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   
   // Form state
@@ -129,6 +130,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setStep('checking');
       setInstallmentStatuses([]);
       setIsGenerating(false);
+      setIsCanceling(false);
       setPreviewUrl(null);
       resetERP();
     }
@@ -146,6 +148,25 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setExistingBoletos([]);
       setStep('form');
       toast.success('Boletos anteriores removidos. Pronto para gerar novos.');
+    }
+  };
+
+  const handleCancelBoleto = async () => {
+    if (!order) return;
+    
+    const confirmed = window.confirm(
+      `Tem certeza que deseja cancelar ${existingBoletos.length} boleto(s) para o pedido #${order.order_number}?\n\nOs boletos serão removidos do sistema. Os boletos já emitidos na instituição bancária continuarão válidos até o vencimento.`
+    );
+    
+    if (confirmed) {
+      setIsCanceling(true);
+      const success = await cancelBoleto(order.order_number);
+      setIsCanceling(false);
+      
+      if (success) {
+        setExistingBoletos([]);
+        onOpenChange(false);
+      }
     }
   };
 
@@ -402,14 +423,29 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={handleViewExisting}>
-                <Eye className="w-4 h-4 mr-2" />
-                Ver Boletos
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={handleRegenerate}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reemitir
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleViewExisting}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ver Boletos
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={handleRegenerate}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reemitir
+                </Button>
+              </div>
+              <Button 
+                variant="destructive" 
+                className="w-full"
+                onClick={handleCancelBoleto}
+                disabled={isCanceling}
+              >
+                {isCanceling ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Cancelar Boleto(s)
               </Button>
             </div>
           </div>

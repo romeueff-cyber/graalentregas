@@ -12,6 +12,7 @@ export interface ExistingBoleto {
   due_date: string;
   status: string;
   digitable_line: string | null;
+  barcode: string | null;
   pdf_url: string | null;
   pix_emv: string | null;
   created_at: string;
@@ -138,6 +139,29 @@ export function useBoleto() {
       return true;
     } catch (err) {
       console.error('[Boleto] Error deleting boletos:', err);
+      return false;
+    }
+  };
+
+  // Cancel a boleto (remove from database - the actual boleto in Cora continues valid)
+  const cancelBoleto = async (orderNumber: string): Promise<boolean> => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('boletos')
+        .delete()
+        .or(`order_number.eq.${orderNumber},order_number.like.${orderNumber}-%`);
+
+      if (deleteError) {
+        console.error('[Boleto] Error canceling:', deleteError);
+        toast.error('Erro ao cancelar boleto');
+        return false;
+      }
+
+      toast.success('Boleto(s) cancelado(s) com sucesso');
+      return true;
+    } catch (err) {
+      console.error('[Boleto] Error canceling boleto:', err);
+      toast.error('Erro ao cancelar boleto');
       return false;
     }
   };
@@ -284,6 +308,7 @@ export function useBoleto() {
     getBoleto,
     checkExistingBoletos,
     deleteExistingBoletos,
+    cancelBoleto,
     formatCurrency,
     openBoletoUrl,
     copyToClipboard,
