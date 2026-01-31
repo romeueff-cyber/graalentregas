@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Users, MapPin, Clock, Play, Loader2 } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Users, MapPin, Clock, Play, Loader2, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { RouteConfig } from '@/types/routes';
 
 // Graal Beer default location (can be changed)
@@ -16,16 +21,20 @@ const DEFAULT_START = {
 
 interface RouteConfigFormProps {
   deliveryCount: number;
-  onOptimize: (config: RouteConfig) => void;
+  onOptimize: (config: RouteConfig, date: string) => void;
   isOptimizing: boolean;
   progress: number;
+  selectedDate: Date;
+  onDateChange: (date: Date) => void;
 }
 
 export function RouteConfigForm({ 
   deliveryCount, 
   onOptimize, 
   isOptimizing,
-  progress 
+  progress,
+  selectedDate,
+  onDateChange,
 }: RouteConfigFormProps) {
   const [driverCount, setDriverCount] = useState(2);
   const [serviceTime, setServiceTime] = useState(30);
@@ -35,6 +44,7 @@ export function RouteConfigForm({
   const [startLocation, setStartLocation] = useState({ lat: DEFAULT_START.lat, lng: DEFAULT_START.lng });
 
   const handleOptimize = () => {
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
     onOptimize({
       driverCount,
       startLocation,
@@ -42,7 +52,7 @@ export function RouteConfigForm({
       serviceTimeMinutes: serviceTime,
       workStartTime,
       workEndTime,
-    });
+    }, dateString);
   };
 
   // Calculate estimated orders per driver
@@ -57,6 +67,38 @@ export function RouteConfigForm({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Date Selection */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-1.5">
+            <CalendarIcon className="w-4 h-4" />
+            Data das Entregas
+          </Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR }) : "Selecione a data"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && onDateChange(date)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {/* Driver Count */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
