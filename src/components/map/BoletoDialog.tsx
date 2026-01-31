@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { parseDateInSaoPaulo } from '@/lib/date-utils';
+import { parseDateInSaoPaulo, getNowSaoPaulo, toSaoPauloDateString } from '@/lib/date-utils';
 
 interface Order {
   order_number: string;
@@ -251,11 +251,24 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     }
 
     const dueDates = getDueDatesFromTerms();
-    const installmentsToGenerate = erpData?.payment.due_days.map((days, index) => ({
-      index,
-      days,
-      dueDate: dueDates[index]?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-    })) || [];
+    const today = getNowSaoPaulo();
+    today.setHours(0, 0, 0, 0);
+    
+    const installmentsToGenerate = erpData?.payment.due_days.map((days, index) => {
+      let dueDate = dueDates[index] || new Date();
+      
+      // If the calculated due date is in the past, use today instead
+      // Cora API doesn't accept past dates for boleto creation
+      if (dueDate < today) {
+        dueDate = today;
+      }
+      
+      return {
+        index,
+        days,
+        dueDate: toSaoPauloDateString(dueDate),
+      };
+    }) || [];
 
     if (installmentsToGenerate.length === 0) {
       toast.error('Nenhuma parcela para gerar');
