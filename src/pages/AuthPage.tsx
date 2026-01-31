@@ -10,17 +10,7 @@ import { Beer, Mail, Lock, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { authStorage } from '@/lib/offline-storage';
-
-function isAbortErrorLike(err: unknown): boolean {
-  const anyErr = err as any;
-  const message = String(anyErr?.message ?? '');
-  return (
-    anyErr?.name === 'AbortError' ||
-    /signal is aborted/i.test(message) ||
-    /abort/i.test(message) ||
-    anyErr?.cause?.name === 'AbortError'
-  );
-}
+import { toFriendlyAuthError } from '@/lib/abort-error';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -98,25 +88,14 @@ export default function AuthPage() {
       const { error } = await signIn(email, password);
       
       if (error) {
-        if (isAbortErrorLike(error)) {
-          toast.error('Conexão interrompida. Tente novamente.');
-          return;
-        }
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('Email ou senha incorretos');
-        } else {
-          toast.error(error.message);
-        }
+        toast.error(toFriendlyAuthError(error));
+        return;
       } else {
         toast.success('Login realizado com sucesso!');
         navigate('/');
       }
     } catch (err: any) {
-      if (isAbortErrorLike(err)) {
-        toast.error('Conexão interrompida. Tente novamente.');
-      } else {
-        toast.error('Erro ao fazer login');
-      }
+      toast.error(toFriendlyAuthError(err));
     } finally {
       setIsLoading(false);
     }

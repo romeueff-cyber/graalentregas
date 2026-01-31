@@ -2,18 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authStorage, isOnline } from '@/lib/offline-storage';
+import { isAbortErrorLike, toFriendlyAuthError } from '@/lib/abort-error';
 import type { AppRole, Profile } from '@/types/database';
-
-function isAbortErrorLike(err: unknown): boolean {
-  const anyErr = err as any;
-  const message = String(anyErr?.message ?? '');
-  return (
-    anyErr?.name === 'AbortError' ||
-    /signal is aborted/i.test(message) ||
-    /abort/i.test(message) ||
-    anyErr?.cause?.name === 'AbortError'
-  );
-}
 
 interface AuthContextType {
   user: User | null;
@@ -234,15 +224,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isAbortErrorLike(second.error)) {
           return { error: new Error('Conexão interrompida. Tente novamente.') };
         }
-        return { error: second.error as Error };
+        return { error: new Error(toFriendlyAuthError(second.error)) };
       }
 
-      return { error: first.error as Error };
+      return { error: new Error(toFriendlyAuthError(first.error)) };
     } catch (err) {
-      if (isAbortErrorLike(err)) {
-        return { error: new Error('Conexão interrompida. Tente novamente.') };
-      }
-      return { error: err as Error };
+      return { error: new Error(toFriendlyAuthError(err)) };
     }
   };
 
