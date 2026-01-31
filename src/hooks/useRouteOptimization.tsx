@@ -483,5 +483,6 @@ export function useRouteOptimization() {
     result,
     error,
     clearResult,
+    setResult,
   };
 }
