@@ -150,7 +150,7 @@ export default function RoutesPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-80 border-r bg-card flex-shrink-0 overflow-y-auto p-4 space-y-4">
           {isLoading ? (
@@ -195,9 +195,9 @@ export default function RoutesPage() {
           )}
         </div>
 
-        {/* Map Area */}
-        <div className="flex-1 flex">
-          <div className={`flex-1 relative ${selectedRouteData ? 'hidden lg:block' : ''}`}>
+        {/* Map Area - ensure proper height */}
+        <div className="flex-1 flex min-h-0 min-w-0">
+          <div className="flex-1 relative min-h-full">
             <RouteMapView
               result={result}
               selectedRoute={selectedRoute}
@@ -208,7 +208,7 @@ export default function RoutesPage() {
 
           {/* Route Details Panel */}
           {selectedRouteData && (
-            <div className="w-96 border-l flex-shrink-0">
+            <div className="w-96 border-l flex-shrink-0 overflow-y-auto">
               <RouteStopsList route={selectedRouteData} />
             </div>
           )}
