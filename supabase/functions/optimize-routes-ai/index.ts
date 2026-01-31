@@ -136,9 +136,17 @@ REGRAS DE NEGÓCIO:
 1. Cada veículo tem capacidade máxima de ${config.vehicleCapacityLiters} litros
 2. Horário de trabalho: ${config.workStartTime} a ${config.workEndTime} (${workMinutes} minutos)
 3. Tempo de entrega varia com o volume: 30L=30min, 60L=40min, 100L+=60min
-4. Entregas com horário fixo (apenas :00 ou :30) têm prioridade absoluta
-5. 00:00 significa horário flexível (pode ir a qualquer momento)
-6. O período atual é: ${config.period === 'manha' ? 'Manhã (08:00-12:00)' : 'Tarde/Noite (13:00-18:00)'}
+4. 00:00 significa horário flexível (pode ir a qualquer momento)
+5. O período atual é: ${config.period === 'manha' ? 'Manhã (08:00-12:00)' : 'Tarde/Noite (13:00-18:00)'}
+
+REGRAS IMPORTANTES SOBRE HORÁRIOS FIXOS:
+- Horário fixo (ex: 10:00) significa LIMITE MÁXIMO - a entrega deve chegar ATÉ esse horário, não exatamente nele
+- Entregas podem ser feitas ANTES do horário fixo, nunca depois
+- Se duas entregas têm o mesmo horário limite (ex: ambas 10:00), o mesmo entregador PODE fazer as duas, desde que:
+  a) Estejam geograficamente próximas (considere lat/lng)
+  b) Haja tempo suficiente para completar ambas antes do limite
+  c) A soma dos volumes caiba no veículo
+- PRIORIZE proximidade geográfica ao agrupar entregas - entregas próximas devem ir para o mesmo entregador
 
 DADOS ATUAIS:
 - Total de entregas: ${processedDeliveries.length}
@@ -150,7 +158,8 @@ DADOS ATUAIS:
 CRITÉRIOS PARA NÚMERO DE ENTREGADORES:
 - Mínimo = ceil(totalVolume / ${config.vehicleCapacityLiters})
 - Considere tempo de trabalho disponível
-- Considere horários fixos que exigem entregadores separados
+- Agrupe por proximidade geográfica PRIMEIRO, depois verifique se os horários são viáveis
+- Só adicione mais entregadores se for IMPOSSÍVEL um único fazer as entregas a tempo
 - Sempre arredonde para cima se necessário`;
 
     const userPrompt = action === 'suggest_drivers' 
@@ -159,16 +168,23 @@ CRITÉRIOS PARA NÚMERO DE ENTREGADORES:
 ${JSON.stringify(processedDeliveries.map(d => ({
   pedido: d.orderNumber,
   cliente: d.clientName,
-  horario: d.expectedDelivery || 'flexível',
+  lat: d.lat,
+  lng: d.lng,
+  horarioLimite: d.expectedDelivery ? `até ${d.expectedDelivery}` : 'flexível',
   volume: d.volumeLiters + 'L',
   tempoEstimado: d.estimatedServiceTime + 'min'
 })), null, 2)}
 
+LEMBRE-SE:
+- Horário fixo = LIMITE MÁXIMO (pode entregar antes)
+- Considere a DISTÂNCIA entre os pontos (lat/lng) - entregas próximas podem ser feitas pelo mesmo entregador
+- Só sugira mais entregadores se for realmente necessário por volume ou tempo
+
 Responda com a sugestão de quantidade de entregadores e a justificativa.`
       : `Distribua estas entregas entre ${config.driverCount || 2} entregadores, respeitando:
 1. Capacidade máxima de ${config.vehicleCapacityLiters}L por veículo
-2. Horários fixos têm prioridade absoluta
-3. Agrupe entregas próximas geograficamente
+2. Horário fixo = LIMITE MÁXIMO (entrega deve chegar ATÉ esse horário, pode ser antes)
+3. PRIORIZE proximidade geográfica - entregas próximas devem ir para o mesmo entregador
 4. Balanceie a carga de trabalho
 
 Entregas:
@@ -178,12 +194,12 @@ ${JSON.stringify(processedDeliveries.map(d => ({
   endereco: d.address,
   lat: d.lat,
   lng: d.lng,
-  horario: d.expectedDelivery || 'flexível',
+  horarioLimite: d.expectedDelivery ? `até ${d.expectedDelivery}` : 'flexível',
   volume: d.volumeLiters + 'L',
   tempoEstimado: d.estimatedServiceTime + 'min'
 })), null, 2)}
 
-Distribua as entregas entre os entregadores.`;
+Distribua as entregas entre os entregadores, agrupando por proximidade geográfica.`;
 
     const tools = [
       {
