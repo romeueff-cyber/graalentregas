@@ -115,16 +115,16 @@ export default function MainMapPage() {
 
   // Filtered equipments based on active filters (multi-select)
   const filteredEquipments = useMemo(() => {
-    // If no filters active, show all equipments
-    if (activeFilters.size === 0) return equipments;
+    // If no filters active, show nothing - user must select a filter
+    if (activeFilters.size === 0) return [];
     
-    // Check if only category filters are active (dailyOrders or hygiene)
+    // Check if any equipment filters are active
     const hasEquipmentFilters = activeFilters.has('delivered') || 
       activeFilters.has('ready') || 
       activeFilters.has('collected') || 
       activeFilters.has('clienteAvisara');
     
-    // If no equipment filters, hide all equipments when dailyOrders or hygiene is selected
+    // If no equipment filters, hide all equipments
     if (!hasEquipmentFilters) return [];
     
     // Filter by selected equipment statuses
@@ -151,11 +151,11 @@ export default function MainMapPage() {
     return new Set(equipments.map(e => e.pedido_dia));
   }, [equipments]);
 
-  // Show daily order locations when dailyOrders filter is active or no filter
+  // Show daily order locations ONLY when dailyOrders filter is active
   // EXCLUDE orders that are already delivered (they show as regular equipment markers now)
   const visibleDailyOrderLocations = useMemo(() => {
-    // Show if dailyOrders is selected OR no filters are active
-    if (activeFilters.has('dailyOrders') || activeFilters.size === 0) {
+    // Only show if dailyOrders is explicitly selected
+    if (activeFilters.has('dailyOrders')) {
       // Filter out already-delivered orders from map markers
       return dailyOrderLocations
         .filter(loc => !deliveredOrderNumbers.has(loc.orderNumber))
