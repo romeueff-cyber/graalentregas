@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -68,6 +68,12 @@ export default function RoutesPage() {
   const [mobileTab, setMobileTab] = useState<string>('config');
   const [showRouteDetails, setShowRouteDetails] = useState(false);
   const [hasSavedRoutes, setHasSavedRoutes] = useState(false);
+  const hasAnalyzedRef = useRef(false);
+
+  // Reset analysis flag when date or period changes
+  useEffect(() => {
+    hasAnalyzedRef.current = false;
+  }, [selectedDateString, currentPeriod]);
 
   // Convert orders with locations to DeliveryPoints with volume
   const deliveryPoints: DeliveryPoint[] = useMemo(() => {
@@ -136,7 +142,12 @@ export default function RoutesPage() {
   // Analyze deliveries when they change (for AI suggestion)
   // Use a debounce-like approach to avoid multiple rapid calls
   useEffect(() => {
-    if (deliveryPoints.length === 0 || result || isAnalyzing) return;
+    // Skip if no deliveries, already have result/suggestion, or already analyzing
+    if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
+    // Extra protection: only analyze once per date/period session
+    if (hasAnalyzedRef.current) return;
+    
+    hasAnalyzedRef.current = true;
     
     // Small delay to avoid calling during rapid state changes
     const timeoutId = setTimeout(() => {
@@ -150,7 +161,7 @@ export default function RoutesPage() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [deliveryPoints.length, currentPeriod, result, isAnalyzing, analyzeDeliveries]);
+  }, [deliveryPoints.length, currentPeriod, result, isAnalyzing, suggestion, analyzeDeliveries]);
 
   const handleOptimize = useCallback(async (config: RouteConfig, date: string) => {
     setStartLocation(config.startLocation);
