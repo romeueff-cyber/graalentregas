@@ -40,28 +40,48 @@
 
 ---
 
-### 📊 **Analytics & Relatórios** (do roadmap anterior)
+### 📊 **Analytics & Relatórios**
 - [ ] Dashboards de gestão para performance de entregas
-- [ ] Ciclos de higienização
+- [ ] Métricas de ciclos de higienização
 - [ ] Exportação de relatórios PDF/Excel
+- [ ] KPIs: tempo médio de recolha, entregas por dia, etc.
 
 ### ⚙️ **Operações**
-- [ ] Otimização de rotas para motoristas
-- [ ] Captura de assinatura digital
+- [ ] Otimização de rotas aprimorada para motoristas
+- [ ] Captura de assinatura digital na entrega/recolha
 - [ ] Controle de inventário/estoque de equipamentos
+- [ ] Drag & Drop para realocar paradas entre rotas (mobile)
 
-### 🤖 **Automação**
-- [ ] Assistente IA para motoristas (procedimentos)
+### 🤖 **Automação & IA**
+- [ ] Assistente IA para motoristas (procedimentos e dúvidas)
 - [ ] Consultas em linguagem natural para gestores
 - [ ] Notificações automáticas WhatsApp/Push para alertas de manutenção
+- [ ] Sugestão automática de número ideal de entregadores (IA)
+- [ ] Rotina automática de status via cron job (ENTREGUE → LIBERADO)
 
 ### 🔐 **Segurança**
-- [ ] Logs de auditoria de atividades
-- [ ] Controles de acesso baseados em permissões
+- [ ] Logs de auditoria de atividades (quem fez o quê)
+- [ ] Controles de acesso baseados em permissões granulares
 
 ### 🛡️ **Estabilidade**
 - [ ] Restauração de login offline com cache de sessão localforage
 - [ ] Tratamento de ERP offline com fallback gracioso
+- [ ] Melhorias no cache offline de pedidos do ERP
+
+### 🗺️ **Melhorias no Mapa**
+- [ ] Cluster de marcadores quando há muitos pontos próximos
+- [ ] Filtro por entregador no mapa
+- [ ] Visualização de rotas otimizadas no mapa principal
+
+### 💰 **Financeiro**
+- [ ] Dashboard financeiro com gráficos
+- [ ] Relatório de inadimplência
+- [ ] Alertas de boletos próximos ao vencimento
+
+### 📲 **PWA & Mobile**
+- [ ] Push notifications nativas
+- [ ] Modo offline mais robusto
+- [ ] Geofencing para check-in automático
 
 ---
 
@@ -69,3 +89,10 @@
 
 - [x] Correção da data de recolha no balão do mapa (timezone)
 - [x] Auto-transição de status ENTREGUE → LIBERADO_PARA_RECOLHA ao carregar equipamentos
+- [x] Tokens únicos para confirmação de cliente (UUID + expiração)
+- [x] Link WhatsApp para confirmação de recolha
+- [x] Otimização de rotas com IA (Gemini)
+- [x] Geocodificação paralela em lotes
+- [x] Cache offline de pedidos ERP com TTL
+- [x] Módulo de boletos com Cora Bank
+- [x] Módulo de higienização completo
