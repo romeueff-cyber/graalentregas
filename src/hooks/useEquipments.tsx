@@ -5,6 +5,22 @@ import type { Equipment, EquipmentWithCreator, Settings } from '@/types/database
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+// Deduplicate equipments by order number, keeping the most recent record
+function deduplicateByOrderNumber<T extends { pedido_dia: string; created_at: string }>(
+  equipments: T[]
+): T[] {
+  const latestByOrder = new Map<string, T>();
+  
+  for (const equipment of equipments) {
+    const existing = latestByOrder.get(equipment.pedido_dia);
+    if (!existing || new Date(equipment.created_at) > new Date(existing.created_at)) {
+      latestByOrder.set(equipment.pedido_dia, equipment);
+    }
+  }
+  
+  return Array.from(latestByOrder.values());
+}
+
 export function useEquipments() {
   const { user } = useAuth();
   const [equipments, setEquipments] = useState<EquipmentWithCreator[]>([]);
@@ -49,7 +65,10 @@ export function useEquipments() {
           creator_name: profilesById.get(e.created_by_user_id) || 'Desconhecido',
         }));
 
-        setEquipments(equipmentsWithCreator);
+        // Deduplicate by pedido_dia, keeping only the most recent record
+        const deduplicatedEquipments = deduplicateByOrderNumber(equipmentsWithCreator);
+
+        setEquipments(deduplicatedEquipments);
 
         // Save raw equipments (without creator_name) to local storage for offline use
         await equipmentStorage.save((data || []) as Equipment[]);
