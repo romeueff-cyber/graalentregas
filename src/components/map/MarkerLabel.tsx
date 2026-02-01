@@ -24,11 +24,19 @@ const periodLabels: Record<string, string> = {
   CLIENTE_IRA_AVISAR: 'Cliente Avisará',
 };
 
-// Format date to dd/MM
+// Format date to dd/MM avoiding timezone issues
 function formatShortDate(dateStr: string | null): string {
   if (!dateStr) return '--/--';
   try {
-    const date = new Date(dateStr);
+    // Para datas no formato YYYY-MM-DD, extrair componentes diretamente
+    // para evitar problemas de timezone
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}`;
+    }
+    
+    // Para datas com timestamp, criar Date com horário ao meio-dia
+    const date = new Date(dateStr.length === 10 ? dateStr + 'T12:00:00' : dateStr);
     return format(date, 'dd/MM', { locale: ptBR });
   } catch {
     return '--/--';
