@@ -1,66 +1,71 @@
+# Roadmap de Melhorias - Graal Entregas
 
-# Correção da Data de Recolha no Balão do Mapa
+## 🎯 Ideias Salvas
 
-## Problema Identificado
+---
 
-A data de recolha do pedido 6999 está aparecendo como **30/01** no balão do mapa, quando deveria ser **31/01**.
+### 🔍 **Busca e Filtros Avançados**
+- [ ] Busca global unificada (clientes, equipamentos, pedidos em um só lugar)
+- [ ] Filtros salvos/favoritos para consultas frequentes
+- [ ] Histórico de buscas recentes
 
-**Causa raiz:** A função `formatShortDate` no componente `MarkerLabel.tsx` usa `new Date(dateStr)` para datas no formato "YYYY-MM-DD". O JavaScript interpreta isso como meia-noite UTC, e ao converter para o horário de São Paulo (UTC-3), a data "volta" um dia.
+### 📸 **Gestão de Mídia**
+- [ ] Galeria de fotos por cliente/equipamento
+- [ ] Comparativo visual antes/depois da higienização
+- [ ] Captura de fotos com marca d'água automática (data/hora/localização)
 
-**Dados no banco:**
-- `data_prevista_recolha`: `2026-01-31` (correto)
-- Exibição atual: `30/01` (errado)
+### 📅 **Agenda e Calendário**
+- [ ] Visualização em calendário das entregas e higienizações
+- [ ] Agendamento drag-and-drop
+- [ ] Sincronização com Google Calendar
 
-## Solução
+### 🔔 **Central de Notificações**
+- [ ] Painel de notificações in-app com histórico
+- [ ] Configurações personalizadas por usuário (o que quer receber)
+- [ ] Resumo diário automático por email
 
-Modificar a função `formatShortDate` no `MarkerLabel.tsx` para extrair os componentes da data localmente, evitando a conversão UTC.
+### 📱 **QR Code Avançado**
+- [ ] QR Code único por equipamento para rastreamento
+- [ ] Cliente escaneia para ver status em tempo real
+- [ ] Check-in/check-out automático por QR
 
-### Alterações Técnicas
+### 💬 **Feedback do Cliente**
+- [ ] Avaliação de satisfação pós-serviço
+- [ ] Comentários e sugestões dos clientes
+- [ ] NPS (Net Promoter Score) automático
 
-**Arquivo: `src/components/map/MarkerLabel.tsx`**
+### 🌙 **Modo Escuro**
+- [ ] Tema dark para uso noturno
+- [ ] Alternância automática por horário
 
-Substituir a função atual:
-```typescript
-function formatShortDate(dateStr: string | null): string {
-  if (!dateStr) return '--/--';
-  try {
-    const date = new Date(dateStr);
-    return format(date, 'dd/MM', { locale: ptBR });
-  } catch {
-    return '--/--';
-  }
-}
-```
+---
 
-Por uma versão que respeita o timezone local:
-```typescript
-function formatShortDate(dateStr: string | null): string {
-  if (!dateStr) return '--/--';
-  try {
-    // Para datas no formato YYYY-MM-DD, extrair componentes diretamente
-    // para evitar problemas de timezone
-    if (dateStr.length === 10 && dateStr.includes('-')) {
-      const [year, month, day] = dateStr.split('-');
-      return `${day}/${month}`;
-    }
-    
-    // Para datas com timestamp, criar Date com horário ao meio-dia
-    const date = new Date(dateStr.length === 10 ? dateStr + 'T12:00:00' : dateStr);
-    return format(date, 'dd/MM', { locale: ptBR });
-  } catch {
-    return '--/--';
-  }
-}
-```
+### 📊 **Analytics & Relatórios** (do roadmap anterior)
+- [ ] Dashboards de gestão para performance de entregas
+- [ ] Ciclos de higienização
+- [ ] Exportação de relatórios PDF/Excel
 
-## Resultado Esperado
+### ⚙️ **Operações**
+- [ ] Otimização de rotas para motoristas
+- [ ] Captura de assinatura digital
+- [ ] Controle de inventário/estoque de equipamentos
 
-| Campo | Antes | Depois |
-|-------|-------|--------|
-| Recolha pedido 6999 | 30/01 | 31/01 |
+### 🤖 **Automação**
+- [ ] Assistente IA para motoristas (procedimentos)
+- [ ] Consultas em linguagem natural para gestores
+- [ ] Notificações automáticas WhatsApp/Push para alertas de manutenção
 
-## Impacto
+### 🔐 **Segurança**
+- [ ] Logs de auditoria de atividades
+- [ ] Controles de acesso baseados em permissões
 
-- Corrige a exibição de todas as datas de recolha nos balões do mapa
-- Não afeta outras funcionalidades (a lógica de cálculo de dias permanece intacta)
-- Padrão consistente com o `lovable-stack-overflow` que recomenda usar componentes locais para datas de calendário
+### 🛡️ **Estabilidade**
+- [ ] Restauração de login offline com cache de sessão localforage
+- [ ] Tratamento de ERP offline com fallback gracioso
+
+---
+
+## ✅ Implementado
+
+- [x] Correção da data de recolha no balão do mapa (timezone)
+- [x] Auto-transição de status ENTREGUE → LIBERADO_PARA_RECOLHA ao carregar equipamentos
