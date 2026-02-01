@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { equipmentStorage, settingsStorage, isOnline } from '@/lib/offline-storage';
+import { isPastDate, isToday } from '@/lib/date-utils';
 import type { Equipment, EquipmentWithCreator, Settings } from '@/types/database';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -42,8 +43,40 @@ export function useEquipments() {
 
         if (error) throw error;
 
+        // Auto-transition: if collection date is today/past and it's not a "cliente irá avisar" case,
+        // ensure status becomes LIBERADO_PARA_RECOLHA (triggers don't run without DB activity).
+        const serverRows: any[] = (data || []) as any[];
+        const dueToReadyIds = serverRows
+          .filter(
+            (e) =>
+              e?.status === 'ENTREGUE' &&
+              !e?.cliente_ira_avisar &&
+              e?.periodo_recolha !== 'CLIENTE_IRA_AVISAR' &&
+              (isToday(e?.data_prevista_recolha) || isPastDate(e?.data_prevista_recolha))
+          )
+          .map((e) => e.id)
+          .filter(Boolean);
+
+        if (dueToReadyIds.length > 0) {
+          const idsSet = new Set(dueToReadyIds);
+          const { error: updateError } = await supabase
+            .from('equipments')
+            .update({ status: 'LIBERADO_PARA_RECOLHA' })
+            .in('id', dueToReadyIds);
+
+          if (!updateError) {
+            for (const row of serverRows) {
+              if (idsSet.has(row.id)) {
+                row.status = 'LIBERADO_PARA_RECOLHA';
+              }
+            }
+          } else {
+            console.warn('Could not auto-update due equipments status:', updateError);
+          }
+        }
+
         const creatorIds = Array.from(
-          new Set((data || []).map((e: any) => e.created_by_user_id).filter(Boolean))
+          new Set(serverRows.map((e: any) => e.created_by_user_id).filter(Boolean))
         );
 
         let profilesById = new Map<string, string>();
@@ -60,7 +93,7 @@ export function useEquipments() {
           );
         }
 
-        const equipmentsWithCreator: EquipmentWithCreator[] = (data || []).map((e: any) => ({
+        const equipmentsWithCreator: EquipmentWithCreator[] = serverRows.map((e: any) => ({
           ...e,
           creator_name: profilesById.get(e.created_by_user_id) || 'Desconhecido',
         }));
@@ -71,7 +104,7 @@ export function useEquipments() {
         setEquipments(deduplicatedEquipments);
 
         // Save raw equipments (without creator_name) to local storage for offline use
-        await equipmentStorage.save((data || []) as Equipment[]);
+        await equipmentStorage.save(serverRows as Equipment[]);
       } else {
         // Load from local storage
         const localData = await equipmentStorage.getAll();
