@@ -1,98 +1,66 @@
 
-# Plano: Corrigir Loop Infinito na Análise de IA
+# Correção da Data de Recolha no Balão do Mapa
 
 ## Problema Identificado
 
-O menu "Gerar Rotas" está preso em um loop infinito mostrando "Analisando entregas com IA..." porque:
+A data de recolha do pedido 6999 está aparecendo como **30/01** no balão do mapa, quando deveria ser **31/01**.
 
-1. O `useEffect` que dispara a análise de IA não verifica se já existe uma `suggestion` válida
-2. Quando a análise termina (`isAnalyzing` muda de `true` para `false`), o effect é re-executado
-3. Como `suggestion` não está nas condições de parada, uma nova análise é iniciada imediatamente
-4. Este ciclo se repete indefinidamente (os logs mostram chamadas a cada ~5 segundos)
+**Causa raiz:** A função `formatShortDate` no componente `MarkerLabel.tsx` usa `new Date(dateStr)` para datas no formato "YYYY-MM-DD". O JavaScript interpreta isso como meia-noite UTC, e ao converter para o horário de São Paulo (UTC-3), a data "volta" um dia.
+
+**Dados no banco:**
+- `data_prevista_recolha`: `2026-01-31` (correto)
+- Exibição atual: `30/01` (errado)
 
 ## Solução
 
-### 1. Adicionar `suggestion` como condição de parada no useEffect
+Modificar a função `formatShortDate` no `MarkerLabel.tsx` para extrair os componentes da data localmente, evitando a conversão UTC.
 
-**Arquivo:** `src/pages/RoutesPage.tsx`
+### Alterações Técnicas
 
-Alterar a lógica do useEffect (linhas 138-153) para verificar se já existe uma sugestão:
+**Arquivo: `src/components/map/MarkerLabel.tsx`**
 
+Substituir a função atual:
 ```typescript
-// ANTES (com bug):
-useEffect(() => {
-  if (deliveryPoints.length === 0 || result || isAnalyzing) return;
-  // ... análise é chamada mesmo se suggestion já existe
-}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, analyzeDeliveries]);
-
-// DEPOIS (corrigido):
-useEffect(() => {
-  // Adicionar verificação de suggestion existente
-  if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
-  
-  const timeoutId = setTimeout(() => {
-    analyzeDeliveries(deliveryPoints, {
-      workStartTime: currentPeriod === 'manha' ? '08:00' : '13:00',
-      workEndTime: currentPeriod === 'manha' ? '12:00' : '18:00',
-      period: currentPeriod,
-      serviceTimeMinutes: 30,
-      vehicleCapacityLiters: 400,
-    });
-  }, 500);
-
-  return () => clearTimeout(timeoutId);
-// Adicionar suggestion às dependências
-}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, suggestion, analyzeDeliveries]);
+function formatShortDate(dateStr: string | null): string {
+  if (!dateStr) return '--/--';
+  try {
+    const date = new Date(dateStr);
+    return format(date, 'dd/MM', { locale: ptBR });
+  } catch {
+    return '--/--';
+  }
+}
 ```
 
-### 2. Usar ref para controle de chamada única (proteção adicional)
-
-Para garantir que a análise só seja chamada uma vez por sessão de dados, adicionar um `useRef`:
-
+Por uma versão que respeita o timezone local:
 ```typescript
-const hasAnalyzedRef = useRef(false);
-
-// Reset quando a data ou período muda
-useEffect(() => {
-  hasAnalyzedRef.current = false;
-}, [selectedDateString, currentPeriod]);
-
-useEffect(() => {
-  if (deliveryPoints.length === 0 || result || isAnalyzing || suggestion) return;
-  if (hasAnalyzedRef.current) return; // Proteção extra
-  
-  hasAnalyzedRef.current = true;
-  
-  const timeoutId = setTimeout(() => {
-    analyzeDeliveries(deliveryPoints, {...});
-  }, 500);
-
-  return () => clearTimeout(timeoutId);
-}, [deliveryPoints.length, currentPeriod, result, isAnalyzing, suggestion, analyzeDeliveries]);
+function formatShortDate(dateStr: string | null): string {
+  if (!dateStr) return '--/--';
+  try {
+    // Para datas no formato YYYY-MM-DD, extrair componentes diretamente
+    // para evitar problemas de timezone
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}`;
+    }
+    
+    // Para datas com timestamp, criar Date com horário ao meio-dia
+    const date = new Date(dateStr.length === 10 ? dateStr + 'T12:00:00' : dateStr);
+    return format(date, 'dd/MM', { locale: ptBR });
+  } catch {
+    return '--/--';
+  }
+}
 ```
 
-### 3. Limpar suggestion quando a data muda
+## Resultado Esperado
 
-A função `handleDateChange` já chama `clearSuggestion()`, então a sugestão será limpa e uma nova análise será disparada quando o usuário mudar a data.
+| Campo | Antes | Depois |
+|-------|-------|--------|
+| Recolha pedido 6999 | 30/01 | 31/01 |
 
-## Resumo das Alterações
+## Impacto
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/pages/RoutesPage.tsx` | Adicionar `suggestion` à condição de parada do useEffect e às dependências; Adicionar `useRef` para controle de chamada única |
-
-## Benefícios
-
-- Interrompe o loop infinito de chamadas à IA
-- A análise só é feita uma vez por combinação de data/período
-- Mudar a data ou período reinicia o ciclo corretamente
-- Sem impacto na experiência do usuário - a sugestão continua aparecendo normalmente
-
-## Detalhes Técnicos
-
-A raiz do problema está na forma como React hooks funcionam:
-- Quando `isAnalyzing` muda de `true` → `false`, o effect é re-avaliado
-- Se `suggestion` não está na condição de guarda, o código dentro do effect executa novamente
-- A nova chamada a `analyzeDeliveries` seta `isAnalyzing = true`, criando o ciclo
-
-O fix é simples: se já temos uma `suggestion`, não precisamos analisar novamente.
+- Corrige a exibição de todas as datas de recolha nos balões do mapa
+- Não afeta outras funcionalidades (a lógica de cálculo de dias permanece intacta)
+- Padrão consistente com o `lovable-stack-overflow` que recomenda usar componentes locais para datas de calendário
