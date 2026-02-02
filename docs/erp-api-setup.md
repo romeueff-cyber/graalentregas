@@ -252,7 +252,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
     
     console.log(`Buscando pedidos para data: ${firebirdDate}`);
     
-    // Query para buscar pedidos do dia (agora com status)
+    // Query para buscar pedidos do dia marcados para entrega
+    // IMPORTANTE: ov.ENTREGAR = 1 filtra apenas pedidos marcados para entrega
     const ordersQuery = `
       SELECT 
         ov.N_PEDIDO,
@@ -278,6 +279,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
       LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
       LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
       WHERE CAST(ov.DATA_PREV_ENTREGA AS DATE) = ?
+        AND ov.ENTREGAR = 1
         AND (ov.DELETED IS NULL OR ov.DELETED = 0)
       ORDER BY ov.N_PEDIDO DESC
     `;
