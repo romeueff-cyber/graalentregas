@@ -426,6 +426,89 @@ app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
   }
 });
 
+// Endpoint para buscar dados de boleto do pedido
+app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
+  try {
+    const orderNumber = req.params.orderNumber;
+    
+    console.log(`Buscando dados de boleto para pedido: ${orderNumber}`);
+    
+    const query = `
+      SELECT 
+        ov.ID_ORDENS_VENDA AS ORDER_ID,
+        ov.N_PEDIDO AS ORDER_NUMBER,
+        p.NOME AS CUSTOMER_NAME,
+        p.CPF_CNPJ AS CUSTOMER_DOCUMENT,
+        CASE WHEN p.JURIDICA = 1 THEN 'CNPJ' ELSE 'CPF' END AS DOCUMENT_TYPE,
+        p.ID_PESSOA,
+        fp.ID_FORMA_PAGAMENTO AS PAYMENT_METHOD_ID,
+        fp.DESCRICAO AS PAYMENT_METHOD_DESCRIPTION,
+        fp.TIPO AS PAYMENT_METHOD_TYPE,
+        fpgto.ID_FPGTO AS PAYMENT_TERMS_ID,
+        fpgto.CODIGO AS PAYMENT_TERMS_CODE,
+        fpgto.DESCRICAO AS PAYMENT_TERMS_DESCRIPTION,
+        ov.VALOR_PEDIDO AS TOTAL_AMOUNT
+      FROM ORDENS_VENDA ov
+      INNER JOIN CLIENTES cl ON cl.ID_CLIENTE = ov.ID_CLIENTE
+      INNER JOIN PESSOAS p ON p.ID_PESSOA = cl.ID_PESSOA
+      LEFT JOIN FORMA_PAGAMENTO fp ON fp.ID_FORMA_PAGAMENTO = ov.ID_FORMA_PAGAMENTO
+      LEFT JOIN FPGTO fpgto ON fpgto.ID_FPGTO = ov.ID_FPGTO
+      WHERE ov.N_PEDIDO = ?
+        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+    `;
+    
+    const result = await executeQuery(query, [parseInt(orderNumber)]);
+    
+    if (!result || result.length === 0) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    const order = result[0];
+    
+    // Buscar email do cliente (ID_TIPO_CONTATO = 3 é email)
+    const emailQuery = `
+      SELECT FIRST 1 c.DESCRICAO
+      FROM CONTATO c
+      WHERE c.ID_PESSOA = ?
+        AND c.ID_TIPO_CONTATO = 3
+        AND (c.DELETED IS NULL OR c.DELETED = 0)
+    `;
+    
+    const emailResult = await executeQuery(emailQuery, [order.ID_PESSOA]);
+    const customerEmail = emailResult && emailResult.length > 0 ? emailResult[0].DESCRICAO : null;
+    
+    // Calcular dias de vencimento baseado no CODIGO
+    // CODIGO pode ser: "14" (uma parcela) ou "7;14;21" (múltiplas parcelas)
+    const paymentCode = order.PAYMENT_TERMS_CODE || '0';
+    const dueDays = paymentCode.split(';').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d));
+    
+    res.json({
+      order_id: order.ORDER_ID,
+      order_number: order.ORDER_NUMBER?.toString() || orderNumber,
+      customer: {
+        name: order.CUSTOMER_NAME,
+        document: order.CUSTOMER_DOCUMENT,
+        document_type: order.DOCUMENT_TYPE,
+        email: customerEmail
+      },
+      payment: {
+        method_id: order.PAYMENT_METHOD_ID,
+        method_description: order.PAYMENT_METHOD_DESCRIPTION,
+        method_type: order.PAYMENT_METHOD_TYPE,
+        terms_id: order.PAYMENT_TERMS_ID,
+        terms_code: order.PAYMENT_TERMS_CODE,
+        terms_description: order.PAYMENT_TERMS_DESCRIPTION,
+        due_days: dueDays.length > 0 ? dueDays : [0]
+      },
+      total_amount: order.TOTAL_AMOUNT
+    });
+    
+  } catch (error) {
+    console.error('Erro ao buscar dados do boleto:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
@@ -455,10 +538,27 @@ Após iniciar a API, configure no Lovable:
 1. **ERP_API_URL**: `http://eget-graalbeer.sytes.net:3051` (ou a porta que escolher)
 2. **ERP_API_KEY**: A mesma chave que definiu no `.env` da API
 
+## Endpoints Disponíveis
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/health` | Health check (sem autenticação) |
+| GET | `/api/orders/:orderNumber` | Buscar pedido por número |
+| GET | `/api/orders?date=YYYY-MM-DD` | Listar pedidos do dia (apenas com `ENTREGAR = 1`) |
+| PUT | `/api/orders/:orderNumber/status` | Atualizar status do pedido |
+| GET | `/api/orders/:orderNumber/boleto` | Buscar dados para emissão de boleto |
+
 ## Teste
 
 ```bash
+# Health check
+curl http://localhost:3051/health
+
+# Buscar pedido
 curl -H "X-API-KEY: sua_chave_secreta" http://localhost:3051/api/orders/12345
+
+# Dados para boleto
+curl -H "X-API-KEY: sua_chave_secreta" http://localhost:3051/api/orders/12345/boleto
 ```
 
 ## Segurança
@@ -466,3 +566,27 @@ curl -H "X-API-KEY: sua_chave_secreta" http://localhost:3051/api/orders/12345
 - Use HTTPS em produção (configure um proxy reverso com nginx/caddy)
 - Mantenha a API_KEY segura
 - Considere adicionar rate limiting
+
+## Estrutura do Banco de Dados
+
+### Caminho para dados do cliente
+
+```
+ORDENS_VENDA
+  └── ID_CLIENTE → CLIENTES
+                     └── ID_PESSOA → PESSOAS (CPF_CNPJ, NOME, JURIDICA)
+                                       └── CONTATO (ID_TIPO_CONTATO=3 para email)
+```
+
+### Colunas importantes
+
+| Tabela | Coluna | Descrição |
+|--------|--------|-----------|
+| ORDENS_VENDA | VALOR_PEDIDO | Valor total do pedido |
+| ORDENS_VENDA | ID_FPGTO | FK para condições de pagamento |
+| ORDENS_VENDA | ID_FORMA_PAGAMENTO | FK para forma de pagamento |
+| ORDENS_VENDA | ENTREGAR | 1 = marcado para entrega |
+| PESSOAS | CPF_CNPJ | Documento do cliente |
+| PESSOAS | JURIDICA | 0 = PF, 1 = PJ |
+| FPGTO | CODIGO | Dias das parcelas (ex: "7;14") |
+| FORMA_PAGAMENTO | TIPO | "BOL" = boleto bancário |
