@@ -39,7 +39,7 @@ const App = () => (
             <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
             <Route path="/users" element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-            <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/install" element={<InstallPage />} />
             <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
             <Route path="/pedidos-dia" element={<DailyOrdersPage />} />

@@ -56,11 +56,6 @@ export default function AnalyticsPage() {
     return <Navigate to="/auth" replace />;
   }
 
-  // Only admins can access analytics
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
