@@ -62,21 +62,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if token is expired
-    if (equipment.token_created_at) {
-      const tokenAge = Date.now() - new Date(equipment.token_created_at).getTime();
-      const maxAge = TOKEN_VALIDITY_DAYS * 24 * 60 * 60 * 1000;
-      
-      if (tokenAge > maxAge) {
-        console.log(`Token expired for equipment ${equipment.id}. Token age: ${Math.floor(tokenAge / (24 * 60 * 60 * 1000))} days`);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Este link expirou. Entre em contato com o entregador para receber um novo link.',
-            expired: true 
-          }),
-          { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    // Reject tokens without creation timestamp (security: prevents bypass of expiration)
+    if (!equipment.token_created_at) {
+      console.log(`Token without timestamp rejected for equipment ${equipment.id}`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Este link expirou. Entre em contato com o entregador para receber um novo link.',
+          expired: true 
+        }),
+        { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if token is expired (token_created_at guaranteed to exist)
+    const tokenAge = Date.now() - new Date(equipment.token_created_at).getTime();
+    const maxAge = TOKEN_VALIDITY_DAYS * 24 * 60 * 60 * 1000;
+    
+    if (tokenAge > maxAge) {
+      console.log(`Token expired for equipment ${equipment.id}. Token age: ${Math.floor(tokenAge / (24 * 60 * 60 * 1000))} days`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Este link expirou. Entre em contato com o entregador para receber um novo link.',
+          expired: true 
+        }),
+        { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if already confirmed
