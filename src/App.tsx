@@ -19,6 +19,7 @@ import DailyOrdersPage from "./pages/DailyOrdersPage";
 import HygienePage from "./pages/HygienePage";
 import FinanceiroPage from "./pages/FinanceiroPage";
 import RoutesPage from "./pages/RoutesPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
             <Route path="/users" element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+            <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
             <Route path="/install" element={<InstallPage />} />
             <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
             <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
