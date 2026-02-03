@@ -179,24 +179,58 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
       total: item.VALOR_TOTAL || 0
     }));
     
-    // Buscar equipamentos do pedido (barris, chopeiras, etc.)
-    const equipmentsQuery = `
+    // Buscar equipamentos do pedido via EQUIP_ORDENS_VENDA (tipos genéricos)
+    const equipTypesQuery = `
       SELECT 
         te.DESCRICAO AS TIPO,
-        eov.QTDE AS QUANTIDADE,
-        eov.N_PATRIMONIO AS PATRIMONIO
+        eov.QTDE AS QUANTIDADE
       FROM EQUIP_ORDENS_VENDA eov
       JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
       WHERE eov.ID_ORDENS_VENDA = ?
         AND (eov.DELETED IS NULL OR eov.DELETED = 0)
     `;
     
-    const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
-    const equipments = (equipmentsResult || []).map(eq => ({
-      type: eq.TIPO || '',
-      quantity: eq.QUANTIDADE || 0,
-      patrimony: eq.PATRIMONIO || null
-    }));
+    const equipTypesResult = await executeQuery(equipTypesQuery, [orderId]);
+    
+    // Buscar equipamentos específicos com patrimônio via FATURAMENTO
+    // Caminho: ORDENS_VENDA → FATURAMENTO → EQUIP_FATURAMENTOS → EQUIPAMENTOS
+    const equipPatrimonyQuery = `
+      SELECT 
+        te.DESCRICAO AS TIPO,
+        e.DESCRICAO AS DESCRICAO_EQUIP,
+        e.PATRIMONIO,
+        e.MODELO
+      FROM FATURAMENTO f
+      JOIN EQUIP_FATURAMENTOS ef ON ef.ID_FATURAMENTO = f.ID_FATURAMENTO
+      JOIN EQUIPAMENTOS e ON e.ID_EQUIPAMENTO = ef.ID_EQUIPAMENTO
+      JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
+      WHERE f.ID_ORDENS_VENDA = ?
+        AND (f.DELETED IS NULL OR f.DELETED = 0)
+        AND (ef.DELETED IS NULL OR ef.DELETED = 0)
+        AND (e.DELETED IS NULL OR e.DELETED = 0)
+    `;
+    
+    const equipPatrimonyResult = await executeQuery(equipPatrimonyQuery, [orderId]);
+    
+    // Se tem faturamento com patrimônio, usa esses dados; senão usa os tipos genéricos
+    let equipments = [];
+    if (equipPatrimonyResult && equipPatrimonyResult.length > 0) {
+      equipments = equipPatrimonyResult.map(eq => ({
+        type: eq.TIPO || '',
+        description: eq.DESCRICAO_EQUIP || '',
+        patrimony: eq.PATRIMONIO || null,
+        model: eq.MODELO || null,
+        quantity: 1
+      }));
+    } else {
+      equipments = (equipTypesResult || []).map(eq => ({
+        type: eq.TIPO || '',
+        description: null,
+        patrimony: null,
+        model: null,
+        quantity: eq.QUANTIDADE || 0
+      }));
+    }
     
     // Montar endereço completo
     const addressParts = [];
@@ -330,23 +364,55 @@ app.get('/api/orders', authenticate, async (req, res) => {
         total: item.VALOR_TOTAL || 0
       }));
       
-      // Buscar equipamentos com patrimônio
-      const equipmentsQuery = `
+      // Buscar equipamentos do pedido via EQUIP_ORDENS_VENDA (tipos genéricos)
+      const equipTypesQuery = `
         SELECT 
           te.DESCRICAO AS TIPO,
-          eov.QTDE AS QUANTIDADE,
-          eov.N_PATRIMONIO AS PATRIMONIO
+          eov.QTDE AS QUANTIDADE
         FROM EQUIP_ORDENS_VENDA eov
         JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
         WHERE eov.ID_ORDENS_VENDA = ?
           AND (eov.DELETED IS NULL OR eov.DELETED = 0)
       `;
-      const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
-      const equipments = (equipmentsResult || []).map(eq => ({
-        type: eq.TIPO || '',
-        quantity: eq.QUANTIDADE || 0,
-        patrimony: eq.PATRIMONIO || null
-      }));
+      const equipTypesResult = await executeQuery(equipTypesQuery, [orderId]);
+      
+      // Buscar equipamentos específicos com patrimônio via FATURAMENTO
+      const equipPatrimonyQuery = `
+        SELECT 
+          te.DESCRICAO AS TIPO,
+          e.DESCRICAO AS DESCRICAO_EQUIP,
+          e.PATRIMONIO,
+          e.MODELO
+        FROM FATURAMENTO f
+        JOIN EQUIP_FATURAMENTOS ef ON ef.ID_FATURAMENTO = f.ID_FATURAMENTO
+        JOIN EQUIPAMENTOS e ON e.ID_EQUIPAMENTO = ef.ID_EQUIPAMENTO
+        JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
+        WHERE f.ID_ORDENS_VENDA = ?
+          AND (f.DELETED IS NULL OR f.DELETED = 0)
+          AND (ef.DELETED IS NULL OR ef.DELETED = 0)
+          AND (e.DELETED IS NULL OR e.DELETED = 0)
+      `;
+      const equipPatrimonyResult = await executeQuery(equipPatrimonyQuery, [orderId]);
+      
+      // Se tem faturamento com patrimônio, usa esses dados; senão usa os tipos genéricos
+      let equipments = [];
+      if (equipPatrimonyResult && equipPatrimonyResult.length > 0) {
+        equipments = equipPatrimonyResult.map(eq => ({
+          type: eq.TIPO || '',
+          description: eq.DESCRICAO_EQUIP || '',
+          patrimony: eq.PATRIMONIO || null,
+          model: eq.MODELO || null,
+          quantity: 1
+        }));
+      } else {
+        equipments = (equipTypesResult || []).map(eq => ({
+          type: eq.TIPO || '',
+          description: null,
+          patrimony: null,
+          model: null,
+          quantity: eq.QUANTIDADE || 0
+        }));
+      }
       
       return {
         order_number: orderNumber,
