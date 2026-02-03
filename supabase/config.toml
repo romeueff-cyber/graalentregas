@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.optimize-routes-ai]
 verify_jwt = false
+
+[functions.get-erp-analytics]
+verify_jwt = false
