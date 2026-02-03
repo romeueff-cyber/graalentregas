@@ -1,15 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { 
   Table, 
   TableBody, 
@@ -29,6 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { FinanceiroLegend } from '@/components/financeiro/FinanceiroLegend';
 import { useBoletos } from '@/hooks/useBoletos';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -39,10 +33,12 @@ import {
   Copy, 
   RefreshCw,
   Calendar,
-  Filter,
   CheckCircle2,
   AlertCircle,
   RefreshCcw,
+  Clock,
+  Ban,
+  FileCheck,
 } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,25 +62,85 @@ export default function FinanceiroPage() {
   } = useBoletos();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['all']));
   const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
   const [selectedBoletoId, setSelectedBoletoId] = useState<string | null>(null);
 
-  const filteredBoletos = boletos?.filter(boleto => {
-    const matchesSearch = 
-      boleto.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      boleto.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      boleto.customer_document.includes(searchTerm);
+  // Helper function for overdue check
+  const isOverdueCheck = (dueDate: string, status: string) => {
+    if (status.toUpperCase() === 'PAID' || status.toUpperCase() === 'PAGO') return false;
+    return isBefore(parseISO(dueDate), startOfDay(new Date()));
+  };
+
+  // Status counts for filter chips
+  const statusCounts = useMemo(() => {
+    if (!boletos) return { pending: 0, registered: 0, paid: 0, overdue: 0, cancelled: 0, unreconciled: 0 };
     
-    let matchesStatus = true;
-    if (statusFilter === 'UNRECONCILED') {
-      matchesStatus = boleto.status.toUpperCase() === 'PAID' && !boleto.reconciled;
-    } else if (statusFilter !== 'all') {
-      matchesStatus = boleto.status.toUpperCase() === statusFilter;
-    }
+    return {
+      pending: boletos.filter(b => b.status.toUpperCase() === 'PENDING').length,
+      registered: boletos.filter(b => b.status.toUpperCase() === 'REGISTERED').length,
+      paid: boletos.filter(b => b.status.toUpperCase() === 'PAID').length,
+      overdue: boletos.filter(b => isOverdueCheck(b.due_date, b.status)).length,
+      cancelled: boletos.filter(b => b.status.toUpperCase() === 'CANCELLED').length,
+      unreconciled: boletos.filter(b => b.status.toUpperCase() === 'PAID' && !b.reconciled).length,
+    };
+  }, [boletos]);
+
+  // Toggle filter function for chip selection
+  const toggleFilter = (filter: string) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      
+      // If clicking 'all', clear everything and set only 'all'
+      if (filter === 'all') {
+        return new Set(['all']);
+      }
+      
+      // Remove 'all' when selecting specific filters
+      next.delete('all');
+      
+      if (next.has(filter)) {
+        next.delete(filter);
+        // If no filters left, default back to 'all'
+        if (next.size === 0) {
+          return new Set(['all']);
+        }
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  };
+
+  const filteredBoletos = useMemo(() => {
+    if (!boletos) return [];
     
-    return matchesSearch && matchesStatus;
-  }) || [];
+    return boletos.filter(boleto => {
+      const matchesSearch = 
+        boleto.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        boleto.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        boleto.customer_document.includes(searchTerm);
+      
+      // If 'all' is selected, show everything
+      if (activeFilters.has('all')) {
+        return matchesSearch;
+      }
+      
+      // Check if boleto matches any of the active filters
+      const status = boleto.status.toUpperCase();
+      const overdueCheck = isOverdueCheck(boleto.due_date, boleto.status);
+      
+      const matchesStatus = 
+        (activeFilters.has('pending') && status === 'PENDING') ||
+        (activeFilters.has('registered') && status === 'REGISTERED') ||
+        (activeFilters.has('paid') && status === 'PAID') ||
+        (activeFilters.has('overdue') && overdueCheck) ||
+        (activeFilters.has('cancelled') && status === 'CANCELLED') ||
+        (activeFilters.has('unreconciled') && status === 'PAID' && !boleto.reconciled);
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [boletos, searchTerm, activeFilters]);
 
   const copyToClipboard = async (text: string, type: string) => {
     try {
@@ -99,10 +155,6 @@ export default function FinanceiroPage() {
     window.open(url, '_blank');
   };
 
-  const isOverdue = (dueDate: string, status: string) => {
-    if (status.toUpperCase() === 'PAID' || status.toUpperCase() === 'PAGO') return false;
-    return isBefore(parseISO(dueDate), startOfDay(new Date()));
-  };
 
   const handleSync = async () => {
     try {
@@ -153,7 +205,7 @@ export default function FinanceiroPage() {
     total: boletos?.length || 0,
     pending: boletos?.filter(b => b.status.toUpperCase() === 'PENDING' || b.status.toUpperCase() === 'REGISTERED').length || 0,
     paid: boletos?.filter(b => b.status.toUpperCase() === 'PAID').length || 0,
-    overdue: boletos?.filter(b => isOverdue(b.due_date, b.status)).length || 0,
+    overdue: boletos?.filter(b => isOverdueCheck(b.due_date, b.status)).length || 0,
     unreconciled: unreconciledCount,
     totalAmount: boletos?.reduce((sum, b) => sum + b.total_amount, 0) || 0,
     paidAmount: boletos?.filter(b => b.status.toUpperCase() === 'PAID').reduce((sum, b) => sum + b.total_amount, 0) || 0,
@@ -219,7 +271,9 @@ export default function FinanceiroPage() {
                 variant="link"
                 size="sm"
                 className="px-0 text-status-waiting"
-                onClick={() => setStatusFilter('UNRECONCILED')}
+                onClick={() => {
+                  setActiveFilters(new Set(['unreconciled']));
+                }}
               >
                 Ver pagamentos pendentes →
               </Button>
@@ -268,37 +322,111 @@ export default function FinanceiroPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por pedido, cliente ou documento..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por pedido, cliente ou documento..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Status Filters - Chip Style */}
+        <div className="flex flex-col gap-1.5">
+          {/* Row 1: All & Unreconciled */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => toggleFilter('all')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeFilters.has('all')
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Todos ({boletos?.length || 0})</span>
+            </button>
+
+            <button
+              onClick={() => toggleFilter('unreconciled')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all relative ${
+                activeFilters.has('unreconciled')
+                  ? 'bg-status-waiting text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>A Conciliar ({statusCounts.unreconciled})</span>
+              {statusCounts.unreconciled > 0 && !activeFilters.has('unreconciled') && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
+              )}
+            </button>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="UNRECONCILED">
-                <span className="flex items-center gap-2">
-                  <AlertCircle className="w-3 h-3 text-status-waiting" />
-                  A Conciliar
-                </span>
-              </SelectItem>
-              <SelectItem value="PENDING">Pendente</SelectItem>
-              <SelectItem value="REGISTERED">Registrado</SelectItem>
-              <SelectItem value="PAID">Pago</SelectItem>
-              <SelectItem value="OVERDUE">Vencido</SelectItem>
-              <SelectItem value="CANCELLED">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
+
+          {/* Row 2: Status filters */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => toggleFilter('pending')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilters.has('pending')
+                  ? 'bg-status-waiting text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Clock className={`w-3 h-3 ${activeFilters.has('pending') ? 'text-white' : 'text-status-waiting'}`} />
+              <span>{statusCounts.pending}</span>
+            </button>
+
+            <button
+              onClick={() => toggleFilter('registered')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilters.has('registered')
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <FileCheck className={`w-3 h-3 ${activeFilters.has('registered') ? 'text-primary-foreground' : 'text-primary'}`} />
+              <span>{statusCounts.registered}</span>
+            </button>
+
+            <button
+              onClick={() => toggleFilter('paid')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilters.has('paid')
+                  ? 'bg-status-ready text-white shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <CheckCircle2 className={`w-3 h-3 ${activeFilters.has('paid') ? 'text-white' : 'text-status-ready'}`} />
+              <span>{statusCounts.paid}</span>
+            </button>
+
+            <button
+              onClick={() => toggleFilter('overdue')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilters.has('overdue')
+                  ? 'bg-destructive text-destructive-foreground shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <AlertCircle className={`w-3 h-3 ${activeFilters.has('overdue') ? 'text-destructive-foreground' : 'text-destructive'}`} />
+              <span>{statusCounts.overdue}</span>
+            </button>
+
+            <button
+              onClick={() => toggleFilter('cancelled')}
+              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                activeFilters.has('cancelled')
+                  ? 'bg-muted-foreground text-background shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Ban className={`w-3 h-3 ${activeFilters.has('cancelled') ? 'text-background' : 'text-muted-foreground'}`} />
+              <span>{statusCounts.cancelled}</span>
+            </button>
+          </div>
         </div>
 
         {/* Boletos Table */}
@@ -359,7 +487,7 @@ export default function FinanceiroPage() {
                             <Calendar className="w-3 h-3 text-muted-foreground" />
                             <span className={cn(
                               "text-sm",
-                              isOverdue(boleto.due_date, boleto.status) && "text-destructive font-semibold"
+                              isOverdueCheck(boleto.due_date, boleto.status) && "text-destructive font-semibold"
                             )}>
                               {format(parseISO(boleto.due_date), 'dd/MM/yyyy', { locale: ptBR })}
                             </span>
@@ -368,9 +496,9 @@ export default function FinanceiroPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Badge className={cn("text-xs", getStatusColor(
-                              isOverdue(boleto.due_date, boleto.status) ? 'OVERDUE' : boleto.status
+                              isOverdueCheck(boleto.due_date, boleto.status) ? 'OVERDUE' : boleto.status
                             ))}>
-                              {isOverdue(boleto.due_date, boleto.status) ? 'Vencido' : translateStatus(boleto.status)}
+                              {isOverdueCheck(boleto.due_date, boleto.status) ? 'Vencido' : translateStatus(boleto.status)}
                             </Badge>
                             {boleto.reconciled && (
                               <span title="Conciliado">
@@ -425,6 +553,8 @@ export default function FinanceiroPage() {
           </div>
         )}
       </main>
+      {/* Financeiro Legend */}
+      <FinanceiroLegend />
 
       {/* Reconcile Confirmation Dialog */}
       <AlertDialog open={reconcileDialogOpen} onOpenChange={setReconcileDialogOpen}>
