@@ -27,6 +27,7 @@ import {
   Droplets,
   FileText,
   Route,
+  BarChart3,
 } from 'lucide-react';
 import {
   Sheet,
@@ -264,6 +265,17 @@ export default function MainMapPage() {
                 <div className="space-y-2">
                   {isAdmin && (
                     <>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => {
+                          setShowMenu(false);
+                          navigate('/analytics');
+                        }}
+                      >
+                        <BarChart3 className="w-5 h-5" />
+                        Analytics & Relatórios
+                      </Button>
                       <Button
                         variant="ghost"
                         className="w-full justify-start gap-3"
