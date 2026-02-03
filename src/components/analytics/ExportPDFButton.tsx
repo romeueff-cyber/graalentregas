@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 interface ExportPDFButtonProps {
   deliveryMetrics: DeliveryMetrics;
   hygieneMetrics: HygieneMetrics;
-  activeTab: 'entregas' | 'higienizacao';
+  activeTab: 'entregas' | 'higienizacao' | 'entregadores';
 }
 
 export function ExportPDFButton({ deliveryMetrics, hygieneMetrics, activeTab }: ExportPDFButtonProps) {
@@ -21,9 +21,15 @@ export function ExportPDFButton({ deliveryMetrics, hygieneMetrics, activeTab }: 
       const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
       
       // Create HTML content for PDF
-      const content = activeTab === 'entregas' 
-        ? generateDeliveryReport(deliveryMetrics, today)
-        : generateHygieneReport(hygieneMetrics, today);
+      let content: string;
+      if (activeTab === 'entregas') {
+        content = generateDeliveryReport(deliveryMetrics, today);
+      } else if (activeTab === 'higienizacao') {
+        content = generateHygieneReport(hygieneMetrics, today);
+      } else {
+        // For driver tab, use delivery report as base (driver metrics shown in UI)
+        content = generateDeliveryReport(deliveryMetrics, today);
+      }
 
       // Open print dialog
       const printWindow = window.open('', '_blank');

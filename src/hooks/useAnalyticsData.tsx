@@ -26,6 +26,15 @@ export interface HygieneMetrics {
   servicesByType: { type: string; count: number }[];
 }
 
+export interface DriverMetrics {
+  userId: string;
+  userName: string;
+  totalDeliveries: number;
+  confirmationRate: number;
+  avgCollectionDays: number;
+  score: number;
+}
+
 export function useAnalyticsData(days: number = 7) {
   const startDate = useMemo(() => subDays(startOfDay(new Date()), days), [days]);
 
@@ -50,6 +59,19 @@ export function useAnalyticsData(days: number = 7) {
       const { data, error } = await supabase
         .from('equipments')
         .select('*');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch profiles for driver names
+  const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
+    queryKey: ['analytics-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email');
       
       if (error) throw error;
       return data || [];
@@ -253,12 +275,86 @@ export function useAnalyticsData(days: number = 7) {
     };
   }, [hygieneClients, hygieneEquipment, hygieneServices, days]);
 
+  // Calculate driver metrics
+  const driverMetrics: DriverMetrics[] = useMemo(() => {
+    // Group equipments by driver (created_by_user_id)
+    const driverMap = new Map<string, {
+      deliveries: typeof equipments;
+      name: string;
+    }>();
+
+    equipments.forEach(e => {
+      const userId = e.created_by_user_id;
+      if (!driverMap.has(userId)) {
+        const profile = profiles.find(p => p.id === userId);
+        driverMap.set(userId, {
+          deliveries: [],
+          name: profile?.name || profile?.email || 'Desconhecido',
+        });
+      }
+      driverMap.get(userId)!.deliveries.push(e);
+    });
+
+    // Calculate metrics for each driver
+    const metrics: DriverMetrics[] = [];
+    const maxDeliveries = Math.max(...Array.from(driverMap.values()).map(d => d.deliveries.length), 1);
+
+    driverMap.forEach((data, userId) => {
+      const deliveries = data.deliveries;
+      const totalDeliveries = deliveries.length;
+
+      // Confirmation rate
+      const withTokens = deliveries.filter(e => e.confirmation_token);
+      const usedTokens = deliveries.filter(e => e.token_used_at);
+      const confirmationRate = withTokens.length > 0 
+        ? Math.round((usedTokens.length / withTokens.length) * 100) 
+        : 0;
+
+      // Average collection days
+      const collectedWithDates = deliveries.filter(
+        e => e.status === 'RECOLHIDO' && e.data_entrega && e.data_real_recolha
+      );
+      const avgCollectionDays = collectedWithDates.length > 0
+        ? Math.round(collectedWithDates.reduce((sum, e) => {
+            const days = differenceInDays(
+              new Date(e.data_real_recolha!),
+              new Date(e.data_entrega!)
+            );
+            return sum + Math.max(0, days);
+          }, 0) / collectedWithDates.length * 10) / 10
+        : 0;
+
+      // Calculate score (0-100)
+      // 40% entregas, 30% confirmação, 30% tempo recolha (invertido)
+      const deliveryScore = (totalDeliveries / maxDeliveries) * 40;
+      const confirmationScore = (confirmationRate / 100) * 30;
+      // For collection time, lower is better. Assume 7 days is baseline
+      const collectionScore = avgCollectionDays > 0 
+        ? Math.max(0, (1 - avgCollectionDays / 14)) * 30 
+        : 15; // Default if no data
+
+      const score = Math.round(deliveryScore + confirmationScore + collectionScore);
+
+      metrics.push({
+        userId,
+        userName: data.name,
+        totalDeliveries,
+        confirmationRate,
+        avgCollectionDays,
+        score,
+      });
+    });
+
+    return metrics.sort((a, b) => b.score - a.score);
+  }, [equipments, profiles]);
+
   const isLoading = loadingEquipments || loadingAllEquipments || 
-    loadingHygieneClients || loadingHygieneEquipment || loadingHygieneServices;
+    loadingHygieneClients || loadingHygieneEquipment || loadingHygieneServices || loadingProfiles;
 
   return {
     deliveryMetrics,
     hygieneMetrics,
+    driverMetrics,
     isLoading,
   };
 }
