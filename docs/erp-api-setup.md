@@ -179,11 +179,12 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
       total: item.VALOR_TOTAL || 0
     }));
     
-    // Buscar equipamentos do pedido (barris)
+    // Buscar equipamentos do pedido (barris, chopeiras, etc.)
     const equipmentsQuery = `
       SELECT 
         te.DESCRICAO AS TIPO,
-        eov.QTDE AS QUANTIDADE
+        eov.QTDE AS QUANTIDADE,
+        eov.N_PATRIMONIO AS PATRIMONIO
       FROM EQUIP_ORDENS_VENDA eov
       JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
       WHERE eov.ID_ORDENS_VENDA = ?
@@ -193,7 +194,8 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
     const equipments = (equipmentsResult || []).map(eq => ({
       type: eq.TIPO || '',
-      quantity: eq.QUANTIDADE || 0
+      quantity: eq.QUANTIDADE || 0,
+      patrimony: eq.PATRIMONIO || null
     }));
     
     // Montar endereço completo
@@ -328,11 +330,12 @@ app.get('/api/orders', authenticate, async (req, res) => {
         total: item.VALOR_TOTAL || 0
       }));
       
-      // Buscar equipamentos
+      // Buscar equipamentos com patrimônio
       const equipmentsQuery = `
         SELECT 
           te.DESCRICAO AS TIPO,
-          eov.QTDE AS QUANTIDADE
+          eov.QTDE AS QUANTIDADE,
+          eov.N_PATRIMONIO AS PATRIMONIO
         FROM EQUIP_ORDENS_VENDA eov
         JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
         WHERE eov.ID_ORDENS_VENDA = ?
@@ -341,7 +344,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
       const equipmentsResult = await executeQuery(equipmentsQuery, [orderId]);
       const equipments = (equipmentsResult || []).map(eq => ({
         type: eq.TIPO || '',
-        quantity: eq.QUANTIDADE || 0
+        quantity: eq.QUANTIDADE || 0,
+        patrimony: eq.PATRIMONIO || null
       }));
       
       return {
