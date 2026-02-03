@@ -2,12 +2,14 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useERPOrders, type DailyOrderData } from '@/hooks/useERPOrders';
+import { useGeoFilter } from '@/hooks/useGeoFilter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ERPSyncBadge } from '@/components/ui/erp-sync-badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getTodaySaoPaulo, extractTime, extractDatePart } from '@/lib/date-utils';
 import { DailyOrdersMapView } from '@/components/map/DailyOrdersMapView';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
@@ -126,6 +128,7 @@ export default function DailyOrdersPage() {
   const [isGoogleReady, setIsGoogleReady] = useState(false);
   
   const { equipments } = useEquipments();
+  const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
 
   // Use the ERP orders hook with caching
   const { 
@@ -393,7 +396,22 @@ export default function DailyOrdersPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="font-semibold text-foreground">Pedidos do Dia</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="font-semibold text-foreground">Pedidos do Dia</h1>
+              {isGeoFilterActive && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-0.5 text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                      <MapPin className="w-3 h-3" />
+                      {geoSettings.raio_km}km
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Filtro geográfico ativo
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {filteredOrders.length} pedido(s) encontrado(s)
             </p>
@@ -489,7 +507,7 @@ export default function DailyOrdersPage() {
         ) : (
           <>
             <DailyOrdersMapView
-              locations={orderLocations}
+              locations={filterByGeo(orderLocations)}
               selectedOrderNumber={selectedOrderNumber}
               onOrderClick={handleOrderClick}
               onGoogleReady={handleGoogleReady}
