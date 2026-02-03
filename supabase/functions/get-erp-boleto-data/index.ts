@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { verifyAdminAuth, corsHeaders } from "../_shared/auth.ts";
 
 function tryParseJson(text: string): unknown | null {
   try {
@@ -12,60 +7,6 @@ function tryParseJson(text: string): unknown | null {
   } catch {
     return null;
   }
-}
-
-async function verifyAdminAuth(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } }
-  });
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error('Auth error:', userError);
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Token inválido ou expirado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const userId = user.id;
-
-  // Check if user is admin
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
-  
-  const { data: roleData, error: roleError } = await adminSupabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .eq('role', 'admin')
-    .maybeSingle();
-
-  if (roleError || !roleData) {
-    console.log(`User ${userId} is not admin`);
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Acesso negado. Somente administradores.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId };
 }
 
 serve(async (req) => {
@@ -130,7 +71,6 @@ serve(async (req) => {
           (!contentType.includes('application/json') && (/not\s+found/i).test(responseText)));
 
       if (looksLikeMissingRoute) {
-        // This directly answers the common “proxy em produção?” doubt.
         return new Response(
           JSON.stringify({
             error:
@@ -145,7 +85,6 @@ serve(async (req) => {
         );
       }
 
-      // 404 here often means “no boleto data/payment terms for this order”, not “order doesn't exist”.
       if (response.status === 404) {
         return new Response(
           JSON.stringify({
@@ -206,7 +145,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
-        // Avoid non-2xx here so the frontend can show the real message.
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
