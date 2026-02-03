@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 import { DeliveryDashboard } from '@/components/analytics/DeliveryDashboard';
 import { HygieneDashboard } from '@/components/analytics/HygieneDashboard';
+import { DriverPerformanceDashboard } from '@/components/analytics/DriverPerformanceDashboard';
 import { ExportPDFButton } from '@/components/analytics/ExportPDFButton';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,7 +23,7 @@ export default function AnalyticsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'entregas' | 'higienizacao'>('entregas');
+  const [activeTab, setActiveTab] = useState<'entregas' | 'higienizacao' | 'entregadores'>('entregas');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [periodType, setPeriodType] = useState<'7' | '15' | '30' | 'custom'>('7');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -34,7 +35,7 @@ export default function AnalyticsPage() {
     ? differenceInDays(dateRange.to, dateRange.from) + 1
     : parseInt(periodType);
 
-  const { deliveryMetrics, hygieneMetrics, isLoading } = useAnalyticsData(days);
+  const { deliveryMetrics, hygieneMetrics, driverMetrics, isLoading } = useAnalyticsData(days);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -43,6 +44,7 @@ export default function AnalyticsPage() {
     await queryClient.invalidateQueries({ queryKey: ['analytics-hygiene-clients'] });
     await queryClient.invalidateQueries({ queryKey: ['analytics-hygiene-equipment'] });
     await queryClient.invalidateQueries({ queryKey: ['analytics-hygiene-services'] });
+    await queryClient.invalidateQueries({ queryKey: ['analytics-profiles'] });
     setIsRefreshing(false);
   };
 
@@ -158,15 +160,19 @@ export default function AnalyticsPage() {
       <div className="p-4 pb-20">
         <Tabs 
           value={activeTab} 
-          onValueChange={(v) => setActiveTab(v as 'entregas' | 'higienizacao')}
+          onValueChange={(v) => setActiveTab(v as 'entregas' | 'higienizacao' | 'entregadores')}
           className="w-full"
         >
-          <TabsList className="w-full grid grid-cols-2 mb-6">
-            <TabsTrigger value="entregas" className="flex items-center gap-2">
+          <TabsList className="w-full grid grid-cols-3 mb-6">
+            <TabsTrigger value="entregas" className="flex items-center gap-1 text-xs sm:text-sm">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Performance de</span> Entregas
             </TabsTrigger>
-            <TabsTrigger value="higienizacao" className="flex items-center gap-2">
+            <TabsTrigger value="entregadores" className="flex items-center gap-1 text-xs sm:text-sm">
+              <Users className="w-4 h-4" />
+              Entregadores
+            </TabsTrigger>
+            <TabsTrigger value="higienizacao" className="flex items-center gap-1 text-xs sm:text-sm">
               <Droplets className="w-4 h-4" />
               <span className="hidden sm:inline">Ciclos de</span> Higienização
             </TabsTrigger>
@@ -176,11 +182,14 @@ export default function AnalyticsPage() {
             <DeliveryDashboard metrics={deliveryMetrics} />
           </TabsContent>
 
+          <TabsContent value="entregadores">
+            <DriverPerformanceDashboard driverMetrics={driverMetrics} />
+          </TabsContent>
+
           <TabsContent value="higienizacao">
             <HygieneDashboard metrics={hygieneMetrics} />
           </TabsContent>
         </Tabs>
-
       </div>
     </div>
   );
