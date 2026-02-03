@@ -38,6 +38,7 @@ export default function AnalyticsPage() {
 
   const { deliveryMetrics, hygieneMetrics, driverMetrics, clientMetrics, isLoading } = useAnalyticsData(days);
 
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ['analytics-equipments'] });
@@ -46,6 +47,7 @@ export default function AnalyticsPage() {
     await queryClient.invalidateQueries({ queryKey: ['analytics-hygiene-equipment'] });
     await queryClient.invalidateQueries({ queryKey: ['analytics-hygiene-services'] });
     await queryClient.invalidateQueries({ queryKey: ['analytics-profiles'] });
+    await queryClient.invalidateQueries({ queryKey: ['erp-analytics'] });
     setIsRefreshing(false);
   };
 
@@ -182,7 +184,7 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           <TabsContent value="clientes">
-            <ClientsDashboard metrics={clientMetrics} />
+            <ClientsDashboard metrics={clientMetrics} days={days} />
           </TabsContent>
 
           <TabsContent value="entregadores">
