@@ -33,6 +33,9 @@ interface OrderItem {
 
 interface OrderEquipment {
   type: string;
+  description: string | null;
+  patrimony: string | null;
+  model: string | null;
   quantity: number;
 }
 
@@ -493,6 +496,30 @@ export function DailyOrdersSidebar({
                         {order.address.city || 'Cidade não informada'}
                         {order.address.neighborhood && `, ${order.address.neighborhood}`}
                       </p>
+                      
+                      {/* Equipment Details with Patrimony */}
+                      {order.equipments.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Equipamentos</p>
+                          {order.equipments.map((eq, idx) => (
+                            <div key={idx} className="bg-muted/50 rounded px-1.5 py-1 flex flex-wrap items-center gap-1">
+                              <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                                {eq.quantity}x {eq.type}
+                              </Badge>
+                              {eq.patrimony && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background">
+                                  Pat: {eq.patrimony}
+                                </Badge>
+                              )}
+                              {(eq.description || eq.model) && (
+                                <span className="text-[9px] text-muted-foreground">
+                                  {eq.description}{eq.description && eq.model ? ' • ' : ''}{eq.model}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       
                       {/* Action Buttons */}
                       <div className="flex gap-1.5">
