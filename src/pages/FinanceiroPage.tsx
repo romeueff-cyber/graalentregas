@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { FinanceiroLegend } from '@/components/financeiro/FinanceiroLegend';
+import { ManualBoletoDialog } from '@/components/financeiro/ManualBoletoDialog';
 import { useBoletos } from '@/hooks/useBoletos';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -39,6 +40,7 @@ import {
   Clock,
   Ban,
   FileCheck,
+  Plus,
 } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -65,6 +67,7 @@ export default function FinanceiroPage() {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['all']));
   const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
   const [selectedBoletoId, setSelectedBoletoId] = useState<string | null>(null);
+  const [manualBoletoDialogOpen, setManualBoletoDialogOpen] = useState(false);
 
   // Helper function for overdue check
   const isOverdueCheck = (dueDate: string, status: string) => {
@@ -230,6 +233,14 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setManualBoletoDialogOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Emitir</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -578,6 +589,13 @@ export default function FinanceiroPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Manual Boleto Dialog */}
+      <ManualBoletoDialog
+        open={manualBoletoDialogOpen}
+        onOpenChange={setManualBoletoDialogOpen}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }
