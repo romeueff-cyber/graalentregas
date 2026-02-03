@@ -173,12 +173,13 @@ export function DailyOrderDialog({
                           Pat: {eq.patrimony}
                         </Badge>
                       )}
+                      {/* Only show model when patrimony exists, skip redundant description */}
+                      {eq.patrimony && eq.model && (
+                        <span className="text-xs text-muted-foreground">
+                          {eq.model}
+                        </span>
+                      )}
                     </div>
-                    {(eq.description || eq.model) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {eq.description}{eq.description && eq.model ? ' • ' : ''}{eq.model}
-                      </p>
-                    )}
                   </div>
                 ))}
               </div>

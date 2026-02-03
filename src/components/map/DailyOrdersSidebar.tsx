@@ -511,9 +511,10 @@ export function DailyOrdersSidebar({
                                   Pat: {eq.patrimony}
                                 </Badge>
                               )}
-                              {(eq.description || eq.model) && (
+                              {/* Only show model when patrimony exists, skip redundant description */}
+                              {eq.patrimony && eq.model && (
                                 <span className="text-[9px] text-muted-foreground">
-                                  {eq.description}{eq.description && eq.model ? ' • ' : ''}{eq.model}
+                                  {eq.model}
                                 </span>
                               )}
                             </div>
