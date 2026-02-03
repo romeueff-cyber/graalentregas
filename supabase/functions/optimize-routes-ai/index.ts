@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 interface DeliveryPoint {
   orderNumber: string;
@@ -18,7 +13,7 @@ interface DeliveryPoint {
 }
 
 interface RouteConfig {
-  driverCount?: number; // Optional - AI will suggest if not provided
+  driverCount?: number;
   workStartTime: string;
   workEndTime: string;
   period: 'manha' | 'tarde_noite';
@@ -57,27 +52,21 @@ interface AIResponse {
   unassignedOrders: string[];
 }
 
-// Check if time is valid (:00 or :30, but not 00:00)
 function isValidTimeWindow(time: string | null): boolean {
   if (!time) return false;
   const [h, m] = time.split(':').map(Number);
-  // Only :00 or :30 minutes, and not midnight (00:00)
   if (h === 0 && m === 0) return false;
   return m === 0 || m === 30;
 }
 
-// Extract volume from equipment description
 function extractVolumeLiters(description: string): number {
-  // Match patterns like "30L", "30 L", "30 litros", "barril 30", etc.
   const matches = description.match(/(\d+)\s*(?:L|litros?)/gi);
   if (!matches) {
-    // Try to find just numbers that look like volumes (20, 30, 50)
     const volumeMatch = description.match(/\b(20|30|50)\b/);
     if (volumeMatch) return parseInt(volumeMatch[1]);
-    return 30; // Default to 30L
+    return 30;
   }
   
-  // Sum all volumes found (for multiple barrels)
   let total = 0;
   for (const match of matches) {
     const num = parseInt(match.match(/\d+/)![0]);
@@ -86,46 +75,26 @@ function extractVolumeLiters(description: string): number {
   return total || 30;
 }
 
-// Calculate service time based on volume
 function calculateServiceTime(volumeLiters: number): number {
-  if (volumeLiters <= 30) return 30; // 30 minutes for small deliveries
-  if (volumeLiters <= 60) return 40; // 40 minutes for medium
-  if (volumeLiters <= 100) return 50; // 50 minutes for large
-  return 60; // 60 minutes for very large
+  if (volumeLiters <= 30) return 30;
+  if (volumeLiters <= 60) return 40;
+  if (volumeLiters <= 100) return 50;
+  return 60;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const authResult = await verifyAuth(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Token inválido ou expirado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[optimize-routes-ai] Authenticated user: ${user.id}`);
+    console.log(`[optimize-routes-ai] Authenticated user: ${authResult.userId}`);
 
     const { deliveries, config, action } = await req.json() as {
       deliveries: DeliveryPoint[];
@@ -138,7 +107,6 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Process deliveries - extract volumes and filter by valid time windows
     const processedDeliveries = deliveries.map(d => ({
       ...d,
       volumeLiters: d.volumeLiters || extractVolumeLiters(d.equipmentDescription || ''),
@@ -146,13 +114,11 @@ serve(async (req) => {
       estimatedServiceTime: calculateServiceTime(d.volumeLiters || extractVolumeLiters(d.equipmentDescription || '')),
     }));
 
-    // Calculate totals for AI context
     const totalVolume = processedDeliveries.reduce((sum, d) => sum + d.volumeLiters, 0);
     const totalServiceTime = processedDeliveries.reduce((sum, d) => sum + d.estimatedServiceTime, 0);
     const fixedTimeDeliveries = processedDeliveries.filter(d => d.hasValidTimeWindow);
     const flexibleDeliveries = processedDeliveries.filter(d => !d.hasValidTimeWindow);
 
-    // Calculate work window duration in minutes
     const [startH, startM] = config.workStartTime.split(':').map(Number);
     const [endH, endM] = config.workEndTime.split(':').map(Number);
     const workMinutes = (endH * 60 + endM) - (startH * 60 + startM);
@@ -342,7 +308,6 @@ Distribua as entregas entre os entregadores, agrupando por proximidade geográfi
     const aiResult = await response.json();
     console.log('AI response received');
 
-    // Extract tool call result
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       throw new Error("Invalid AI response format");
@@ -350,7 +315,6 @@ Distribua as entregas entre os entregadores, agrupando por proximidade geográfi
 
     const optimizationResult: AIResponse = JSON.parse(toolCall.function.arguments);
 
-    // Add processed delivery info to the response
     return new Response(JSON.stringify({
       ...optimizationResult,
       processedDeliveries: processedDeliveries.map(d => ({

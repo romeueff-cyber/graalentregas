@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAdminAuth, corsHeaders } from "../_shared/auth.ts";
 
 // Cora API URLs
 const CORA_TOKEN_URL_PROD = 'https://matls-clients.api.cora.com.br/token';
@@ -150,51 +145,15 @@ serve(async (req) => {
 
   try {
     // Verify admin authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const authResult = await verifyAdminAuth(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    const { userId, supabase: adminSupabase } = authResult;
+    console.log(`[SyncBoletos] Admin user: ${userId}`);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.error('[SyncBoletos] Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Token inválido ou expirado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user is admin
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    const { data: roleData, error: roleError } = await adminSupabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    if (roleError || !roleData) {
-      console.log(`[SyncBoletos] User ${user.id} is not admin`);
-      return new Response(
-        JSON.stringify({ error: 'Acesso negado. Somente administradores.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[SyncBoletos] Admin user: ${user.id}`);
-
-    // Get all non-paid, non-cancelled boletos (use adminSupabase for service role access)
+    // Get all non-paid, non-cancelled boletos
     const { data: pendingBoletos, error: fetchError } = await adminSupabase
       .from('boletos')
       .select('id, cora_invoice_id, status, order_number')
