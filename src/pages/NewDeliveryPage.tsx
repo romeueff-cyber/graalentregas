@@ -526,6 +526,32 @@ export default function NewDeliveryPage() {
                   )}
                 </div>
               )}
+
+              {/* Equipment checklist for verification */}
+              {selectedOrder && selectedOrder.equipments.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <p className="text-xs font-medium text-primary mb-2 flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5" />
+                    Equipamentos para Conferência
+                  </p>
+                  <div className="space-y-1.5">
+                    {selectedOrder.equipments.map((eq, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs bg-background/80 rounded px-2 py-1.5">
+                        <Checkbox id={`eq-check-${idx}`} className="w-4 h-4" />
+                        <label htmlFor={`eq-check-${idx}`} className="flex-1 cursor-pointer">
+                          <span className="font-medium">{eq.quantity}x {eq.type}</span>
+                          {eq.patrimony && (
+                            <span className="ml-2 text-muted-foreground">Pat: {eq.patrimony}</span>
+                          )}
+                          {eq.patrimony && eq.model && (
+                            <span className="ml-1 text-muted-foreground/70">• {eq.model}</span>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* ERP Search Button */}
               {online && !selectedOrder && (
