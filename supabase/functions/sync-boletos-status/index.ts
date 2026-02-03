@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { verifyAdminAuth, corsHeaders } from "../_shared/auth.ts";
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 // Cora API URLs
 const CORA_TOKEN_URL_PROD = 'https://matls-clients.api.cora.com.br/token';
@@ -144,14 +144,14 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(req);
+    // Verify authentication (any authenticated user)
+    const authResult = await verifyAuth(req);
     if ('error' in authResult) {
       return authResult.error;
     }
 
     const { userId, supabase: adminSupabase } = authResult;
-    console.log(`[SyncBoletos] Admin user: ${userId}`);
+    console.log(`[SyncBoletos] Authenticated user: ${userId}`);
 
     // Get all non-paid, non-cancelled boletos
     const { data: pendingBoletos, error: fetchError } = await adminSupabase

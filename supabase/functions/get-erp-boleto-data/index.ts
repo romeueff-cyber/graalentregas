@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { verifyAdminAuth, corsHeaders } from "../_shared/auth.ts";
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 function tryParseJson(text: string): unknown | null {
   try {
@@ -16,13 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(req);
+    // Verify authentication (any authenticated user)
+    const authResult = await verifyAuth(req);
     if ('error' in authResult) {
       return authResult.error;
     }
 
-    console.log(`[get-erp-boleto-data] Admin user: ${authResult.userId}`);
+    console.log(`[get-erp-boleto-data] Authenticated user: ${authResult.userId}`);
     const { orderNumber } = await req.json();
 
     if (!orderNumber) {

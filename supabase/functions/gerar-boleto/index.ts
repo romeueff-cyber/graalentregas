@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { verifyAdminAuth, corsHeaders } from "../_shared/auth.ts";
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 // Cora API URLs - all mTLS endpoints
 const CORA_TOKEN_URL_STAGE = 'https://matls-clients.api.stage.cora.com.br/token';
@@ -312,13 +312,13 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(req);
+    // Verify authentication (any authenticated user)
+    const authResult = await verifyAuth(req);
     if ('error' in authResult) {
       return authResult.error;
     }
 
-    console.log(`[Cora] Admin user: ${authResult.userId}`);
+    console.log(`[Cora] Authenticated user: ${authResult.userId}`);
 
     const requestBody = await req.json();
     const { action, ...params } = requestBody;
