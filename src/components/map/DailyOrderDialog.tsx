@@ -20,8 +20,10 @@ interface OrderItem {
 
 interface OrderEquipment {
   type: string;
-  quantity: number;
+  description: string | null;
   patrimony: string | null;
+  model: string | null;
+  quantity: number;
 }
 
 interface Order {
@@ -159,16 +161,23 @@ export function DailyOrderDialog({
           {order.equipments.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">Equipamentos</p>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {order.equipments.map((eq, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {eq.quantity}x {eq.type}
-                    </Badge>
-                    {eq.patrimony && (
-                      <span className="text-xs text-muted-foreground font-mono">
-                        Patrimônio: {eq.patrimony}
-                      </span>
+                  <div key={idx} className="bg-muted/50 rounded-md p-2 text-sm">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="text-xs">
+                        {eq.quantity}x {eq.type}
+                      </Badge>
+                      {eq.patrimony && (
+                        <Badge variant="outline" className="text-xs font-mono">
+                          Pat: {eq.patrimony}
+                        </Badge>
+                      )}
+                    </div>
+                    {(eq.description || eq.model) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {eq.description}{eq.description && eq.model ? ' • ' : ''}{eq.model}
+                      </p>
                     )}
                   </div>
                 ))}
