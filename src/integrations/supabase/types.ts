@@ -433,18 +433,30 @@ export type Database = {
       }
       settings: {
         Row: {
+          centro_latitude: number | null
+          centro_longitude: number | null
           dias_exibir_recolhido: number
+          filtro_geografico_ativo: boolean | null
           id: string
+          raio_km: number | null
           updated_at: string | null
         }
         Insert: {
+          centro_latitude?: number | null
+          centro_longitude?: number | null
           dias_exibir_recolhido?: number
+          filtro_geografico_ativo?: boolean | null
           id?: string
+          raio_km?: number | null
           updated_at?: string | null
         }
         Update: {
+          centro_latitude?: number | null
+          centro_longitude?: number | null
           dias_exibir_recolhido?: number
+          filtro_geografico_ativo?: boolean | null
           id?: string
+          raio_km?: number | null
           updated_at?: string | null
         }
         Relationships: []

@@ -5,6 +5,7 @@ import { useEquipments } from '@/hooks/useEquipments';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
 import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
 import { useHygieneClients } from '@/hooks/useHygieneClients';
+import { useGeoFilter } from '@/hooks/useGeoFilter';
 import { MapView } from '@/components/map/MapView';
 import { DailyOrdersSidebar, type DailyOrder } from '@/components/map/DailyOrdersSidebar';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import {
   FileText,
   Route,
   BarChart3,
+  MapPin,
 } from 'lucide-react';
 import {
   Sheet,
@@ -59,6 +61,7 @@ export default function MainMapPage() {
   const { location: driverLocation } = useDriverLocation();
   const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation, getOrderLocation } = useDailyOrderLocations();
   const { summary: hygieneSummary, mapLocations: hygieneMapLocations } = useHygieneClients();
+  const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -67,16 +70,32 @@ export default function MainMapPage() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
+  // Apply geo filter to equipments
+  const geoFilteredEquipments = useMemo(() => filterByGeo(equipments), [equipments, filterByGeo]);
+
+  // Apply geo filter to daily order locations
+  const geoFilteredDailyOrderLocations = useMemo(() => 
+    filterByGeo(dailyOrderLocations), 
+    [dailyOrderLocations, filterByGeo]
+  );
+
+  // Apply geo filter to hygiene locations
+  const geoFilteredHygieneLocations = useMemo(() => 
+    filterByGeo(hygieneMapLocations), 
+    [hygieneMapLocations, filterByGeo]
+  );
+
   // All useMemo hooks MUST be before any conditional returns
   // Count by status (separating "Cliente irá avisar" from regular delivered)
+  // Use geo-filtered equipments for counting and filtering
   const clienteAvisaraEquipments = useMemo(() => 
-    equipments.filter((e) => e.cliente_ira_avisar || e.periodo_recolha === 'CLIENTE_IRA_AVISAR'),
-    [equipments]
+    geoFilteredEquipments.filter((e) => e.cliente_ira_avisar || e.periodo_recolha === 'CLIENTE_IRA_AVISAR'),
+    [geoFilteredEquipments]
   );
   
   const regularEquipments = useMemo(() =>
-    equipments.filter((e) => !e.cliente_ira_avisar && e.periodo_recolha !== 'CLIENTE_IRA_AVISAR'),
-    [equipments]
+    geoFilteredEquipments.filter((e) => !e.cliente_ira_avisar && e.periodo_recolha !== 'CLIENTE_IRA_AVISAR'),
+    [geoFilteredEquipments]
   );
 
   const statusCounts = useMemo(() => ({
@@ -86,9 +105,9 @@ export default function MainMapPage() {
     clienteAvisara: clienteAvisaraEquipments.filter((e) => e.status !== 'RECOLHIDO').length,
   }), [regularEquipments, clienteAvisaraEquipments]);
 
-  // Day summary calculations
+  // Day summary calculations (use geo-filtered)
   const daySummary = useMemo(() => {
-    const pendingEquipments = equipments.filter(e => e.status !== 'RECOLHIDO');
+    const pendingEquipments = geoFilteredEquipments.filter(e => e.status !== 'RECOLHIDO');
     
     // Today's scheduled collections
     const todayCollections = pendingEquipments.filter(e => 
@@ -113,7 +132,7 @@ export default function MainMapPage() {
       overdueCount: overdueCollections.length,
       longStaysCount: longStays.length,
     };
-  }, [equipments]);
+  }, [geoFilteredEquipments]);
 
   // Filtered equipments based on active filters (multi-select)
   const filteredEquipments = useMemo(() => {
@@ -146,20 +165,20 @@ export default function MainMapPage() {
     }
     
     return results;
-  }, [activeFilters, equipments, regularEquipments, clienteAvisaraEquipments]);
+  }, [activeFilters, geoFilteredEquipments, regularEquipments, clienteAvisaraEquipments]);
 
   // Get set of delivered order numbers
   const deliveredOrderNumbers = useMemo(() => {
-    return new Set(equipments.map(e => e.pedido_dia));
-  }, [equipments]);
+    return new Set(geoFilteredEquipments.map(e => e.pedido_dia));
+  }, [geoFilteredEquipments]);
 
   // Show daily order locations ONLY when dailyOrders filter is active
   // EXCLUDE orders that are already delivered (they show as regular equipment markers now)
   const visibleDailyOrderLocations = useMemo(() => {
     // Only show if dailyOrders is explicitly selected
     if (activeFilters.has('dailyOrders')) {
-      // Filter out already-delivered orders from map markers
-      return dailyOrderLocations
+      // Use geo-filtered locations and filter out already-delivered orders
+      return geoFilteredDailyOrderLocations
         .filter(loc => !deliveredOrderNumbers.has(loc.orderNumber))
         .map(loc => ({
           ...loc,
@@ -167,15 +186,15 @@ export default function MainMapPage() {
         }));
     }
     return [];
-  }, [activeFilters, dailyOrderLocations, deliveredOrderNumbers]);
+  }, [activeFilters, geoFilteredDailyOrderLocations, deliveredOrderNumbers]);
 
   // Show hygiene locations when hygiene filter is active
   const visibleHygieneLocations = useMemo(() => {
     if (activeFilters.has('hygiene')) {
-      return hygieneMapLocations;
+      return geoFilteredHygieneLocations;
     }
     return [];
-  }, [activeFilters, hygieneMapLocations]);
+  }, [activeFilters, geoFilteredHygieneLocations]);
 
   // Now we can have conditional returns - after all hooks
   if (authLoading || isLoading) {
@@ -324,7 +343,22 @@ export default function MainMapPage() {
             </Sheet>
 
             <div>
-              <h1 className="font-semibold text-foreground">Graal Beer</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-semibold text-foreground">Graal Beer</h1>
+                {isGeoFilterActive && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-0.5 text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        <MapPin className="w-3 h-3" />
+                        {geoSettings.raio_km}km
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Filtro geográfico ativo: {geoSettings.raio_km}km de raio
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               <SyncIndicator isOnline={isOnline} isSyncing={isSyncing} />
             </div>
           </div>

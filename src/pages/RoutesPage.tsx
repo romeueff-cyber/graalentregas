@@ -8,6 +8,7 @@ import { useRouteOptimization } from '@/hooks/useRouteOptimization';
 import { useAIRouteOptimization } from '@/hooks/useAIRouteOptimization';
 import { useSaveRoutes } from '@/hooks/useSaveRoutes';
 import { useDrivers } from '@/hooks/useDrivers';
+import { useGeoFilter } from '@/hooks/useGeoFilter';
 import { RouteConfigForm } from '@/components/routes/RouteConfigForm';
 import { RouteDriverAssignment } from '@/components/routes/RouteDriverAssignment';
 import { DeliveryPointsList } from '@/components/routes/DeliveryPointsList';
@@ -18,7 +19,8 @@ import { Button } from '@/components/ui/button';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, RefreshCw, Loader2, Settings, Route, Save, Package } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, RefreshCw, Loader2, Settings, Route, Save, Package, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DeliveryPoint, RouteConfig, RoutePeriod, OptimizedRoute, RouteOptimizationResult } from '@/types/routes';
 import { calculateServiceTime, getDriverColor } from '@/types/routes';
@@ -34,6 +36,7 @@ export default function RoutesPage() {
   const isMobile = useIsMobile();
   const { user, isLoading: authLoading } = useAuth();
   const { drivers } = useDrivers();
+  const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
   
   // Date selection state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -42,11 +45,14 @@ export default function RoutesPage() {
   
   const { 
     orders, 
-    locations, 
+    locations: rawLocations, 
     ordersWithoutLocation, 
     isLoading: ordersLoading, 
     isGoogleReady 
   } = useRouteOrderLocations(selectedDateString);
+
+  // Apply geo filter to locations
+  const locations = useMemo(() => filterByGeo(rawLocations), [rawLocations, filterByGeo]);
   
   const { 
     optimizeRoutes, 
@@ -460,7 +466,22 @@ export default function RoutesPage() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-semibold text-foreground">Otimização de Rotas</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-semibold text-foreground">Otimização de Rotas</h1>
+                {isGeoFilterActive && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-0.5 text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        <MapPin className="w-3 h-3" />
+                        {geoSettings.raio_km}km
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Filtro geográfico ativo: {geoSettings.raio_km}km de raio
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {isLoading ? 'Carregando pedidos...' : `${deliveryPoints.length} entregas • ${totalVolume}L`}
               </p>
@@ -468,7 +489,7 @@ export default function RoutesPage() {
           </div>
           <div className="flex items-center gap-2">
             {hasSavedRoutes && !result && (
-              <span className="text-xs text-green-600 dark:text-green-400">
+              <span className="text-xs text-status-collected">
                 Rotas salvas
               </span>
             )}

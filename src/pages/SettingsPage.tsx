@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,19 +6,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Settings as SettingsIcon, Calendar } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useGeoSettings } from '@/hooks/useGeoSettings';
 import type { Settings } from '@/types/database';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { isAdmin, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { geoSettings, updateGeoSettings, isUpdating } = useGeoSettings();
 
   const [diasExibir, setDiasExibir] = useState<number>(7);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Geo settings local state
+  const [geoAtivo, setGeoAtivo] = useState(false);
+  const [centroLat, setCentroLat] = useState(-26.4841);
+  const [centroLng, setCentroLng] = useState(-49.0747);
+  const [raioKm, setRaioKm] = useState(50);
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Sync geo settings from hook
+  useEffect(() => {
+    if (geoSettings) {
+      setGeoAtivo(geoSettings.filtro_geografico_ativo);
+      setCentroLat(geoSettings.centro_latitude);
+      setCentroLng(geoSettings.centro_longitude);
+      setRaioKm(geoSettings.raio_km);
+    }
+  }, [geoSettings]);
 
   // Fetch settings
   const { data: settings, isLoading } = useQuery({
@@ -67,6 +87,41 @@ export default function SettingsPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveGeoSettings = () => {
+    if (raioKm < 1 || raioKm > 500) {
+      toast.error('O raio deve estar entre 1 e 500 km');
+      return;
+    }
+    updateGeoSettings({
+      filtro_geografico_ativo: geoAtivo,
+      centro_latitude: centroLat,
+      centro_longitude: centroLng,
+      raio_km: raioKm,
+    });
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocalização não suportada');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCentroLat(Math.round(position.coords.latitude * 10000) / 10000);
+        setCentroLng(Math.round(position.coords.longitude * 10000) / 10000);
+        setIsLocating(false);
+        toast.success('Localização obtida!');
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast.error('Erro ao obter localização');
+        setIsLocating(false);
+      }
+    );
   };
 
   if (authLoading || isLoading) {
@@ -126,6 +181,100 @@ export default function SettingsPage() {
               disabled={isSaving}
             >
               {isSaving ? <LoadingSpinner size="sm" /> : 'Salvar Configurações'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Geo Filter Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Filtro Geográfico
+            </CardTitle>
+            <CardDescription>
+              Limite a área de atuação para otimizar performance e focar nos pedidos relevantes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Ativar filtro por raio</Label>
+                <p className="text-xs text-muted-foreground">
+                  Mostra apenas pedidos e equipamentos dentro do raio definido
+                </p>
+              </div>
+              <Switch
+                checked={geoAtivo}
+                onCheckedChange={setGeoAtivo}
+              />
+            </div>
+
+            {geoAtivo && (
+              <>
+                <div className="space-y-2">
+                  <Label>Raio de atuação (km)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={raioKm}
+                    onChange={(e) => setRaioKm(parseInt(e.target.value) || 50)}
+                    className="h-12"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Latitude central</Label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={centroLat}
+                      onChange={(e) => setCentroLat(parseFloat(e.target.value) || 0)}
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Longitude central</Label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={centroLng}
+                      onChange={(e) => setCentroLng(parseFloat(e.target.value) || 0)}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full h-10"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isLocating}
+                >
+                  {isLocating ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <>
+                      <Locate className="w-4 h-4 mr-2" />
+                      Usar minha localização atual
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-muted-foreground">
+                  O filtro será aplicado no Mapa de Pedidos do Dia, Mapa Principal e Otimização de Rotas.
+                </p>
+              </>
+            )}
+
+            <Button
+              className="w-full h-12"
+              onClick={handleSaveGeoSettings}
+              disabled={isUpdating}
+            >
+              {isUpdating ? <LoadingSpinner size="sm" /> : 'Salvar Configurações Geográficas'}
             </Button>
           </CardContent>
         </Card>
