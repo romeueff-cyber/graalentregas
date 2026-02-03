@@ -15,6 +15,7 @@ interface OrderItem {
 interface OrderEquipment {
   type: string;
   quantity: number;
+  patrimony: string | null;
 }
 
 export interface DailyOrderData {
