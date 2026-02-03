@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 interface ExportPDFButtonProps {
   deliveryMetrics: DeliveryMetrics;
   hygieneMetrics: HygieneMetrics;
-  activeTab: 'entregas' | 'higienizacao' | 'entregadores';
+  activeTab: 'entregas' | 'clientes' | 'entregadores' | 'higienizacao';
 }
 
 export function ExportPDFButton({ deliveryMetrics, hygieneMetrics, activeTab }: ExportPDFButtonProps) {

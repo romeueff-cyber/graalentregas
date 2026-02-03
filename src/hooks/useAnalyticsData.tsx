@@ -35,6 +35,17 @@ export interface DriverMetrics {
   score: number;
 }
 
+export interface ClientMetrics {
+  totalClients: number;
+  totalOrders: number;
+  avgOrdersPerClient: number;
+  recurrentRate: number;
+  newClients: number;
+  recurrentClients: number;
+  topClients: { clientName: string; orderCount: number }[];
+  frequencyDistribution: { range: string; count: number }[];
+}
+
 export function useAnalyticsData(days: number = 7) {
   const startDate = useMemo(() => subDays(startOfDay(new Date()), days), [days]);
 
@@ -348,6 +359,88 @@ export function useAnalyticsData(days: number = 7) {
     return metrics.sort((a, b) => b.score - a.score);
   }, [equipments, profiles]);
 
+  // Calculate client metrics
+  const clientMetrics: ClientMetrics = useMemo(() => {
+    // Group by client name (normalized)
+    const clientMap = new Map<string, number>();
+    
+    allEquipments.forEach(e => {
+      const clientName = e.nome_cliente.trim().toLowerCase();
+      clientMap.set(clientName, (clientMap.get(clientName) || 0) + 1);
+    });
+
+    // In-period client map (for new vs recurrent analysis)
+    const periodClientMap = new Map<string, number>();
+    equipments.forEach(e => {
+      const clientName = e.nome_cliente.trim().toLowerCase();
+      periodClientMap.set(clientName, (periodClientMap.get(clientName) || 0) + 1);
+    });
+
+    const totalClients = periodClientMap.size;
+    const totalOrders = equipments.length;
+    const avgOrdersPerClient = totalClients > 0 ? totalOrders / totalClients : 0;
+
+    // Recurrent = clients with more than 1 order in history
+    let recurrentClients = 0;
+    let newClients = 0;
+    
+    periodClientMap.forEach((_, clientName) => {
+      const totalHistoryOrders = clientMap.get(clientName) || 0;
+      if (totalHistoryOrders > 1) {
+        recurrentClients++;
+      } else {
+        newClients++;
+      }
+    });
+
+    const recurrentRate = totalClients > 0 
+      ? Math.round((recurrentClients / totalClients) * 100) 
+      : 0;
+
+    // Top 10 clients (from period data)
+    const topClients = Array.from(periodClientMap.entries())
+      .map(([name, count]) => ({
+        clientName: allEquipments.find(
+          e => e.nome_cliente.trim().toLowerCase() === name
+        )?.nome_cliente || name,
+        orderCount: count,
+      }))
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .slice(0, 10);
+
+    // Frequency distribution
+    const frequencyCounts: Record<string, number> = {
+      '1 pedido': 0,
+      '2 pedidos': 0,
+      '3-5 pedidos': 0,
+      '6-10 pedidos': 0,
+      '10+ pedidos': 0,
+    };
+
+    periodClientMap.forEach((count) => {
+      if (count === 1) frequencyCounts['1 pedido']++;
+      else if (count === 2) frequencyCounts['2 pedidos']++;
+      else if (count >= 3 && count <= 5) frequencyCounts['3-5 pedidos']++;
+      else if (count >= 6 && count <= 10) frequencyCounts['6-10 pedidos']++;
+      else frequencyCounts['10+ pedidos']++;
+    });
+
+    const frequencyDistribution = Object.entries(frequencyCounts)
+      .filter(([, count]) => count > 0)
+      .map(([range, count]) => ({ range, count }));
+
+    return {
+      totalClients,
+      totalOrders,
+      avgOrdersPerClient: Math.round(avgOrdersPerClient * 10) / 10,
+      recurrentRate,
+      newClients,
+      recurrentClients,
+      topClients,
+      frequencyDistribution,
+    };
+  }, [equipments, allEquipments]);
+
   const isLoading = loadingEquipments || loadingAllEquipments || 
     loadingHygieneClients || loadingHygieneEquipment || loadingHygieneServices || loadingProfiles;
 
@@ -355,6 +448,7 @@ export function useAnalyticsData(days: number = 7) {
     deliveryMetrics,
     hygieneMetrics,
     driverMetrics,
+    clientMetrics,
     isLoading,
   };
 }
