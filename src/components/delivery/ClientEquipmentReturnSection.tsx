@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -6,16 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Package, AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
-interface ERPEquipment {
-  type: string;
-  description: string | null;
-  patrimony: string | null;
-  model: string | null;
-  quantity: number;
-}
+import { useClientAllocatedEquipment } from '@/hooks/useClientAllocatedEquipment';
 
 interface ClientEquipmentReturnSectionProps {
   clientId?: string | number;
@@ -30,94 +22,20 @@ export function ClientEquipmentReturnSection({
   onSelectionChange,
   selectedPatrimonies,
 }: ClientEquipmentReturnSectionProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [equipments, setEquipments] = useState<ERPEquipment[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch all equipments allocated to client
+  const {
+    equipments,
+    isLoading,
+    error,
+    clientListEmpty,
+    refetch,
+  } = useClientAllocatedEquipment({ clientId, orderNumber });
+
+  // If we found equipment, open the section
   useEffect(() => {
-    if (clientId || orderNumber) {
-      fetchEquipments();
-    }
-  }, [clientId, orderNumber]);
-
-  const fetchEquipments = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log(`[ClientEquipmentReturn] Fetching equipment for client ${clientId || 'via order ' + orderNumber}`);
-      
-      let allEquipments: ERPEquipment[] = [];
-
-      // If we have clientId, try to fetch all client equipment first
-      if (clientId) {
-        try {
-          const { data: clientData, error: clientError } = await supabase.functions.invoke(
-            'get-client-equipment',
-            { body: { clientId } }
-          );
-
-          if (!clientError && clientData?.equipments?.length > 0) {
-            allEquipments = clientData.equipments;
-            console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) via get-client-equipment`);
-          } else {
-            console.log('[ClientEquipmentReturn] No equipment from get-client-equipment, will try fallback');
-          }
-        } catch (clientErr) {
-          console.error('[ClientEquipmentReturn] Error fetching client equipment:', clientErr);
-        }
-      }
-
-      // If no equipment found yet and we have orderNumber, use order-based fallback
-      if (allEquipments.length === 0 && orderNumber) {
-        console.log('[ClientEquipmentReturn] Using order-based fallback for equipment');
-        const { data: orderData, error: orderError } = await supabase.functions.invoke(
-          'search-erp-order',
-          { body: { orderNumber } }
-        );
-
-        if (!orderError && orderData) {
-          // First try to get equipment from the order response directly
-          if (orderData.equipments?.length > 0) {
-            allEquipments = orderData.equipments;
-            console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) from search-erp-order`);
-          }
-          
-          // If still no equipment but we have client_id, try one more time with client endpoint
-          if (allEquipments.length === 0 && orderData.client_id) {
-            try {
-              const { data: clientData, error: clientError } = await supabase.functions.invoke(
-                'get-client-equipment',
-                { body: { clientId: orderData.client_id } }
-              );
-
-              if (!clientError && clientData?.equipments?.length > 0) {
-                allEquipments = clientData.equipments;
-                console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) via client fallback`);
-              }
-            } catch (clientErr) {
-              console.error('[ClientEquipmentReturn] Error in client fallback:', clientErr);
-            }
-          }
-        }
-      }
-      
-      setEquipments(allEquipments);
-      
-      // If we found equipment, open the section
-      if (allEquipments.length > 0) {
-        setIsOpen(true);
-      }
-
-    } catch (err) {
-      console.error('[ClientEquipmentReturn] Error:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    if (equipments.length > 0) setIsOpen(true);
+  }, [equipments.length]);
 
   const togglePatrimony = (patrimony: string) => {
     const newSelection = selectedPatrimonies.includes(patrimony)
@@ -181,7 +99,7 @@ export function ClientEquipmentReturnSection({
             ) : error ? (
               <div className="flex flex-col items-center py-4 gap-2">
                 <p className="text-sm text-destructive">{error}</p>
-                <Button variant="outline" size="sm" onClick={fetchEquipments} className="gap-2">
+                <Button variant="outline" size="sm" onClick={refetch} className="gap-2">
                   <RefreshCw className="w-3 h-3" />
                   Tentar novamente
                 </Button>
@@ -192,6 +110,14 @@ export function ClientEquipmentReturnSection({
               </p>
             ) : (
               <div className="space-y-2">
+                {clientListEmpty && Boolean(orderNumber) && (
+                  <Alert className="border-amber-500/50 bg-amber-100/50 dark:bg-amber-900/30">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                      Não foi possível carregar a lista completa de equipamentos do cliente no ERP. Abaixo pode estar aparecendo apenas o que veio no pedido.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <p className="text-xs text-muted-foreground italic">
                   Marque os equipamentos que serão devolvidos nesta entrega
                 </p>
