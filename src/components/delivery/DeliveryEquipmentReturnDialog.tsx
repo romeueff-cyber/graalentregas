@@ -102,7 +102,7 @@ export function DeliveryEquipmentReturnDialog({
       
       for (const patrimony of patrimoniesArray) {
         const { error } = await supabase.functions.invoke('update-erp-equipment-status', {
-          body: { patrimony, statusId: 10 } // 10 = RETORNADO
+          body: { patrimonio: patrimony, orderNumber: orderNumber } // patrimonio field expected by edge function
         });
 
         if (error) {
