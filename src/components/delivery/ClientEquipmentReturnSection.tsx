@@ -51,37 +51,55 @@ export function ClientEquipmentReturnSection({
       
       let allEquipments: ERPEquipment[] = [];
 
-      // If we have clientId, fetch all client equipment
+      // If we have clientId, try to fetch all client equipment first
       if (clientId) {
-        const { data: clientData, error: clientError } = await supabase.functions.invoke(
-          'get-client-equipment',
-          { body: { clientId } }
-        );
+        try {
+          const { data: clientData, error: clientError } = await supabase.functions.invoke(
+            'get-client-equipment',
+            { body: { clientId } }
+          );
 
-        if (clientError) {
-          console.error('[ClientEquipmentReturn] Error fetching client equipment:', clientError);
-        } else if (clientData?.equipments) {
-          allEquipments = clientData.equipments;
-          console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) for client`);
+          if (!clientError && clientData?.equipments?.length > 0) {
+            allEquipments = clientData.equipments;
+            console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) via get-client-equipment`);
+          } else {
+            console.log('[ClientEquipmentReturn] No equipment from get-client-equipment, will try fallback');
+          }
+        } catch (clientErr) {
+          console.error('[ClientEquipmentReturn] Error fetching client equipment:', clientErr);
         }
       }
 
-      // If no client equipment found and we have orderNumber, try to get clientId from order
+      // If no equipment found yet and we have orderNumber, use order-based fallback
       if (allEquipments.length === 0 && orderNumber) {
+        console.log('[ClientEquipmentReturn] Using order-based fallback for equipment');
         const { data: orderData, error: orderError } = await supabase.functions.invoke(
           'search-erp-order',
           { body: { orderNumber } }
         );
 
-        if (!orderError && orderData?.client_id) {
-          // Try again with client ID from order
-          const { data: clientData, error: clientError } = await supabase.functions.invoke(
-            'get-client-equipment',
-            { body: { clientId: orderData.client_id } }
-          );
+        if (!orderError && orderData) {
+          // First try to get equipment from the order response directly
+          if (orderData.equipments?.length > 0) {
+            allEquipments = orderData.equipments;
+            console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) from search-erp-order`);
+          }
+          
+          // If still no equipment but we have client_id, try one more time with client endpoint
+          if (allEquipments.length === 0 && orderData.client_id) {
+            try {
+              const { data: clientData, error: clientError } = await supabase.functions.invoke(
+                'get-client-equipment',
+                { body: { clientId: orderData.client_id } }
+              );
 
-          if (!clientError && clientData?.equipments) {
-            allEquipments = clientData.equipments;
+              if (!clientError && clientData?.equipments?.length > 0) {
+                allEquipments = clientData.equipments;
+                console.log(`[ClientEquipmentReturn] Found ${allEquipments.length} equipment(s) via client fallback`);
+              }
+            } catch (clientErr) {
+              console.error('[ClientEquipmentReturn] Error in client fallback:', clientErr);
+            }
           }
         }
       }
