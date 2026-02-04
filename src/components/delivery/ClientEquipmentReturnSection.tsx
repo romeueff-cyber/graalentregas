@@ -96,16 +96,8 @@ export function ClientEquipmentReturnSection({
     [normalizePatrimony, normalizedSelectedPatrimonies, onSelectionChange]
   );
 
-  const togglePatrimony = useCallback(
-    (patrimonyRaw: string | null | undefined) => {
-      const patrimony = normalizePatrimony(patrimonyRaw);
-      if (!patrimony) return;
-
-      const nextSelected = !normalizedSelectedPatrimonies.includes(patrimony);
-      setPatrimonySelected(patrimony, nextSelected);
-    },
-    [normalizePatrimony, normalizedSelectedPatrimonies, setPatrimonySelected]
-  );
+  // IMPORTANT: Avoid Radix Checkbox onCheckedChange loops by handling selection
+  // exclusively via the row click (single source of truth).
 
   const equipmentsWithPatrimony = useMemo(
     () => equipments.filter((eq) => Boolean(normalizePatrimony(eq.patrimony))),
@@ -206,12 +198,11 @@ export function ClientEquipmentReturnSection({
                           ? 'border-primary bg-primary/10'
                           : 'border-border bg-background hover:bg-muted/50'
                       }`}
-                      onClick={() => togglePatrimony(patrimony)}
+                      onClick={() => setPatrimonySelected(patrimony, !isSelected)}
                     >
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => setPatrimonySelected(patrimony, checked === true)}
-                        onClick={(e) => e.stopPropagation()}
+                        className="pointer-events-none"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
