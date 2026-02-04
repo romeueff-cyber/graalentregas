@@ -45,13 +45,19 @@ export function ClientEquipmentReturnSection({
 
   const togglePatrimony = (patrimony: string) => {
     try {
-      if (!patrimony) return;
+      console.log('[ClientEquipmentReturnSection] togglePatrimony called', { patrimony, current: safeSelectedPatrimonies });
+
+      if (!patrimony) {
+        console.warn('[ClientEquipmentReturnSection] Ignoring empty patrimony');
+        return;
+      }
 
       const current = safeSelectedPatrimonies;
       const newSelection = current.includes(patrimony)
         ? current.filter((p) => p !== patrimony)
         : [...current, patrimony];
 
+      console.log('[ClientEquipmentReturnSection] Calling onSelectionChange with', newSelection);
       onSelectionChange(newSelection);
     } catch (err) {
       console.error('[ClientEquipmentReturnSection] togglePatrimony error:', err);
