@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { AdminRoute } from "@/components/AdminRoute";
 import { toast } from "sonner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import NewDeliveryPage from "./pages/NewDeliveryPage";
@@ -57,38 +58,40 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/new-delivery" element={<NewDeliveryPage />} />
-              <Route path="/edit-delivery/:id" element={<EditDeliveryPage />} />
-              <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
-              <Route
-                path="/users"
-                element={
-                  <AdminRoute>
-                    <UsersManagementPage />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <AdminRoute>
-                    <SettingsPage />
-                  </AdminRoute>
-                }
-              />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/install" element={<InstallPage />} />
-              <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
-              <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
-              <Route path="/higienizacao" element={<HygienePage />} />
-              <Route path="/financeiro" element={<FinanceiroPage />} />
-              <Route path="/rotas" element={<RoutesPage />} />
-              <Route path="/alocacoes" element={<AlocacoesPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/new-delivery" element={<NewDeliveryPage />} />
+                <Route path="/edit-delivery/:id" element={<EditDeliveryPage />} />
+                <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
+                <Route
+                  path="/users"
+                  element={
+                    <AdminRoute>
+                      <UsersManagementPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <AdminRoute>
+                      <SettingsPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/install" element={<InstallPage />} />
+                <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
+                <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
+                <Route path="/higienizacao" element={<HygienePage />} />
+                <Route path="/financeiro" element={<FinanceiroPage />} />
+                <Route path="/rotas" element={<RoutesPage />} />
+                <Route path="/alocacoes" element={<AlocacoesPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ErrorBoundary>
             <PWAInstallBanner />
           </AuthProvider>
         </BrowserRouter>
