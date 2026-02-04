@@ -531,16 +531,17 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
     // Busca todos os equipamentos OCUPADOS vinculados ao cliente
     // via EQUIP_FATURAMENTOS → FATURAMENTO → ORDENS_VENDA
     // Exclui equipamentos já retornados (ID_STATUS = 10)
+    // Nota: Tabela MODELO_EQUIPAMENTO não existe no schema
+    // O campo MODELO está diretamente na tabela EQUIPAMENTOS
     const query = `
       SELECT DISTINCT
         e.ID_EQUIPAMENTO,
         e.PATRIMONIO,
         e.STATUS,
-        te.DESCRICAO AS TIPO,
-        me.DESCRICAO AS MODELO
+        e.MODELO,
+        te.DESCRICAO AS TIPO
       FROM EQUIPAMENTOS e
-      INNER JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
-      LEFT JOIN MODELO_EQUIPAMENTO me ON me.ID_MODELO_EQUIPAMENTO = e.ID_MODELO_EQUIPAMENTO
+      LEFT JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
       INNER JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
       INNER JOIN FATURAMENTO f ON f.ID_FATURAMENTO = ef.ID_FATURAMENTO
       INNER JOIN ORDENS_VENDA ov ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
