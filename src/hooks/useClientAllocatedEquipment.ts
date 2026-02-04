@@ -98,7 +98,22 @@ export function useClientAllocatedEquipment(params: {
         }
       }
 
-      const merged = dedupeEquipments([...(clientEquipments ?? []), ...(orderEquipments ?? [])]);
+      // Get patrimony numbers from the order to exclude them from client list
+      const orderPatrimonies = new Set(
+        orderEquipments
+          .map((eq) => eq.patrimony?.trim())
+          .filter(Boolean)
+      );
+
+      // Filter client equipment to exclude items that are in the current order
+      const clientEquipmentsFiltered = clientEquipments.filter((eq) => {
+        const pat = eq.patrimony?.trim();
+        return !pat || !orderPatrimonies.has(pat);
+      });
+
+      // Only show client equipment (excluding order items)
+      // If client list is empty/failed, we don't show order equipments as fallback anymore
+      const merged = dedupeEquipments(clientEquipmentsFiltered);
 
       setState({
         equipments: merged,
