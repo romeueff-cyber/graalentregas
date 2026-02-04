@@ -43,34 +43,54 @@ export function ClientEquipmentReturnSection({
     if (equipments.length > 0) setIsOpen(true);
   }, [equipments.length]);
 
-  const togglePatrimony = useCallback((patrimony: string | null | undefined) => {
-    try {
-      const safePatrimony = patrimony ?? '';
-      console.log('[ClientEquipmentReturnSection] togglePatrimony called', { patrimony: safePatrimony, current: safeSelectedPatrimonies });
+  const normalizePatrimony = useCallback((value: string | null | undefined) => {
+    return typeof value === 'string' ? value.trim() : '';
+  }, []);
 
-      if (!safePatrimony || safePatrimony.trim() === '') {
-        console.warn('[ClientEquipmentReturnSection] Ignoring empty/null patrimony');
-        return;
+  /**
+   * IMPORTANT: This must be idempotent.
+   * React error #185 (maximum update depth) can happen if a controlled Checkbox
+   * fires onCheckedChange on prop updates and we "toggle" back and forth.
+   */
+  const setPatrimonySelected = useCallback(
+    (patrimonyRaw: string | null | undefined, nextSelected: boolean) => {
+      try {
+        const patrimony = normalizePatrimony(patrimonyRaw);
+        if (!patrimony) return;
+
+        const current = safeSelectedPatrimonies;
+        const has = current.includes(patrimony);
+
+        // No-op when state is already correct (prevents infinite loops)
+        if (nextSelected === has) return;
+
+        const newSelection = nextSelected
+          ? [...current, patrimony]
+          : current.filter((p) => p !== patrimony);
+
+        if (typeof onSelectionChange === 'function') {
+          onSelectionChange(newSelection);
+        } else {
+          console.error('[ClientEquipmentReturnSection] onSelectionChange is not a function:', onSelectionChange);
+        }
+      } catch (err) {
+        console.error('[ClientEquipmentReturnSection] setPatrimonySelected error:', err);
+        toast.error('Erro ao selecionar equipamento para retorno');
       }
+    },
+    [normalizePatrimony, onSelectionChange, safeSelectedPatrimonies]
+  );
 
-      const trimmedPatrimony = safePatrimony.trim();
-      const current = [...safeSelectedPatrimonies]; // defensive copy
-      const newSelection = current.includes(trimmedPatrimony)
-        ? current.filter((p) => p !== trimmedPatrimony)
-        : [...current, trimmedPatrimony];
+  const togglePatrimony = useCallback(
+    (patrimonyRaw: string | null | undefined) => {
+      const patrimony = normalizePatrimony(patrimonyRaw);
+      if (!patrimony) return;
 
-      console.log('[ClientEquipmentReturnSection] Calling onSelectionChange with', newSelection);
-      
-      if (typeof onSelectionChange === 'function') {
-        onSelectionChange(newSelection);
-      } else {
-        console.error('[ClientEquipmentReturnSection] onSelectionChange is not a function:', onSelectionChange);
-      }
-    } catch (err) {
-      console.error('[ClientEquipmentReturnSection] togglePatrimony error:', err);
-      toast.error('Erro ao selecionar equipamento para retorno');
-    }
-  }, [safeSelectedPatrimonies, onSelectionChange]);
+      const nextSelected = !safeSelectedPatrimonies.includes(patrimony);
+      setPatrimonySelected(patrimony, nextSelected);
+    },
+    [normalizePatrimony, safeSelectedPatrimonies, setPatrimonySelected]
+  );
 
   const equipmentsWithPatrimony = equipments.filter(eq => eq.patrimony);
 
@@ -167,8 +187,8 @@ export function ClientEquipmentReturnSection({
                     >
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => togglePatrimony(patrimony)}
-                        className="pointer-events-none"
+                        onCheckedChange={(checked) => setPatrimonySelected(patrimony, checked === true)}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
