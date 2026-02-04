@@ -264,7 +264,7 @@ export function useEquipments() {
   };
 
   // Confirm collection using database function
-  const confirmCollection = async (id: string) => {
+  const confirmCollection = async (id: string, patrimony?: string) => {
     try {
       if (isOnline()) {
         const { data, error } = await supabase.rpc('confirm_collection', {
@@ -273,6 +273,38 @@ export function useEquipments() {
 
         if (error) throw error;
         toast.success('Recolha confirmada!');
+        
+        // If patrimony is provided, sync with ERP to release equipment
+        if (patrimony) {
+          try {
+            // Get the equipment to find the order number
+            const equipment = equipments.find(e => e.id === id);
+            const orderNumber = equipment?.pedido_dia;
+            
+            console.log(`[confirmCollection] Syncing equipment ${patrimony} with ERP...`);
+            
+            const { data: erpResult, error: erpError } = await supabase.functions.invoke(
+              'update-erp-equipment-status',
+              {
+                body: { patrimonio: patrimony, orderNumber }
+              }
+            );
+            
+            if (erpError) {
+              console.error('[confirmCollection] ERP sync error:', erpError);
+              toast.warning('Recolha confirmada, mas falha ao sincronizar com ERP');
+            } else if (erpResult?.warning) {
+              console.warn('[confirmCollection] ERP sync warning:', erpResult.warning);
+              toast.warning(erpResult.warning);
+            } else {
+              console.log('[confirmCollection] ERP sync success:', erpResult);
+              toast.success('Equipamento liberado no ERP!');
+            }
+          } catch (erpSyncError) {
+            console.error('[confirmCollection] Failed to sync with ERP:', erpSyncError);
+            // Don't fail the whole operation, just log the error
+          }
+        }
       } else {
         // Offline: queue update locally
         await updateEquipment(id, {

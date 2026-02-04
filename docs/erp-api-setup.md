@@ -646,6 +646,89 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
   }
 });
 
+// ==========================================
+// LIBERAR EQUIPAMENTO (RECOLHA)
+// Atualiza status na EQUIPAMENTOS e EQUIP_FATURAMENTOS
+// ==========================================
+app.put('/api/equipment/:patrimonio/release', authenticate, async (req, res) => {
+  try {
+    const patrimonio = req.params.patrimonio;
+    const { statusId } = req.body; // 10 = RETORNADO
+    
+    console.log(`Liberando equipamento: ${patrimonio}, statusId: ${statusId || 10}`);
+    
+    // 1. Buscar o ID do equipamento pelo patrimônio
+    const equipQuery = `
+      SELECT ID_EQUIPAMENTO, STATUS 
+      FROM EQUIPAMENTOS 
+      WHERE PATRIMONIO = ?
+        AND (DELETED IS NULL OR DELETED = 0)
+    `;
+    
+    const equipResult = await executeQuery(equipQuery, [patrimonio]);
+    
+    if (!equipResult || equipResult.length === 0) {
+      return res.status(404).json({ error: 'Equipamento não encontrado' });
+    }
+    
+    const equipmentId = equipResult[0].ID_EQUIPAMENTO;
+    const previousEquipStatus = equipResult[0].STATUS;
+    
+    // 2. Atualizar status na tabela EQUIPAMENTOS para DISPONIVEL
+    const updateEquipQuery = `
+      UPDATE EQUIPAMENTOS 
+      SET STATUS = 'DISPONIVEL', DATE_UPDATE = CURRENT_TIMESTAMP 
+      WHERE ID_EQUIPAMENTO = ?
+    `;
+    
+    await executeQuery(updateEquipQuery, [equipmentId]);
+    console.log(`EQUIPAMENTOS.STATUS atualizado para DISPONIVEL (ID: ${equipmentId})`);
+    
+    // 3. Buscar o registro mais recente em EQUIP_FATURAMENTOS para este equipamento
+    const fatQuery = `
+      SELECT FIRST 1 ID_EQUIP_FATURAMENTOS, ID_STATUS 
+      FROM EQUIP_FATURAMENTOS 
+      WHERE ID_EQUIPAMENTO = ?
+        AND (DELETED IS NULL OR DELETED = 0)
+      ORDER BY DATE_CAD DESC
+    `;
+    
+    const fatResult = await executeQuery(fatQuery, [equipmentId]);
+    
+    let previousFatStatus = null;
+    if (fatResult && fatResult.length > 0) {
+      const fatId = fatResult[0].ID_EQUIP_FATURAMENTOS;
+      previousFatStatus = fatResult[0].ID_STATUS;
+      
+      // 4. Atualizar ID_STATUS para RETORNADO (10) em EQUIP_FATURAMENTOS
+      const updateFatQuery = `
+        UPDATE EQUIP_FATURAMENTOS 
+        SET ID_STATUS = ?, DATE_UPDATE = CURRENT_TIMESTAMP 
+        WHERE ID_EQUIP_FATURAMENTOS = ?
+      `;
+      
+      await executeQuery(updateFatQuery, [statusId || 10, fatId]);
+      console.log(`EQUIP_FATURAMENTOS.ID_STATUS atualizado para ${statusId || 10} (ID: ${fatId})`);
+    } else {
+      console.log('Nenhum registro em EQUIP_FATURAMENTOS encontrado para este equipamento');
+    }
+    
+    res.json({
+      success: true,
+      patrimonio: patrimonio,
+      equipment_id: equipmentId,
+      previous_equip_status: previousEquipStatus,
+      new_equip_status: 'DISPONIVEL',
+      previous_fat_status: previousFatStatus,
+      new_fat_status: statusId || 10
+    });
+    
+  } catch (error) {
+    console.error('Erro ao liberar equipamento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
@@ -846,6 +929,40 @@ Retorna dados do cliente e condições de pagamento para geração de boleto.
 }
 ```
 
+---
+
+### Liberar Equipamento (Recolha)
+```
+PUT /api/equipment/:patrimonio/release
+Headers: X-API-KEY: sua_chave
+Content-Type: application/json
+
+Body: { "statusId": 10 }
+```
+
+Libera um equipamento após recolha, atualizando:
+1. `EQUIPAMENTOS.STATUS` → `'DISPONIVEL'`
+2. `EQUIP_FATURAMENTOS.ID_STATUS` → `10` (RETORNADO)
+
+**Parâmetros:**
+- `patrimonio`: Código do patrimônio do equipamento (ex: "B1004")
+- `statusId` (opcional): ID do status na tabela EQUIP_FATURAMENTOS (default: 10 = RETORNADO)
+
+**Resposta:**
+```json
+{
+  "success": true,
+  "patrimonio": "B1004",
+  "equipment_id": 306,
+  "previous_equip_status": "OCUPADO",
+  "new_equip_status": "DISPONIVEL",
+  "previous_fat_status": 4,
+  "new_fat_status": 10
+}
+```
+
+---
+
 ## Configuração no Lovable Cloud
 
 Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
@@ -857,6 +974,7 @@ Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
 
 ## Versão
 
+**v2.5.0** - Adicionado endpoint `/api/equipment/:patrimonio/release` para liberar equipamentos na recolha.
 **v2.4.0** - Adicionado endpoint `/api/orders/analytics` para dashboards de performance financeira.
 
 ## Troubleshooting
