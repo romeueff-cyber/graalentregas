@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Package, AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useClientAllocatedEquipment } from '@/hooks/useClientAllocatedEquipment';
+import { toast } from 'sonner';
 
 interface ClientEquipmentReturnSectionProps {
   clientId?: string | number;
@@ -24,6 +25,11 @@ export function ClientEquipmentReturnSection({
 }: ClientEquipmentReturnSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const safeSelectedPatrimonies = useMemo(
+    () => (Array.isArray(selectedPatrimonies) ? selectedPatrimonies : []),
+    [selectedPatrimonies]
+  );
+
   const {
     equipments,
     isLoading,
@@ -38,10 +44,19 @@ export function ClientEquipmentReturnSection({
   }, [equipments.length]);
 
   const togglePatrimony = (patrimony: string) => {
-    const newSelection = selectedPatrimonies.includes(patrimony)
-      ? selectedPatrimonies.filter(p => p !== patrimony)
-      : [...selectedPatrimonies, patrimony];
-    onSelectionChange(newSelection);
+    try {
+      if (!patrimony) return;
+
+      const current = safeSelectedPatrimonies;
+      const newSelection = current.includes(patrimony)
+        ? current.filter((p) => p !== patrimony)
+        : [...current, patrimony];
+
+      onSelectionChange(newSelection);
+    } catch (err) {
+      console.error('[ClientEquipmentReturnSection] togglePatrimony error:', err);
+      toast.error('Erro ao selecionar equipamento para retorno');
+    }
   };
 
   const equipmentsWithPatrimony = equipments.filter(eq => eq.patrimony);
@@ -125,7 +140,7 @@ export function ClientEquipmentReturnSection({
                   const patrimony = eq.patrimony ?? '';
                   if (!patrimony) return null;
                   
-                  const isSelected = selectedPatrimonies.includes(patrimony);
+                  const isSelected = safeSelectedPatrimonies.includes(patrimony);
                   
                   return (
                     <div
