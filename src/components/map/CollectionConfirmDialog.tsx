@@ -66,24 +66,29 @@ export function CollectionConfirmDialog({
       
       let allEquipments: ERPEquipment[] = [];
 
-      // If we have clientId, fetch all client equipment
+      // If we have clientId, try to fetch all client equipment first
       if (clientId) {
-        const { data: clientData, error: clientError } = await supabase.functions.invoke(
-          'get-client-equipment',
-          { body: { clientId } }
-        );
+        try {
+          const { data: clientData, error: clientError } = await supabase.functions.invoke(
+            'get-client-equipment',
+            { body: { clientId } }
+          );
 
-        if (clientError) {
-          console.error('[CollectionConfirmDialog] Error fetching client equipment:', clientError);
-          // Fallback to order-based fetch
-        } else if (clientData?.equipments) {
-          allEquipments = clientData.equipments;
-          console.log(`[CollectionConfirmDialog] Found ${allEquipments.length} equipment(s) for client`);
+          if (!clientError && clientData?.equipments?.length > 0) {
+            allEquipments = clientData.equipments;
+            console.log(`[CollectionConfirmDialog] Found ${allEquipments.length} equipment(s) for client via get-client-equipment`);
+          } else {
+            console.log('[CollectionConfirmDialog] No equipment from get-client-equipment, will use order fallback');
+          }
+        } catch (clientErr) {
+          console.error('[CollectionConfirmDialog] Error fetching client equipment:', clientErr);
+          // Continue to fallback
         }
       }
 
-      // If no client equipment found, fallback to order-based fetch
+      // Always fallback to order-based fetch if no equipment found
       if (allEquipments.length === 0) {
+        console.log('[CollectionConfirmDialog] Using order-based fallback for equipment');
         const { data, error: fetchError } = await supabase.functions.invoke(
           'search-erp-order',
           { body: { orderNumber } }
@@ -98,7 +103,7 @@ export function CollectionConfirmDialog({
           throw new Error('Pedido não encontrado no ERP');
         }
 
-        console.log('[CollectionConfirmDialog] Order data:', data);
+        console.log('[CollectionConfirmDialog] Order data from fallback:', data);
         allEquipments = data.equipments || [];
       }
       
