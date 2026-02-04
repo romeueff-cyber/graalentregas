@@ -22,6 +22,7 @@ interface OrderEquipment {
 
 export interface DailyOrderData {
   order_number: string;
+  client_id?: string | number;
   client_name: string;
   phone: string | null;
   expected_delivery: string | null;

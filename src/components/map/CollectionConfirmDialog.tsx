@@ -211,39 +211,46 @@ export function CollectionConfirmDialog({
                     Equipamentos alocados ao cliente ({equipmentsWithPatrimony.length})
                   </p>
                   <div className="space-y-2">
-                    {equipmentsWithPatrimony.map((eq, idx) => (
-                      <div
-                        key={eq.patrimony || idx}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedPatrimonies.has(eq.patrimony!)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:bg-muted/50'
-                        }`}
-                        onClick={() => eq.patrimony && togglePatrimony(eq.patrimony)}
-                      >
-                        <Checkbox
-                          checked={selectedPatrimonies.has(eq.patrimony!)}
-                          onCheckedChange={() => eq.patrimony && togglePatrimony(eq.patrimony)}
-                          className="pointer-events-none"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">
-                              {eq.quantity}x {eq.type}
-                            </span>
-                            <Badge variant="outline" className="font-mono text-xs">
-                              Pat: {eq.patrimony}
-                            </Badge>
+                    {equipmentsWithPatrimony.map((eq, idx) => {
+                      const patrimony = eq.patrimony ?? '';
+                      if (!patrimony) return null;
+                      
+                      const isSelected = selectedPatrimonies.has(patrimony);
+                      
+                      return (
+                        <div
+                          key={patrimony || `eq-${idx}`}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:bg-muted/50'
+                          }`}
+                          onClick={() => togglePatrimony(patrimony)}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => togglePatrimony(patrimony)}
+                            className="pointer-events-none"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">
+                                {eq.quantity}x {eq.type}
+                              </span>
+                              <Badge variant="outline" className="font-mono text-xs">
+                                Pat: {patrimony}
+                              </Badge>
+                            </div>
+                            {eq.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {eq.description}
+                                {eq.model && ` - ${eq.model}`}
+                              </p>
+                            )}
                           </div>
-                          {eq.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {eq.description}
-                              {eq.model && ` - ${eq.model}`}
-                            </p>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
