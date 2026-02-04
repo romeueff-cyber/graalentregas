@@ -40,6 +40,7 @@ import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
 import { isOnline } from '@/lib/offline-storage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { ClientEquipmentReturnSection } from '@/components/delivery/ClientEquipmentReturnSection';
 
 const mapContainerStyle = {
   width: '100%',
@@ -83,6 +84,7 @@ export default function NewDeliveryPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [erpSearching, setErpSearching] = useState(false);
+  const [equipmentReturns, setEquipmentReturns] = useState<string[]>([]);
 
   // Derived state: should collection date be disabled?
   const isCollectionDisabled = selectedOrder ? !needsCollectionDate(selectedOrder) : false;
@@ -665,6 +667,15 @@ export default function NewDeliveryPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Equipment Returns Section - shows all client equipment for potential return */}
+        {selectedOrder && online && (
+          <ClientEquipmentReturnSection
+            orderNumber={selectedOrder.order_number}
+            onSelectionChange={setEquipmentReturns}
+            selectedPatrimonies={equipmentReturns}
+          />
         )}
 
         {/* Localização */}

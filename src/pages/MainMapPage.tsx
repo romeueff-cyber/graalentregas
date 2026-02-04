@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   ClipboardList,
   PackageCheck,
+  Package,
   Droplets,
   FileText,
   Route,
@@ -319,6 +320,17 @@ export default function MainMapPage() {
                       </Button>
                     </>
                   )}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/alocacoes');
+                    }}
+                  >
+                    <Package className="w-5 h-5" />
+                    Equipamentos Alocados
+                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-3"
