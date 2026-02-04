@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { SprayCanIcon } from '@/components/icons';
+import { StandaloneReturnDialog } from '@/components/delivery/StandaloneReturnDialog';
 import {
   Plus,
   Menu,
@@ -31,6 +32,7 @@ import {
   Route,
   BarChart3,
   MapPin,
+  PackageOpen,
 } from 'lucide-react';
 import {
   Sheet,
@@ -70,6 +72,7 @@ export default function MainMapPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
 
   // Apply geo filter to equipments
   const geoFilteredEquipments = useMemo(() => filterByGeo(equipments), [equipments, filterByGeo]);
@@ -656,13 +659,32 @@ export default function MainMapPage() {
           </div>
         )}
 
-        {/* FAB - New Delivery */}
-        <Button
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90"
-          onClick={() => navigate('/new-delivery')}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
+        {/* FAB Group - Return Equipment & New Delivery */}
+        <div className="fixed bottom-6 right-6 flex flex-col gap-3 items-end">
+          {/* Return Equipment Button */}
+          <Button
+            className="w-12 h-12 rounded-full shadow-lg bg-status-waiting hover:bg-status-waiting/90"
+            onClick={() => setShowReturnDialog(true)}
+            title="Devolução de Equipamentos"
+          >
+            <PackageOpen className="w-5 h-5" />
+          </Button>
+          
+          {/* New Delivery Button */}
+          <Button
+            className="w-14 h-14 rounded-full shadow-xl bg-gradient-primary hover:opacity-90"
+            onClick={() => navigate('/new-delivery')}
+            title="Nova Entrega"
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Standalone Return Dialog */}
+        <StandaloneReturnDialog
+          open={showReturnDialog}
+          onOpenChange={setShowReturnDialog}
+        />
       </div>
     </div>
   );
