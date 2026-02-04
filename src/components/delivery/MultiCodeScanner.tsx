@@ -12,13 +12,16 @@ interface MultiCodeScannerProps {
   /** Set of valid patrimony codes from ERP proxy for validation */
   validPatrimonies: Set<string>;
   disabled?: boolean;
+  /** Standalone mode: no pre-validation, all codes accepted */
+  standaloneMode?: boolean;
 }
 
 export function MultiCodeScanner({ 
   scannedCodes, 
   onCodesChange, 
   validPatrimonies,
-  disabled 
+  disabled,
+  standaloneMode = false,
 }: MultiCodeScannerProps) {
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,14 +58,19 @@ export function MultiCodeScanner({
     newCodes.add(normalizedCode);
     onCodesChange(newCodes);
     
-    // Check if code is valid against ERP list
-    const isValid = validPatrimonies.has(normalizedCode);
-    if (isValid) {
-      toast.success(`✓ Patrimônio ${normalizedCode} encontrado na lista`);
+    // In standalone mode, no validation - just confirm it was added
+    if (standaloneMode) {
+      toast.success(`✓ Código ${normalizedCode} adicionado`);
     } else {
-      toast.warning(`⚠ Código ${normalizedCode} não encontrado na lista do cliente`);
+      // Check if code is valid against ERP list
+      const isValid = validPatrimonies.has(normalizedCode);
+      if (isValid) {
+        toast.success(`✓ Patrimônio ${normalizedCode} encontrado na lista`);
+      } else {
+        toast.warning(`⚠ Código ${normalizedCode} não encontrado na lista do cliente`);
+      }
     }
-  }, [scannedCodes, onCodesChange, validPatrimonies]);
+  }, [scannedCodes, onCodesChange, validPatrimonies, standaloneMode]);
 
   const handleManualAdd = () => {
     const code = manualInput.trim().toUpperCase();
