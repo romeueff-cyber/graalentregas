@@ -85,7 +85,10 @@ export default function AnalyticsPage() {
             <ExportPDFButton 
               deliveryMetrics={deliveryMetrics} 
               hygieneMetrics={hygieneMetrics}
+              clientMetrics={clientMetrics}
+              driverMetrics={driverMetrics}
               activeTab={activeTab}
+              days={days}
             />
           </div>
         </div>
