@@ -119,7 +119,6 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
         OV.ID_ORDENS_VENDA,
         OV.N_PEDIDO,
         OV.VALOR_PEDIDO,
-        OV.DATA_EMISSAO,
         OV.DATA_PREV_ENTREGA,
         P.APELIDO AS NOME_CLIENTE,
         P.NOME AS NOME_COMPLETO,
@@ -142,7 +141,7 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
       id: row.ID_ORDENS_VENDA,
       orderNumber: row.N_PEDIDO?.toString() || '',
       value: row.VALOR_PEDIDO || 0,
-      date: row.DATA_PREV_ENTREGA || row.DATA_EMISSAO || null,
+      date: row.DATA_PREV_ENTREGA || null,
       clientName: row.NOME_CLIENTE || row.NOME_COMPLETO || '',
       clientId: row.ID_CLIENTE
     }));
