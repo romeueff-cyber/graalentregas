@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.get-client-equipment]
 verify_jwt = false
+
+[functions.validate-equipment-patrimony]
+verify_jwt = false

@@ -14,6 +14,8 @@ interface MultiCodeScannerProps {
   disabled?: boolean;
   /** Standalone mode: no pre-validation, all codes accepted */
   standaloneMode?: boolean;
+  /** Hide the code list (parent manages display) */
+  hideCodeList?: boolean;
 }
 
 export function MultiCodeScanner({ 
@@ -22,6 +24,7 @@ export function MultiCodeScanner({
   validPatrimonies,
   disabled,
   standaloneMode = false,
+  hideCodeList = false,
 }: MultiCodeScannerProps) {
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -245,30 +248,32 @@ export function MultiCodeScanner({
         </div>
       )}
 
-      {/* Scanned codes list with validation status */}
-      {scannedCodes.size > 0 && (
+      {/* Scanned codes list with validation status - can be hidden if parent manages display */}
+      {!hideCodeList && scannedCodes.size > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground font-medium">
             Códigos lidos:
           </p>
           <div className="flex flex-wrap gap-1.5">
             {Array.from(scannedCodes).map((code) => {
-              const isValid = validPatrimonies.has(code);
+              const isValid = standaloneMode || validPatrimonies.has(code);
               return (
                 <Badge
                   key={code}
                   variant={isValid ? "default" : "outline"}
                   className={`gap-1 pr-1 font-mono ${
-                    isValid 
-                      ? 'bg-primary/90' 
-                      : 'border-status-waiting text-status-waiting'
+                    standaloneMode 
+                      ? '' 
+                      : isValid 
+                        ? 'bg-primary/90' 
+                        : 'border-status-waiting text-status-waiting'
                   }`}
                 >
-                  {isValid ? (
+                  {!standaloneMode && (isValid ? (
                     <CheckCircle2 className="w-3 h-3" />
                   ) : (
                     <AlertCircle className="w-3 h-3" />
-                  )}
+                  ))}
                   {code}
                   <button
                     type="button"
