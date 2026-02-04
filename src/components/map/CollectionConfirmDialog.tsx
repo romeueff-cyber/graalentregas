@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { CheckCircle2, Package, AlertCircle, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, Package, AlertCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -21,6 +22,7 @@ interface ERPEquipment {
   patrimony: string | null;
   model: string | null;
   quantity: number;
+  hasProduct?: boolean;
 }
 
 interface CollectionConfirmDialogProps {
@@ -28,6 +30,7 @@ interface CollectionConfirmDialogProps {
   onOpenChange: (open: boolean) => void;
   orderNumber: string;
   clientName: string;
+  clientId?: string | number;
   onConfirm: (selectedPatrimonies: string[]) => Promise<void>;
 }
 
@@ -36,6 +39,7 @@ export function CollectionConfirmDialog({
   onOpenChange,
   orderNumber,
   clientName,
+  clientId,
   onConfirm,
 }: CollectionConfirmDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -44,12 +48,12 @@ export function CollectionConfirmDialog({
   const [selectedPatrimonies, setSelectedPatrimonies] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch equipments from ERP when dialog opens
+  // Fetch all equipments allocated to client when dialog opens
   useEffect(() => {
-    if (open && orderNumber) {
+    if (open && (clientId || orderNumber)) {
       fetchEquipments();
     }
-  }, [open, orderNumber]);
+  }, [open, clientId, orderNumber]);
 
   const fetchEquipments = async () => {
     setIsLoading(true);
@@ -58,36 +62,50 @@ export function CollectionConfirmDialog({
     setSelectedPatrimonies(new Set());
 
     try {
-      console.log(`[CollectionConfirmDialog] Fetching equipment for order ${orderNumber}`);
+      console.log(`[CollectionConfirmDialog] Fetching equipment for client ${clientId || 'via order ' + orderNumber}`);
       
-      const { data, error: fetchError } = await supabase.functions.invoke(
-        'search-erp-order',
-        { body: { orderNumber } }
-      );
+      let allEquipments: ERPEquipment[] = [];
 
-      if (fetchError) {
-        console.error('[CollectionConfirmDialog] Error fetching order:', fetchError);
-        throw new Error('Erro ao buscar pedido no ERP');
+      // If we have clientId, fetch all client equipment
+      if (clientId) {
+        const { data: clientData, error: clientError } = await supabase.functions.invoke(
+          'get-client-equipment',
+          { body: { clientId } }
+        );
+
+        if (clientError) {
+          console.error('[CollectionConfirmDialog] Error fetching client equipment:', clientError);
+          // Fallback to order-based fetch
+        } else if (clientData?.equipments) {
+          allEquipments = clientData.equipments;
+          console.log(`[CollectionConfirmDialog] Found ${allEquipments.length} equipment(s) for client`);
+        }
       }
 
-      if (!data) {
-        throw new Error('Pedido não encontrado no ERP');
+      // If no client equipment found, fallback to order-based fetch
+      if (allEquipments.length === 0) {
+        const { data, error: fetchError } = await supabase.functions.invoke(
+          'search-erp-order',
+          { body: { orderNumber } }
+        );
+
+        if (fetchError) {
+          console.error('[CollectionConfirmDialog] Error fetching order:', fetchError);
+          throw new Error('Erro ao buscar pedido no ERP');
+        }
+
+        if (!data) {
+          throw new Error('Pedido não encontrado no ERP');
+        }
+
+        console.log('[CollectionConfirmDialog] Order data:', data);
+        allEquipments = data.equipments || [];
       }
-
-      console.log('[CollectionConfirmDialog] Order data:', data);
-
-      // Filter only equipments with patrimony (specific items that can be returned)
-      const equipmentsWithPatrimony = (data.equipments || []).filter(
-        (eq: ERPEquipment) => eq.patrimony
-      );
       
-      setEquipments(data.equipments || []);
+      setEquipments(allEquipments);
       
-      // Pre-select all items with patrimony
-      const patrimonies = new Set<string>(
-        equipmentsWithPatrimony.map((eq: ERPEquipment) => eq.patrimony as string)
-      );
-      setSelectedPatrimonies(patrimonies);
+      // Start with no items selected - driver must explicitly select what's being returned
+      setSelectedPatrimonies(new Set());
 
     } catch (err) {
       console.error('[CollectionConfirmDialog] Error:', err);
@@ -137,11 +155,20 @@ export function CollectionConfirmDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Alert about equipment with products */}
+          <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+              <strong>Atenção:</strong> Equipamentos com produto alocado (ex: chopeiras com barril) 
+              devem ser retornados diretamente no <strong>BeerSales</strong>, não por este app.
+            </AlertDescription>
+          </Alert>
+
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <LoadingSpinner size="lg" />
               <p className="text-sm text-muted-foreground">
-                Buscando equipamentos do pedido...
+                Buscando equipamentos do cliente...
               </p>
             </div>
           ) : error ? (
@@ -162,16 +189,21 @@ export function CollectionConfirmDialog({
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <Package className="w-10 h-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground text-center">
-                Nenhum equipamento encontrado para este pedido
+                Nenhum equipamento alocado encontrado para este cliente
               </p>
             </div>
           ) : (
             <>
+              {/* Info about selection */}
+              <p className="text-xs text-muted-foreground text-center italic">
+                Selecione apenas os equipamentos que estão sendo devolvidos agora
+              </p>
+
               {/* Equipments with patrimony - selectable */}
               {equipmentsWithPatrimony.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-foreground">
-                    Equipamentos para devolução ({equipmentsWithPatrimony.length})
+                    Equipamentos alocados ao cliente ({equipmentsWithPatrimony.length})
                   </p>
                   <div className="space-y-2">
                     {equipmentsWithPatrimony.map((eq, idx) => (
@@ -254,7 +286,7 @@ export function CollectionConfirmDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isLoading || isConfirming || (equipments.length > 0 && equipmentsWithPatrimony.length > 0 && selectedPatrimonies.size === 0)}
+            disabled={isLoading || isConfirming}
             className="w-full sm:w-auto gap-2 bg-status-ready hover:bg-status-ready/90 text-white"
           >
             {isConfirming ? (
