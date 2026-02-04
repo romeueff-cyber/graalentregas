@@ -529,10 +529,9 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
     console.log(`Buscando equipamentos alocados ao cliente: ${clientId}`);
     
     // Busca todos os equipamentos OCUPADOS vinculados ao cliente
-    // via EQUIP_FATURAMENTOS → FATURAMENTO → ORDENS_VENDA
+    // via EQUIP_FATURAMENTOS → FATURAMENTO (que tem ID_CLIENTE diretamente!)
     // Exclui equipamentos já retornados (ID_STATUS = 10)
-    // Nota: Tabela MODELO_EQUIPAMENTO não existe no schema
-    // O campo MODELO está diretamente na tabela EQUIPAMENTOS
+    // IMPORTANTE: FATURAMENTO.ID_CLIENTE é o link direto - não precisa passar por ORDENS_VENDA
     const query = `
       SELECT DISTINCT
         e.ID_EQUIPAMENTO,
@@ -544,14 +543,12 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
       LEFT JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
       INNER JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
       INNER JOIN FATURAMENTO f ON f.ID_FATURAMENTO = ef.ID_FATURAMENTO
-      INNER JOIN ORDENS_VENDA ov ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
-      WHERE ov.ID_CLIENTE = ?
+      WHERE f.ID_CLIENTE = ?
         AND e.STATUS = 'OCUPADO'
-        AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS NOT IN (10))
+        AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
         AND (e.DELETED IS NULL OR e.DELETED = 0)
         AND (ef.DELETED IS NULL OR ef.DELETED = 0)
         AND (f.DELETED IS NULL OR f.DELETED = 0)
-        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
       ORDER BY te.DESCRICAO, e.PATRIMONIO
     `;
     
