@@ -94,7 +94,70 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Endpoint para buscar pedido por número
+// ==========================================
+// ANALYTICS DE PEDIDOS (por período)
+// IMPORTANTE: Esta rota DEVE vir ANTES de /api/orders/:orderNumber
+// ==========================================
+app.get('/api/orders/analytics', authenticate, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: 'Parâmetros start_date e end_date são obrigatórios (YYYY-MM-DD)' });
+    }
+    
+    // Converter datas para formato Firebird
+    const [startYear, startMonth, startDay] = start_date.split('-');
+    const [endYear, endMonth, endDay] = end_date.split('-');
+    const firebirdStartDate = `${startMonth}/${startDay}/${startYear}`;
+    const firebirdEndDate = `${endMonth}/${endDay}/${endYear}`;
+    
+    console.log(`Buscando analytics de ${firebirdStartDate} até ${firebirdEndDate}`);
+    
+    const query = `
+      SELECT 
+        OV.ID_ORDENS_VENDA,
+        OV.N_PEDIDO,
+        OV.VALOR_PEDIDO,
+        OV.DATA_EMISSAO,
+        OV.DATA_PREV_ENTREGA,
+        P.APELIDO AS NOME_CLIENTE,
+        P.NOME AS NOME_COMPLETO,
+        C.ID_CLIENTE
+      FROM ORDENS_VENDA OV
+      LEFT JOIN CLIENTES C ON OV.ID_CLIENTE = C.ID_CLIENTE
+      LEFT JOIN PESSOAS P ON C.ID_PESSOA = P.ID_PESSOA
+      WHERE OV.DATA_PREV_ENTREGA BETWEEN ? AND ?
+        AND (OV.DELETED IS NULL OR OV.DELETED = 0)
+      ORDER BY OV.DATA_PREV_ENTREGA DESC
+    `;
+    
+    const result = await executeQuery(query, [firebirdStartDate, firebirdEndDate]);
+    
+    if (!result || result.length === 0) {
+      return res.json([]);
+    }
+    
+    const orders = result.map(row => ({
+      id: row.ID_ORDENS_VENDA,
+      orderNumber: row.N_PEDIDO?.toString() || '',
+      value: row.VALOR_PEDIDO || 0,
+      date: row.DATA_PREV_ENTREGA || row.DATA_EMISSAO || null,
+      clientName: row.NOME_CLIENTE || row.NOME_COMPLETO || '',
+      clientId: row.ID_CLIENTE
+    }));
+    
+    res.json(orders);
+    
+  } catch (error) {
+    console.error('Erro ao buscar analytics:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
+// BUSCAR PEDIDO POR NÚMERO
+// ==========================================
 app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
@@ -273,7 +336,9 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
   }
 });
 
-// Endpoint para listar pedidos por data
+// ==========================================
+// LISTAR PEDIDOS POR DATA
+// ==========================================
 app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const dateParam = req.query.date; // formato YYYY-MM-DD
@@ -443,7 +508,9 @@ app.get('/api/orders', authenticate, async (req, res) => {
   }
 });
 
-// Endpoint para atualizar status do pedido
+// ==========================================
+// ATUALIZAR STATUS DO PEDIDO
+// ==========================================
 app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
@@ -496,7 +563,9 @@ app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
   }
 });
 
-// Endpoint para buscar dados de boleto do pedido
+// ==========================================
+// BUSCAR DADOS DE BOLETO DO PEDIDO
+// ==========================================
 app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
   try {
     const orderNumber = req.params.orderNumber;
@@ -548,7 +617,6 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
     const customerEmail = emailResult && emailResult.length > 0 ? emailResult[0].DESCRICAO : null;
     
     // Calcular dias de vencimento baseado no CODIGO
-    // CODIGO pode ser: "14" (uma parcela) ou "7;14;21" (múltiplas parcelas)
     const paymentCode = order.PAYMENT_TERMS_CODE || '0';
     const dueDays = paymentCode.split(';').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d));
     
@@ -585,15 +653,14 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 ```
 
-### 5. Iniciar a API
+### 5. Iniciar o servidor
 
+**Desenvolvimento:**
 ```bash
 node server.js
 ```
 
-### 6. (Opcional) Configurar como serviço Windows
-
-Usando PM2:
+**Produção (PM2):**
 ```bash
 npm install -g pm2
 pm2 start server.js --name erp-api
@@ -601,62 +668,210 @@ pm2 save
 pm2 startup
 ```
 
-## Configuração no Lovable
+**Windows Service (node-windows):**
+```bash
+npm install node-windows
+```
 
-Após iniciar a API, configure no Lovable:
+Criar arquivo `install-service.js`:
+```javascript
+const Service = require('node-windows').Service;
+const path = require('path');
 
-1. **ERP_API_URL**: `http://eget-graalbeer.sytes.net:3051` (ou a porta que escolher)
-2. **ERP_API_KEY**: A mesma chave que definiu no `.env` da API
+const svc = new Service({
+  name: 'ERP API Graal',
+  description: 'API de integração Firebird para Graal Entregas',
+  script: path.join(__dirname, 'server.js'),
+  nodeOptions: ['--harmony', '--max_old_space_size=4096']
+});
+
+svc.on('install', () => {
+  svc.start();
+  console.log('Serviço instalado e iniciado!');
+});
+
+svc.install();
+```
+
+Executar: `node install-service.js`
 
 ## Endpoints Disponíveis
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/health` | Health check (sem autenticação) |
-| GET | `/api/orders/:orderNumber` | Buscar pedido por número |
-| GET | `/api/orders?date=YYYY-MM-DD` | Listar pedidos do dia (apenas com `ENTREGAR = 1`) |
-| PUT | `/api/orders/:orderNumber/status` | Atualizar status do pedido |
-| GET | `/api/orders/:orderNumber/boleto` | Buscar dados para emissão de boleto |
+### Health Check
+```
+GET /health
+```
+Retorna status da API.
 
-## Teste
+---
 
-```bash
-# Health check
-curl http://localhost:3051/health
-
-# Buscar pedido
-curl -H "X-API-KEY: sua_chave_secreta" http://localhost:3051/api/orders/12345
-
-# Dados para boleto
-curl -H "X-API-KEY: sua_chave_secreta" http://localhost:3051/api/orders/12345/boleto
+### Analytics de Pedidos (NOVO)
+```
+GET /api/orders/analytics?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+Headers: X-API-KEY: sua_chave
 ```
 
-## Segurança
+Retorna lista de pedidos com valores para dashboards de analytics.
 
-- Use HTTPS em produção (configure um proxy reverso com nginx/caddy)
-- Mantenha a API_KEY segura
-- Considere adicionar rate limiting
-
-## Estrutura do Banco de Dados
-
-### Caminho para dados do cliente
-
+**Resposta:**
+```json
+[
+  {
+    "id": 12345,
+    "orderNumber": "54321",
+    "value": 1500.50,
+    "date": "2026-02-04T00:00:00.000Z",
+    "clientName": "Bar do João",
+    "clientId": 789
+  }
+]
 ```
-ORDENS_VENDA
-  └── ID_CLIENTE → CLIENTES
-                     └── ID_PESSOA → PESSOAS (CPF_CNPJ, NOME, JURIDICA)
-                                       └── CONTATO (ID_TIPO_CONTATO=3 para email)
+
+**Uso:** Cálculo de valor total de vendas, ticket médio, ranking de clientes por valor.
+
+---
+
+### Buscar Pedido por Número
+```
+GET /api/orders/:orderNumber
+Headers: X-API-KEY: sua_chave
 ```
 
-### Colunas importantes
+Retorna detalhes completos de um pedido específico.
 
-| Tabela | Coluna | Descrição |
-|--------|--------|-----------|
-| ORDENS_VENDA | VALOR_PEDIDO | Valor total do pedido |
-| ORDENS_VENDA | ID_FPGTO | FK para condições de pagamento |
-| ORDENS_VENDA | ID_FORMA_PAGAMENTO | FK para forma de pagamento |
-| ORDENS_VENDA | ENTREGAR | 1 = marcado para entrega |
-| PESSOAS | CPF_CNPJ | Documento do cliente |
-| PESSOAS | JURIDICA | 0 = PF, 1 = PJ |
-| FPGTO | CODIGO | Dias das parcelas (ex: "7;14") |
-| FORMA_PAGAMENTO | TIPO | "BOL" = boleto bancário |
+**Resposta:**
+```json
+{
+  "order_number": "12345",
+  "customer_name": "Bar do João",
+  "phone": "(11) 99999-9999",
+  "pickup_date": "2024-12-20T00:00:00.000Z",
+  "delivery_date": "2024-12-15T00:00:00.000Z",
+  "observations": "Entregar pela manhã",
+  "address": "Rua das Flores, 123, Apto 45",
+  "location": "Centro - São Paulo - SP",
+  "address_details": {
+    "street": "Rua das Flores",
+    "number": "123",
+    "complement": "Apto 45",
+    "neighborhood": "Centro",
+    "city": "São Paulo",
+    "state": "SP"
+  },
+  "items": [
+    {
+      "product": "Chopp Pilsen 30L",
+      "quantity": 2,
+      "unit_price": 150.00,
+      "total": 300.00
+    }
+  ],
+  "equipments": [
+    {
+      "type": "Chopeira",
+      "description": "Chopeira 2 vias Premium",
+      "patrimony": "PAT-001234",
+      "model": "Premium 2V",
+      "quantity": 1
+    }
+  ]
+}
+```
+
+---
+
+### Listar Pedidos por Data
+```
+GET /api/orders?date=YYYY-MM-DD
+Headers: X-API-KEY: sua_chave
+```
+
+Retorna todos os pedidos marcados para entrega na data especificada.
+
+**Resposta:** Array de objetos com estrutura similar ao endpoint de busca individual.
+
+---
+
+### Atualizar Status do Pedido
+```
+PUT /api/orders/:orderNumber/status
+Headers: X-API-KEY: sua_chave
+Content-Type: application/json
+
+Body: { "statusId": 5 }
+```
+
+Atualiza o status de um pedido no ERP.
+
+**Resposta:**
+```json
+{
+  "success": true,
+  "order_number": "12345",
+  "previous_status": 3,
+  "new_status": 5
+}
+```
+
+---
+
+### Buscar Dados de Boleto
+```
+GET /api/orders/:orderNumber/boleto
+Headers: X-API-KEY: sua_chave
+```
+
+Retorna dados do cliente e condições de pagamento para geração de boleto.
+
+**Resposta:**
+```json
+{
+  "order_id": 12345,
+  "order_number": "54321",
+  "customer": {
+    "name": "Bar do João LTDA",
+    "document": "12.345.678/0001-90",
+    "document_type": "CNPJ",
+    "email": "contato@bardojoao.com.br"
+  },
+  "payment": {
+    "method_id": 2,
+    "method_description": "Boleto Bancário",
+    "method_type": "BOLETO",
+    "terms_id": 5,
+    "terms_code": "30;60;90",
+    "terms_description": "30/60/90 dias",
+    "due_days": [30, 60, 90]
+  },
+  "total_amount": 1500.50
+}
+```
+
+## Configuração no Lovable Cloud
+
+Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
+
+| Secret | Descrição |
+|--------|-----------|
+| `ERP_API_URL` | URL base da API (ex: `http://192.168.1.100:3051`) |
+| `ERP_API_KEY` | Chave de autenticação configurada no `.env` do servidor |
+
+## Versão
+
+**v2.4.0** - Adicionado endpoint `/api/orders/analytics` para dashboards de performance financeira.
+
+## Troubleshooting
+
+### Erro "Pedido não encontrado" no endpoint analytics
+**Causa:** Ordem das rotas no Express. Rotas com parâmetros (`:orderNumber`) capturam rotas estáticas (`/analytics`).
+
+**Solução:** A rota `/api/orders/analytics` DEVE estar definida ANTES de `/api/orders/:orderNumber` no arquivo server.js.
+
+### Conexão recusada
+- Verificar se o Firebird está rodando
+- Verificar firewall para porta 3050 e 3051
+- Verificar credenciais no `.env`
+
+### Dados não encontrados
+- Verificar se o filtro `DELETED IS NULL OR DELETED = 0` está correto para sua versão do ERP
+- Verificar se a coluna `ENTREGAR = 1` existe nos pedidos
