@@ -166,6 +166,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
       SELECT FIRST 1
         ov.N_PEDIDO,
         ov.ID_ORDENS_VENDA,
+        ov.ID_CLIENTE,
         ov.DATA_PREV_RETORNO,
         ov.DATA_PREV_ENTREGA,
         ov.OBS,
@@ -198,6 +199,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     
     const order = orders[0];
     const orderId = order.ID_ORDENS_VENDA;
+    const clientId = order.ID_CLIENTE;
     
     // Buscar celular do cliente (prioridade) ou telefone fixo
     const phoneQuery = `
@@ -310,6 +312,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
     
     res.json({
       order_number: order.N_PEDIDO?.toString() || orderNumber,
+      client_id: clientId,
       customer_name: order.NOME || order.APELIDO || '',
       phone: phone || '',
       pickup_date: order.DATA_PREV_RETORNO || order.DATA_PREV_ENTREGA || null,
@@ -358,6 +361,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
       SELECT 
         ov.N_PEDIDO,
         ov.ID_ORDENS_VENDA,
+        ov.ID_CLIENTE,
         ov.DATA_PREV_RETORNO,
         ov.DATA_PREV_ENTREGA,
         ov.OBS,
@@ -394,6 +398,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
     const ordersWithDetails = await Promise.all(orders.map(async (order) => {
       const orderId = order.ID_ORDENS_VENDA;
       const orderNumber = order.N_PEDIDO?.toString();
+      const clientId = order.ID_CLIENTE;
       
       // Buscar telefone
       const phoneQuery = `
@@ -480,6 +485,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
       
       return {
         order_number: orderNumber,
+        client_id: clientId,
         client_name: order.NOME || order.APELIDO || '',
         phone: phone || null,
         expected_delivery: order.DATA_PREV_ENTREGA || null,
@@ -503,6 +509,67 @@ app.get('/api/orders', authenticate, async (req, res) => {
     
   } catch (error) {
     console.error('Erro ao listar pedidos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
+// LISTAR EQUIPAMENTOS ALOCADOS AO CLIENTE
+// Retorna todos os equipamentos com STATUS = 'OCUPADO'
+// que estão vinculados ao cliente via faturamento
+// ==========================================
+app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
+  try {
+    const clientId = req.params.clientId;
+    
+    if (!clientId) {
+      return res.status(400).json({ error: 'clientId é obrigatório' });
+    }
+    
+    console.log(`Buscando equipamentos alocados ao cliente: ${clientId}`);
+    
+    // Busca todos os equipamentos OCUPADOS vinculados ao cliente
+    // via EQUIP_FATURAMENTOS → FATURAMENTO → ORDENS_VENDA
+    // Exclui equipamentos já retornados (ID_STATUS = 10)
+    const query = `
+      SELECT DISTINCT
+        e.ID_EQUIPAMENTO,
+        e.PATRIMONIO,
+        e.STATUS,
+        te.DESCRICAO AS TIPO,
+        me.DESCRICAO AS MODELO
+      FROM EQUIPAMENTOS e
+      INNER JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
+      LEFT JOIN MODELO_EQUIPAMENTO me ON me.ID_MODELO_EQUIPAMENTO = e.ID_MODELO_EQUIPAMENTO
+      INNER JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
+      INNER JOIN FATURAMENTO f ON f.ID_FATURAMENTO = ef.ID_FATURAMENTO
+      INNER JOIN ORDENS_VENDA ov ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
+      WHERE ov.ID_CLIENTE = ?
+        AND e.STATUS = 'OCUPADO'
+        AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS NOT IN (10))
+        AND (e.DELETED IS NULL OR e.DELETED = 0)
+        AND (ef.DELETED IS NULL OR ef.DELETED = 0)
+        AND (f.DELETED IS NULL OR f.DELETED = 0)
+        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+      ORDER BY te.DESCRICAO, e.PATRIMONIO
+    `;
+    
+    const result = await executeQuery(query, [parseInt(clientId)]);
+    
+    const equipments = (result || []).map(row => ({
+      type: row.TIPO?.trim() || 'Equipamento',
+      description: row.TIPO?.trim() || null,
+      patrimony: row.PATRIMONIO?.trim() || null,
+      model: row.MODELO?.trim() || null,
+      quantity: 1
+    }));
+    
+    console.log(`[GET /api/clients/${clientId}/equipment] Found ${equipments.length} allocated equipment(s)`);
+    
+    res.json(equipments);
+    
+  } catch (error) {
+    console.error('Erro ao buscar equipamentos do cliente:', error);
     res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
   }
 });
@@ -787,7 +854,7 @@ Retorna status da API.
 
 ---
 
-### Analytics de Pedidos (NOVO)
+### Analytics de Pedidos
 ```
 GET /api/orders/analytics?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 Headers: X-API-KEY: sua_chave
@@ -825,6 +892,7 @@ Retorna detalhes completos de um pedido específico.
 ```json
 {
   "order_number": "12345",
+  "client_id": 789,
   "customer_name": "Bar do João",
   "phone": "(11) 99999-9999",
   "pickup_date": "2024-12-20T00:00:00.000Z",
@@ -870,7 +938,42 @@ Headers: X-API-KEY: sua_chave
 
 Retorna todos os pedidos marcados para entrega na data especificada.
 
-**Resposta:** Array de objetos com estrutura similar ao endpoint de busca individual.
+**Resposta:** Array de objetos com estrutura similar ao endpoint de busca individual, incluindo `client_id`.
+
+---
+
+### Listar Equipamentos Alocados ao Cliente (NOVO v2.6.0)
+```
+GET /api/clients/:clientId/equipment
+Headers: X-API-KEY: sua_chave
+```
+
+Retorna todos os equipamentos atualmente alocados (STATUS = 'OCUPADO') ao cliente.
+
+**Parâmetros:**
+- `clientId`: ID do cliente no ERP
+
+**Resposta:**
+```json
+[
+  {
+    "type": "BARRIL 30L",
+    "description": "BARRIL 30L",
+    "patrimony": "B1004",
+    "model": null,
+    "quantity": 1
+  },
+  {
+    "type": "CHOPEIRA 2 VIAS",
+    "description": "CHOPEIRA 2 VIAS",
+    "patrimony": "CH0045",
+    "model": "Premium 2V",
+    "quantity": 1
+  }
+]
+```
+
+**Uso:** Exibir todos os equipamentos do cliente durante entrega/recolha para seleção de retorno.
 
 ---
 
@@ -974,6 +1077,7 @@ Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
 
 ## Versão
 
+**v2.6.0** - Adicionado endpoint `/api/clients/:clientId/equipment` para listar todos os equipamentos alocados ao cliente (com STATUS = 'OCUPADO' e não retornados).
 **v2.5.0** - Adicionado endpoint `/api/equipment/:patrimonio/release` para liberar equipamentos na recolha.
 **v2.4.0** - Adicionado endpoint `/api/orders/analytics` para dashboards de performance financeira.
 
@@ -992,3 +1096,8 @@ Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
 ### Dados não encontrados
 - Verificar se o filtro `DELETED IS NULL OR DELETED = 0` está correto para sua versão do ERP
 - Verificar se a coluna `ENTREGAR = 1` existe nos pedidos
+
+### Endpoint de equipamentos do cliente retorna vazio
+- Verificar se o cliente possui equipamentos com `STATUS = 'OCUPADO'` na tabela EQUIPAMENTOS
+- Verificar se existe registro em EQUIP_FATURAMENTOS com `ID_STATUS` diferente de 10 (RETORNADO)
+- Confirmar que os joins EQUIP_FATURAMENTOS → FATURAMENTO → ORDENS_VENDA estão corretos para o cliente
