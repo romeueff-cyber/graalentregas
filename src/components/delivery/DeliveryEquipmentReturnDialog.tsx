@@ -12,8 +12,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, Package, AlertCircle, RefreshCw, AlertTriangle, SkipForward } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle2, Package, AlertCircle, RefreshCw, AlertTriangle, SkipForward, List, Barcode } from 'lucide-react';
 import { useClientAllocatedEquipment, type ERPEquipment } from '@/hooks/useClientAllocatedEquipment';
+import { MultiCodeScanner } from './MultiCodeScanner';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -36,6 +38,8 @@ export function DeliveryEquipmentReturnDialog({
 }: DeliveryEquipmentReturnDialogProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const [selectedPatrimonies, setSelectedPatrimonies] = useState<Set<string>>(new Set());
+  const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>('scanner');
   const [isInteractive, setIsInteractive] = useState(false);
 
   const { equipments, isLoading, error, clientListEmpty, refetch } = useClientAllocatedEquipment({
@@ -45,12 +49,19 @@ export function DeliveryEquipmentReturnDialog({
 
   // Normalize patrimony for consistent comparison
   const normalizePatrimony = useCallback((value: string | null | undefined) => {
-    return typeof value === 'string' ? value.trim() : '';
+    return typeof value === 'string' ? value.trim().toUpperCase() : '';
   }, []);
 
   // Filter equipments with patrimony
   const equipmentsWithPatrimony = equipments.filter(eq => normalizePatrimony(eq.patrimony));
   const equipmentsWithoutPatrimony = equipments.filter(eq => !normalizePatrimony(eq.patrimony));
+
+  // Create a map of patrimony -> equipment for quick lookup
+  const patrimonyMap = new Map<string, typeof equipmentsWithPatrimony[0]>();
+  equipmentsWithPatrimony.forEach(eq => {
+    const p = normalizePatrimony(eq.patrimony);
+    if (p) patrimonyMap.set(p, eq);
+  });
 
   // Enable interaction after a short delay to prevent timing issues
   useEffect(() => {
@@ -67,9 +78,31 @@ export function DeliveryEquipmentReturnDialog({
   useEffect(() => {
     if (open) {
       setSelectedPatrimonies(new Set());
+      setScannedCodes(new Set());
+      setActiveTab('scanner');
       refetch();
     }
   }, [open, refetch]);
+
+  // Sync scanned codes to selected patrimonies when switching tabs or confirming
+  const syncScannedToSelected = useCallback(() => {
+    const newSelected = new Set(selectedPatrimonies);
+    let matchedCount = 0;
+    let unmatchedCodes: string[] = [];
+    
+    scannedCodes.forEach(code => {
+      const normalized = code.toUpperCase();
+      if (patrimonyMap.has(normalized)) {
+        newSelected.add(normalized);
+        matchedCount++;
+      } else {
+        unmatchedCodes.push(code);
+      }
+    });
+    
+    setSelectedPatrimonies(newSelected);
+    return { matchedCount, unmatchedCodes };
+  }, [scannedCodes, selectedPatrimonies, patrimonyMap]);
 
   const togglePatrimony = (patrimony: string) => {
     if (!isInteractive) return;
@@ -88,8 +121,23 @@ export function DeliveryEquipmentReturnDialog({
   };
 
   const handleConfirm = async () => {
-    if (selectedPatrimonies.size === 0) {
-      // No equipment selected, just close
+    // Sync scanned codes before confirming
+    const { matchedCount, unmatchedCodes } = syncScannedToSelected();
+    
+    // Get updated selection (need to recalculate since syncScannedToSelected updates state)
+    const finalPatrimonies = new Set(selectedPatrimonies);
+    scannedCodes.forEach(code => {
+      const normalized = code.toUpperCase();
+      if (patrimonyMap.has(normalized)) {
+        finalPatrimonies.add(normalized);
+      }
+    });
+
+    if (unmatchedCodes.length > 0) {
+      toast.warning(`${unmatchedCodes.length} código(s) não encontrado(s) na lista: ${unmatchedCodes.join(', ')}`);
+    }
+
+    if (finalPatrimonies.size === 0) {
       onComplete();
       onOpenChange(false);
       return;
@@ -97,12 +145,11 @@ export function DeliveryEquipmentReturnDialog({
 
     setIsConfirming(true);
     try {
-      // Process each selected patrimony
-      const patrimoniesArray = Array.from(selectedPatrimonies);
+      const patrimoniesArray = Array.from(finalPatrimonies);
       
       for (const patrimony of patrimoniesArray) {
         const { error } = await supabase.functions.invoke('update-erp-equipment-status', {
-          body: { patrimonio: patrimony, orderNumber: orderNumber } // patrimonio field expected by edge function
+          body: { patrimonio: patrimony, orderNumber: orderNumber }
         });
 
         if (error) {
@@ -125,6 +172,18 @@ export function DeliveryEquipmentReturnDialog({
   const handleSkip = () => {
     onComplete();
     onOpenChange(false);
+  };
+
+  // Calculate total selected (manual + scanned that match)
+  const getEffectiveSelectedCount = () => {
+    const combined = new Set(selectedPatrimonies);
+    scannedCodes.forEach(code => {
+      const normalized = code.toUpperCase();
+      if (patrimonyMap.has(normalized)) {
+        combined.add(normalized);
+      }
+    });
+    return combined.size;
   };
 
   return (
@@ -191,91 +250,148 @@ export function DeliveryEquipmentReturnDialog({
                 </Alert>
               )}
 
-              {/* Info about selection */}
-              <p className="text-xs text-muted-foreground text-center italic">
-                {isInteractive 
-                  ? 'Marque os equipamentos que serão devolvidos nesta entrega'
-                  : 'Aguarde a lista carregar...'}
-              </p>
+              {/* Tabs for Scanner vs Manual selection */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="scanner" className="gap-1.5 text-xs">
+                    <Barcode className="w-3.5 h-3.5" />
+                    Scanner
+                  </TabsTrigger>
+                  <TabsTrigger value="manual" className="gap-1.5 text-xs">
+                    <List className="w-3.5 h-3.5" />
+                    Lista Manual
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Equipments with patrimony - selectable */}
-              {equipmentsWithPatrimony.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">
-                    Equipamentos alocados ao cliente ({equipmentsWithPatrimony.length})
-                  </p>
-                  <div className={`space-y-2 ${isInteractive ? '' : 'pointer-events-none opacity-60'}`}>
-                    {equipmentsWithPatrimony.map((eq, idx) => {
-                      const patrimony = normalizePatrimony(eq.patrimony);
-                      if (!patrimony) return null;
-                      
-                      const isSelected = selectedPatrimonies.has(patrimony);
-                      
-                      return (
-                        <div
-                          key={patrimony || `eq-${idx}`}
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:bg-muted/50'
-                          }`}
-                          onClick={() => togglePatrimony(patrimony)}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            className="pointer-events-none"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm">
-                                {eq.quantity}x {eq.type}
-                              </span>
-                              <Badge variant="outline" className="font-mono text-xs">
-                                Pat: {patrimony}
-                              </Badge>
-                            </div>
-                            {eq.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {eq.description}
-                                {eq.model && ` - ${eq.model}`}
+                {/* Scanner Tab */}
+                <TabsContent value="scanner" className="space-y-3 mt-3">
+                  <MultiCodeScanner
+                    scannedCodes={scannedCodes}
+                    onCodesChange={setScannedCodes}
+                    disabled={isConfirming}
+                  />
+                  
+                  {/* Show matched equipment preview */}
+                  {scannedCodes.size > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {(() => {
+                        const matched = Array.from(scannedCodes).filter(c => patrimonyMap.has(c.toUpperCase()));
+                        const unmatched = Array.from(scannedCodes).filter(c => !patrimonyMap.has(c.toUpperCase()));
+                        return (
+                          <div className="space-y-1">
+                            {matched.length > 0 && (
+                              <p className="text-primary">
+                                ✓ {matched.length} código(s) correspondem a equipamentos
+                              </p>
+                            )}
+                            {unmatched.length > 0 && (
+                              <p className="text-status-waiting">
+                                ⚠ {unmatched.length} código(s) não encontrado(s) na lista
                               </p>
                             )}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                        );
+                      })()}
+                    </div>
+                  )}
+                </TabsContent>
 
-              {/* Equipments without patrimony - informational only */}
-              {equipmentsWithoutPatrimony.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Outros equipamentos (sem patrimônio específico)
+                {/* Manual Tab */}
+                <TabsContent value="manual" className="space-y-3 mt-3">
+                  <p className="text-xs text-muted-foreground text-center italic">
+                    {isInteractive 
+                      ? 'Marque os equipamentos que serão devolvidos nesta entrega'
+                      : 'Aguarde a lista carregar...'}
                   </p>
-                  <div className="space-y-1">
-                    {equipmentsWithoutPatrimony.map((eq, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 p-2 rounded-md bg-muted/30 text-sm"
-                      >
-                        <Badge variant="secondary" className="text-xs">
-                          {eq.quantity}x {eq.type}
-                        </Badge>
-                        {eq.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {eq.description}
-                          </span>
-                        )}
+
+                  {/* Equipments with patrimony - selectable */}
+                  {equipmentsWithPatrimony.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground">
+                        Equipamentos alocados ({equipmentsWithPatrimony.length})
+                      </p>
+                      <div className={`space-y-2 max-h-[200px] overflow-y-auto ${isInteractive ? '' : 'pointer-events-none opacity-60'}`}>
+                        {equipmentsWithPatrimony.map((eq, idx) => {
+                          const patrimony = normalizePatrimony(eq.patrimony);
+                          if (!patrimony) return null;
+                          
+                          const isSelected = selectedPatrimonies.has(patrimony) || scannedCodes.has(patrimony);
+                          const isFromScanner = scannedCodes.has(patrimony) && !selectedPatrimonies.has(patrimony);
+                          
+                          return (
+                            <div
+                              key={patrimony || `eq-${idx}`}
+                              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                isSelected
+                                  ? isFromScanner
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-primary bg-primary/5'
+                                  : 'border-border hover:bg-muted/50'
+                              }`}
+                              onClick={() => togglePatrimony(patrimony)}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                className="pointer-events-none"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-sm">
+                                    {eq.quantity}x {eq.type}
+                                  </span>
+                                  <Badge variant="outline" className="font-mono text-xs">
+                                    Pat: {patrimony}
+                                  </Badge>
+                                  {isFromScanner && (
+                                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
+                                      Escaneado
+                                    </Badge>
+                                  )}
+                                </div>
+                                {eq.description && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {eq.description}
+                                    {eq.model && ` - ${eq.model}`}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Equipamentos sem patrimônio não requerem liberação individual no ERP
-                  </p>
-                </div>
-              )}
+                    </div>
+                  )}
+
+                  {/* Equipments without patrimony - informational only */}
+                  {equipmentsWithoutPatrimony.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Outros equipamentos (sem patrimônio)
+                      </p>
+                      <div className="space-y-1">
+                        {equipmentsWithoutPatrimony.map((eq, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 p-2 rounded-md bg-muted/30 text-sm"
+                          >
+                            <Badge variant="secondary" className="text-xs">
+                              {eq.quantity}x {eq.type}
+                            </Badge>
+                            {eq.description && (
+                              <span className="text-xs text-muted-foreground">
+                                {eq.description}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground italic">
+                        Equipamentos sem patrimônio não requerem liberação individual
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </>
           )}
         </div>
@@ -302,8 +418,8 @@ export function DeliveryEquipmentReturnDialog({
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                {selectedPatrimonies.size > 0 
-                  ? `Confirmar (${selectedPatrimonies.size})`
+                {getEffectiveSelectedCount() > 0 
+                  ? `Confirmar (${getEffectiveSelectedCount()})`
                   : 'Continuar'}
               </>
             )}
