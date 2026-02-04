@@ -672,6 +672,7 @@ export default function NewDeliveryPage() {
         {/* Equipment Returns Section - shows all client equipment for potential return */}
         {selectedOrder && online && (
           <ClientEquipmentReturnSection
+            clientId={selectedOrder.client_id}
             orderNumber={selectedOrder.order_number}
             onSelectionChange={setEquipmentReturns}
             selectedPatrimonies={equipmentReturns}
