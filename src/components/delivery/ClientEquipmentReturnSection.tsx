@@ -10,6 +10,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useClientAllocatedEquipment } from '@/hooks/useClientAllocatedEquipment';
 import { toast } from 'sonner';
 
+function toDisplayString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return '';
+  // Ensures we never accidentally try to render a raw object
+  return String(value);
+}
+
 interface ClientEquipmentReturnSectionProps {
   clientId?: string | number;
   orderNumber?: string;
@@ -25,10 +33,21 @@ export function ClientEquipmentReturnSection({
 }: ClientEquipmentReturnSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const normalizePatrimony = useCallback((value: string | null | undefined) => {
+    return typeof value === 'string' ? value.trim() : '';
+  }, []);
+
   const safeSelectedPatrimonies = useMemo(
     () => (Array.isArray(selectedPatrimonies) ? selectedPatrimonies : []),
     [selectedPatrimonies]
   );
+
+  const normalizedSelectedPatrimonies = useMemo(() => {
+    const normalized = safeSelectedPatrimonies
+      .map((p) => normalizePatrimony(p))
+      .filter(Boolean);
+    return Array.from(new Set(normalized));
+  }, [normalizePatrimony, safeSelectedPatrimonies]);
 
   const {
     equipments,
@@ -43,10 +62,6 @@ export function ClientEquipmentReturnSection({
     if (equipments.length > 0) setIsOpen(true);
   }, [equipments.length]);
 
-  const normalizePatrimony = useCallback((value: string | null | undefined) => {
-    return typeof value === 'string' ? value.trim() : '';
-  }, []);
-
   /**
    * IMPORTANT: This must be idempotent.
    * React error #185 (maximum update depth) can happen if a controlled Checkbox
@@ -58,14 +73,14 @@ export function ClientEquipmentReturnSection({
         const patrimony = normalizePatrimony(patrimonyRaw);
         if (!patrimony) return;
 
-        const current = safeSelectedPatrimonies;
+        const current = normalizedSelectedPatrimonies;
         const has = current.includes(patrimony);
 
         // No-op when state is already correct (prevents infinite loops)
         if (nextSelected === has) return;
 
         const newSelection = nextSelected
-          ? [...current, patrimony]
+          ? Array.from(new Set([...current, patrimony]))
           : current.filter((p) => p !== patrimony);
 
         if (typeof onSelectionChange === 'function') {
@@ -78,7 +93,7 @@ export function ClientEquipmentReturnSection({
         toast.error('Erro ao selecionar equipamento para retorno');
       }
     },
-    [normalizePatrimony, onSelectionChange, safeSelectedPatrimonies]
+    [normalizePatrimony, normalizedSelectedPatrimonies, onSelectionChange]
   );
 
   const togglePatrimony = useCallback(
@@ -86,13 +101,16 @@ export function ClientEquipmentReturnSection({
       const patrimony = normalizePatrimony(patrimonyRaw);
       if (!patrimony) return;
 
-      const nextSelected = !safeSelectedPatrimonies.includes(patrimony);
+      const nextSelected = !normalizedSelectedPatrimonies.includes(patrimony);
       setPatrimonySelected(patrimony, nextSelected);
     },
-    [normalizePatrimony, safeSelectedPatrimonies, setPatrimonySelected]
+    [normalizePatrimony, normalizedSelectedPatrimonies, setPatrimonySelected]
   );
 
-  const equipmentsWithPatrimony = equipments.filter(eq => eq.patrimony);
+  const equipmentsWithPatrimony = useMemo(
+    () => equipments.filter((eq) => Boolean(normalizePatrimony(eq.patrimony))),
+    [equipments, normalizePatrimony]
+  );
 
   // Don't render anything if no equipment and not loading
   if (!isLoading && equipments.length === 0 && !error) {
@@ -113,9 +131,9 @@ export function ClientEquipmentReturnSection({
                     {equipmentsWithPatrimony.length}
                   </Badge>
                 )}
-                {selectedPatrimonies.length > 0 && (
+                {normalizedSelectedPatrimonies.length > 0 && (
                   <Badge className="ml-1 bg-primary text-primary-foreground">
-                    {selectedPatrimonies.length} selecionado(s)
+                    {normalizedSelectedPatrimonies.length} selecionado(s)
                   </Badge>
                 )}
               </CardTitle>
@@ -170,10 +188,15 @@ export function ClientEquipmentReturnSection({
                   Marque os equipamentos que serão devolvidos nesta entrega
                 </p>
                 {equipmentsWithPatrimony.map((eq, idx) => {
-                  const patrimony = eq.patrimony ?? '';
+                  const patrimony = normalizePatrimony(eq.patrimony);
                   if (!patrimony) return null;
                   
-                  const isSelected = safeSelectedPatrimonies.includes(patrimony);
+                  const isSelected = normalizedSelectedPatrimonies.includes(patrimony);
+
+                  const qtyText = toDisplayString(eq.quantity);
+                  const typeText = toDisplayString(eq.type);
+                  const descriptionText = toDisplayString(eq.description);
+                  const modelText = toDisplayString(eq.model);
                   
                   return (
                     <div
@@ -193,16 +216,16 @@ export function ClientEquipmentReturnSection({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">
-                            {eq.quantity}x {eq.type}
+                            {qtyText}x {typeText}
                           </span>
                           <Badge variant="outline" className="font-mono text-xs">
                             Pat: {patrimony}
                           </Badge>
                         </div>
-                        {eq.description && (
+                        {descriptionText && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {eq.description}
-                            {eq.model && ` - ${eq.model}`}
+                            {descriptionText}
+                            {modelText && ` - ${modelText}`}
                           </p>
                         )}
                       </div>
