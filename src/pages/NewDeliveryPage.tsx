@@ -40,7 +40,7 @@ import { GoogleMapsInlineSetup } from '@/components/map/GoogleMapsInlineSetup';
 import { isOnline } from '@/lib/offline-storage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ClientEquipmentReturnSection } from '@/components/delivery/ClientEquipmentReturnSection';
+import { DeliveryEquipmentReturnDialog } from '@/components/delivery/DeliveryEquipmentReturnDialog';
 
 const mapContainerStyle = {
   width: '100%',
@@ -84,7 +84,8 @@ export default function NewDeliveryPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [erpSearching, setErpSearching] = useState(false);
-  const [equipmentReturns, setEquipmentReturns] = useState<string[]>([]);
+  const [equipmentReturnDialogOpen, setEquipmentReturnDialogOpen] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState<{ orderNumber: string; clientName: string; clientId?: string | number } | null>(null);
 
   // Derived state: should collection date be disabled?
   const isCollectionDisabled = selectedOrder ? !needsCollectionDate(selectedOrder) : false;
@@ -362,7 +363,7 @@ export default function NewDeliveryPage() {
         ...(willAutoCollect && { status: 'RECOLHIDO' as const }),
       });
 
-      // Update ERP status to ENTREGUE (ID 4) - fire and forget, don't block navigation
+      // Update ERP status to ENTREGUE (ID 4) - fire and forget, don't block
       if (online) {
         supabase.functions.invoke('update-erp-order-status', {
           body: { orderNumber: pedidoDia.trim(), statusId: 4 }
@@ -377,14 +378,30 @@ export default function NewDeliveryPage() {
         });
       }
 
-      // Small delay to ensure state propagates before navigation
-      setTimeout(() => {
-        navigate('/');
-      }, 100);
+      // Check if we should show the equipment return dialog
+      if (online && selectedOrder?.client_id) {
+        setPendingOrderData({
+          orderNumber: pedidoDia,
+          clientName: nomeCliente,
+          clientId: selectedOrder.client_id,
+        });
+        setEquipmentReturnDialogOpen(true);
+        setIsSubmitting(false);
+      } else {
+        // No client ID or offline, navigate directly
+        setTimeout(() => {
+          navigate('/');
+        }, 100);
+      }
     } catch (error) {
       console.error('Error creating delivery:', error);
       setIsSubmitting(false);
     }
+  };
+
+  const handleEquipmentReturnComplete = () => {
+    setPendingOrderData(null);
+    navigate('/');
   };
 
   return (
@@ -669,15 +686,6 @@ export default function NewDeliveryPage() {
           </Card>
         )}
 
-        {/* Equipment Returns Section - shows all client equipment for potential return */}
-        {selectedOrder && online && (
-          <ClientEquipmentReturnSection
-            clientId={selectedOrder.client_id}
-            orderNumber={selectedOrder.order_number}
-            onSelectionChange={setEquipmentReturns}
-            selectedPatrimonies={equipmentReturns}
-          />
-        )}
 
         {/* Localização */}
         <Card>
@@ -933,6 +941,18 @@ export default function NewDeliveryPage() {
           }
         }}
       />
+
+      {/* Equipment Return Dialog - shown after delivery is registered */}
+      {pendingOrderData && (
+        <DeliveryEquipmentReturnDialog
+          open={equipmentReturnDialogOpen}
+          onOpenChange={setEquipmentReturnDialogOpen}
+          orderNumber={pendingOrderData.orderNumber}
+          clientName={pendingOrderData.clientName}
+          clientId={pendingOrderData.clientId}
+          onComplete={handleEquipmentReturnComplete}
+        />
+      )}
     </div>
   );
 }
