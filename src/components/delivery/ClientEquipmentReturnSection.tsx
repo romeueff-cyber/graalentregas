@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -43,27 +43,34 @@ export function ClientEquipmentReturnSection({
     if (equipments.length > 0) setIsOpen(true);
   }, [equipments.length]);
 
-  const togglePatrimony = (patrimony: string) => {
+  const togglePatrimony = useCallback((patrimony: string | null | undefined) => {
     try {
-      console.log('[ClientEquipmentReturnSection] togglePatrimony called', { patrimony, current: safeSelectedPatrimonies });
+      const safePatrimony = patrimony ?? '';
+      console.log('[ClientEquipmentReturnSection] togglePatrimony called', { patrimony: safePatrimony, current: safeSelectedPatrimonies });
 
-      if (!patrimony) {
-        console.warn('[ClientEquipmentReturnSection] Ignoring empty patrimony');
+      if (!safePatrimony || safePatrimony.trim() === '') {
+        console.warn('[ClientEquipmentReturnSection] Ignoring empty/null patrimony');
         return;
       }
 
-      const current = safeSelectedPatrimonies;
-      const newSelection = current.includes(patrimony)
-        ? current.filter((p) => p !== patrimony)
-        : [...current, patrimony];
+      const trimmedPatrimony = safePatrimony.trim();
+      const current = [...safeSelectedPatrimonies]; // defensive copy
+      const newSelection = current.includes(trimmedPatrimony)
+        ? current.filter((p) => p !== trimmedPatrimony)
+        : [...current, trimmedPatrimony];
 
       console.log('[ClientEquipmentReturnSection] Calling onSelectionChange with', newSelection);
-      onSelectionChange(newSelection);
+      
+      if (typeof onSelectionChange === 'function') {
+        onSelectionChange(newSelection);
+      } else {
+        console.error('[ClientEquipmentReturnSection] onSelectionChange is not a function:', onSelectionChange);
+      }
     } catch (err) {
       console.error('[ClientEquipmentReturnSection] togglePatrimony error:', err);
       toast.error('Erro ao selecionar equipamento para retorno');
     }
-  };
+  }, [safeSelectedPatrimonies, onSelectionChange]);
 
   const equipmentsWithPatrimony = equipments.filter(eq => eq.patrimony);
 
