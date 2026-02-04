@@ -263,8 +263,8 @@ export function useEquipments() {
     }
   };
 
-  // Confirm collection using database function
-  const confirmCollection = async (id: string, patrimony?: string) => {
+  // Confirm collection using database function - supports multiple patrimonies
+  const confirmCollection = async (id: string, patrimonies?: string[]) => {
     try {
       if (isOnline()) {
         const { data, error } = await supabase.rpc('confirm_collection', {
@@ -274,35 +274,53 @@ export function useEquipments() {
         if (error) throw error;
         toast.success('Recolha confirmada!');
         
-        // If patrimony is provided, sync with ERP to release equipment
-        if (patrimony) {
-          try {
-            // Get the equipment to find the order number
-            const equipment = equipments.find(e => e.id === id);
-            const orderNumber = equipment?.pedido_dia;
-            
-            console.log(`[confirmCollection] Syncing equipment ${patrimony} with ERP...`);
-            
-            const { data: erpResult, error: erpError } = await supabase.functions.invoke(
-              'update-erp-equipment-status',
-              {
-                body: { patrimonio: patrimony, orderNumber }
+        // If patrimonies are provided, sync with ERP to release equipment
+        if (patrimonies && patrimonies.length > 0) {
+          const equipment = equipments.find(e => e.id === id);
+          const orderNumber = equipment?.pedido_dia;
+          
+          console.log(`[confirmCollection] Syncing ${patrimonies.length} equipment(s) with ERP...`);
+          
+          // Process all patrimonies in parallel
+          const syncPromises = patrimonies.map(async (patrimonio) => {
+            try {
+              console.log(`[confirmCollection] Releasing equipment ${patrimonio}...`);
+              
+              const { data: erpResult, error: erpError } = await supabase.functions.invoke(
+                'update-erp-equipment-status',
+                {
+                  body: { patrimonio, orderNumber }
+                }
+              );
+              
+              if (erpError) {
+                console.error(`[confirmCollection] ERP sync error for ${patrimonio}:`, erpError);
+                return { patrimonio, success: false, error: erpError };
+              } else if (erpResult?.warning) {
+                console.warn(`[confirmCollection] ERP sync warning for ${patrimonio}:`, erpResult.warning);
+                return { patrimonio, success: false, warning: erpResult.warning };
+              } else {
+                console.log(`[confirmCollection] ERP sync success for ${patrimonio}:`, erpResult);
+                return { patrimonio, success: true, result: erpResult };
               }
-            );
-            
-            if (erpError) {
-              console.error('[confirmCollection] ERP sync error:', erpError);
-              toast.warning('Recolha confirmada, mas falha ao sincronizar com ERP');
-            } else if (erpResult?.warning) {
-              console.warn('[confirmCollection] ERP sync warning:', erpResult.warning);
-              toast.warning(erpResult.warning);
-            } else {
-              console.log('[confirmCollection] ERP sync success:', erpResult);
-              toast.success('Equipamento liberado no ERP!');
+            } catch (syncError) {
+              console.error(`[confirmCollection] Failed to sync ${patrimonio}:`, syncError);
+              return { patrimonio, success: false, error: syncError };
             }
-          } catch (erpSyncError) {
-            console.error('[confirmCollection] Failed to sync with ERP:', erpSyncError);
-            // Don't fail the whole operation, just log the error
+          });
+          
+          const results = await Promise.all(syncPromises);
+          
+          // Count successes and failures
+          const successes = results.filter(r => r.success);
+          const failures = results.filter(r => !r.success);
+          
+          if (successes.length > 0 && failures.length === 0) {
+            toast.success(`${successes.length} equipamento(s) liberado(s) no ERP!`);
+          } else if (successes.length > 0 && failures.length > 0) {
+            toast.warning(`${successes.length} liberado(s), ${failures.length} com falha no ERP`);
+          } else if (failures.length > 0) {
+            toast.warning('Recolha confirmada, mas falha ao sincronizar com ERP');
           }
         }
       } else {
