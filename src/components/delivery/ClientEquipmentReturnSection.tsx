@@ -32,6 +32,7 @@ export function ClientEquipmentReturnSection({
   selectedPatrimonies,
 }: ClientEquipmentReturnSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isInteractive, setIsInteractive] = useState(false);
 
   const normalizePatrimony = useCallback((value: string | null | undefined) => {
     return typeof value === 'string' ? value.trim() : '';
@@ -104,6 +105,21 @@ export function ClientEquipmentReturnSection({
     [equipments, normalizePatrimony]
   );
 
+  // Prevent timing-sensitive selection while Collapsible is expanding/mounting.
+  // This avoids React #185 loops caused by rapid interaction during layout transitions.
+  useEffect(() => {
+    // Never allow interaction while closed or loading
+    if (!isOpen || isLoading) {
+      setIsInteractive(false);
+      return;
+    }
+
+    // Brief delay to let the content fully mount/expand before allowing clicks
+    setIsInteractive(false);
+    const t = window.setTimeout(() => setIsInteractive(true), 250);
+    return () => window.clearTimeout(t);
+  }, [isOpen, isLoading, equipmentsWithPatrimony.length]);
+
   // Don't render anything if no equipment and not loading
   if (!isLoading && equipments.length === 0 && !error) {
     return null;
@@ -114,7 +130,11 @@ export function ClientEquipmentReturnSection({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between p-0 h-auto hover:bg-transparent"
+            >
               <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
                 <Package className="w-4 h-4" />
                 Equipamentos Alocados ao Cliente
@@ -157,7 +177,7 @@ export function ClientEquipmentReturnSection({
             ) : error ? (
               <div className="flex flex-col items-center py-4 gap-2">
                 <p className="text-sm text-destructive">{error}</p>
-                <Button variant="outline" size="sm" onClick={refetch} className="gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={refetch} className="gap-2">
                   <RefreshCw className="w-3 h-3" />
                   Tentar novamente
                 </Button>
@@ -167,7 +187,7 @@ export function ClientEquipmentReturnSection({
                 Nenhum equipamento alocado encontrado
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className={`space-y-2 ${isInteractive ? '' : 'pointer-events-none'}`}>
                 {clientListEmpty && Boolean(orderNumber) && (
                   <Alert className="border-amber-500/50 bg-amber-100/50 dark:bg-amber-900/30">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -177,7 +197,7 @@ export function ClientEquipmentReturnSection({
                   </Alert>
                 )}
                 <p className="text-xs text-muted-foreground italic">
-                  Marque os equipamentos que serão devolvidos nesta entrega
+                  {isInteractive ? 'Marque os equipamentos que serão devolvidos nesta entrega' : 'Aguarde a lista expandir para selecionar'}
                 </p>
                 {equipmentsWithPatrimony.map((eq, idx) => {
                   const patrimony = normalizePatrimony(eq.patrimony);
@@ -198,7 +218,10 @@ export function ClientEquipmentReturnSection({
                           ? 'border-primary bg-primary/10'
                           : 'border-border bg-background hover:bg-muted/50'
                       }`}
-                      onClick={() => setPatrimonySelected(patrimony, !isSelected)}
+                      onClick={() => {
+                        if (!isInteractive) return;
+                        setPatrimonySelected(patrimony, !isSelected);
+                      }}
                     >
                       <Checkbox
                         checked={isSelected}
