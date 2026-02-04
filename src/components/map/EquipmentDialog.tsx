@@ -28,12 +28,13 @@ import { daysSince, formatDaysWithClient, getDaysColor, formatDate } from '@/lib
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { EquipmentWithCreator } from '@/types/database';
+import { CollectionConfirmDialog } from './CollectionConfirmDialog';
 
 interface EquipmentDialogProps {
   equipment: EquipmentWithCreator | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirmCollection?: (equipment: EquipmentWithCreator) => Promise<void>;
+  onConfirmCollection?: (equipment: EquipmentWithCreator, patrimonies?: string[]) => Promise<void>;
   onDelete?: (equipment: EquipmentWithCreator) => Promise<void>;
   onReschedule?: (equipment: EquipmentWithCreator, newDate: string) => void;
   isAdmin?: boolean;
@@ -63,6 +64,7 @@ export function EquipmentDialog({
   const [showReschedule, setShowReschedule] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [showCollectionConfirm, setShowCollectionConfirm] = useState(false);
 
   if (!equipment) return null;
 
@@ -76,11 +78,19 @@ export function EquipmentDialog({
     window.open(url, '_blank');
   };
 
-  const handleConfirm = async () => {
+  const handleConfirmClick = () => {
+    if (!onConfirmCollection || !equipment) return;
+    // Open the collection confirmation dialog with equipment list
+    setShowCollectionConfirm(true);
+  };
+
+  const handleConfirmWithPatrimonies = async (selectedPatrimonies: string[]) => {
     if (!onConfirmCollection || !equipment) return;
     setIsConfirming(true);
     try {
-      await onConfirmCollection(equipment);
+      await onConfirmCollection(equipment, selectedPatrimonies);
+      setShowCollectionConfirm(false);
+      onOpenChange(false);
     } finally {
       setIsConfirming(false);
     }
@@ -332,7 +342,7 @@ export function EquipmentDialog({
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
                       : 'bg-status-ready hover:bg-status-ready/90 text-white'
                   }`}
-                  onClick={handleConfirm}
+                  onClick={handleConfirmClick}
                   disabled={isConfirming || isCollected}
                 >
                   {isConfirming ? (
@@ -391,6 +401,15 @@ export function EquipmentDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Collection confirmation dialog with equipment list */}
+      <CollectionConfirmDialog
+        open={showCollectionConfirm}
+        onOpenChange={setShowCollectionConfirm}
+        orderNumber={equipment.pedido_dia}
+        clientName={equipment.nome_cliente}
+        onConfirm={handleConfirmWithPatrimonies}
+      />
     </>
   );
 }

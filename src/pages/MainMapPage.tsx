@@ -218,9 +218,9 @@ export default function MainMapPage() {
     navigate('/auth');
   };
 
-  const handleConfirmCollection = async (equipment: EquipmentWithCreator) => {
+  const handleConfirmCollection = async (equipment: EquipmentWithCreator, patrimonies?: string[]) => {
     try {
-      await confirmCollection(equipment.id);
+      await confirmCollection(equipment.id, patrimonies);
       // Update selected equipment to reflect new status immediately
       setSelectedEquipment({
         ...equipment,

@@ -28,7 +28,7 @@ interface MapViewProps {
   onEquipmentClick?: (equipment: EquipmentWithCreator) => void;
   selectedEquipment?: EquipmentWithCreator | null;
   onCloseInfoWindow?: () => void;
-  onConfirmCollection?: (equipment: EquipmentWithCreator) => void;
+  onConfirmCollection?: (equipment: EquipmentWithCreator, patrimonies?: string[]) => void;
   onDelete?: (equipment: EquipmentWithCreator) => Promise<void>;
   isAdmin?: boolean;
   dailyOrderLocations?: DailyOrderLocation[];
@@ -183,9 +183,9 @@ export function MapView({
     }
   };
 
-  const handleConfirmCollection = async (equipment: EquipmentWithCreator) => {
+  const handleConfirmCollection = async (equipment: EquipmentWithCreator, patrimonies?: string[]) => {
     if (!onConfirmCollection) return;
-    await onConfirmCollection(equipment);
+    await onConfirmCollection(equipment, patrimonies);
   };
 
   if (scriptError) {
