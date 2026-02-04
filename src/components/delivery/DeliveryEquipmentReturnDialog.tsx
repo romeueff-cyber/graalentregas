@@ -58,9 +58,13 @@ export function DeliveryEquipmentReturnDialog({
 
   // Create a map of patrimony -> equipment for quick lookup
   const patrimonyMap = new Map<string, typeof equipmentsWithPatrimony[0]>();
+  const validPatrimoniesSet = new Set<string>();
   equipmentsWithPatrimony.forEach(eq => {
     const p = normalizePatrimony(eq.patrimony);
-    if (p) patrimonyMap.set(p, eq);
+    if (p) {
+      patrimonyMap.set(p, eq);
+      validPatrimoniesSet.add(p);
+    }
   });
 
   // Enable interaction after a short delay to prevent timing issues
@@ -268,32 +272,9 @@ export function DeliveryEquipmentReturnDialog({
                   <MultiCodeScanner
                     scannedCodes={scannedCodes}
                     onCodesChange={setScannedCodes}
+                    validPatrimonies={validPatrimoniesSet}
                     disabled={isConfirming}
                   />
-                  
-                  {/* Show matched equipment preview */}
-                  {scannedCodes.size > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        const matched = Array.from(scannedCodes).filter(c => patrimonyMap.has(c.toUpperCase()));
-                        const unmatched = Array.from(scannedCodes).filter(c => !patrimonyMap.has(c.toUpperCase()));
-                        return (
-                          <div className="space-y-1">
-                            {matched.length > 0 && (
-                              <p className="text-primary">
-                                ✓ {matched.length} código(s) correspondem a equipamentos
-                              </p>
-                            )}
-                            {unmatched.length > 0 && (
-                              <p className="text-status-waiting">
-                                ⚠ {unmatched.length} código(s) não encontrado(s) na lista
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
                 </TabsContent>
 
                 {/* Manual Tab */}

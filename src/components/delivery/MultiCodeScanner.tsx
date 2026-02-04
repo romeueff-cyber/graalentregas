@@ -3,16 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Camera, CameraOff, Plus, X, Barcode, Hash } from 'lucide-react';
+import { Camera, CameraOff, Plus, X, Barcode, Hash, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MultiCodeScannerProps {
   scannedCodes: Set<string>;
   onCodesChange: (codes: Set<string>) => void;
+  /** Set of valid patrimony codes from ERP proxy for validation */
+  validPatrimonies: Set<string>;
   disabled?: boolean;
 }
 
-export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: MultiCodeScannerProps) {
+export function MultiCodeScanner({ 
+  scannedCodes, 
+  onCodesChange, 
+  validPatrimonies,
+  disabled 
+}: MultiCodeScannerProps) {
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +54,15 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
     const newCodes = new Set(scannedCodes);
     newCodes.add(normalizedCode);
     onCodesChange(newCodes);
-    toast.success(`Código ${normalizedCode} adicionado`);
-  }, [scannedCodes, onCodesChange]);
+    
+    // Check if code is valid against ERP list
+    const isValid = validPatrimonies.has(normalizedCode);
+    if (isValid) {
+      toast.success(`✓ Patrimônio ${normalizedCode} encontrado na lista`);
+    } else {
+      toast.warning(`⚠ Código ${normalizedCode} não encontrado na lista do cliente`);
+    }
+  }, [scannedCodes, onCodesChange, validPatrimonies]);
 
   const handleManualAdd = () => {
     const code = manualInput.trim().toUpperCase();
@@ -119,6 +133,10 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
     };
   }, [stopScanner]);
 
+  // Count valid/invalid codes
+  const validCount = Array.from(scannedCodes).filter(c => validPatrimonies.has(c)).length;
+  const invalidCount = scannedCodes.size - validCount;
+
   return (
     <div className="space-y-3">
       {/* Manual input */}
@@ -128,9 +146,9 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
           <Input
             placeholder="Digite o patrimônio..."
             value={manualInput}
-            onChange={(e) => setManualInput(e.target.value)}
+            onChange={(e) => setManualInput(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && handleManualAdd()}
-            className="pl-9"
+            className="pl-9 uppercase"
             disabled={disabled}
           />
         </div>
@@ -146,7 +164,7 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
       </div>
 
       {/* Scanner toggle */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           type="button"
           variant={isScannerActive ? "destructive" : "secondary"}
@@ -168,11 +186,25 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
           )}
         </Button>
         
-        {/* Counter */}
+        {/* Counter with validation status */}
         <Badge variant="secondary" className="gap-1.5">
           <Barcode className="w-3 h-3" />
-          {scannedCodes.size} código(s) lido(s)
+          {scannedCodes.size} lido(s)
         </Badge>
+        
+        {validCount > 0 && (
+          <Badge variant="default" className="gap-1 bg-primary/90">
+            <CheckCircle2 className="w-3 h-3" />
+            {validCount} válido(s)
+          </Badge>
+        )}
+        
+        {invalidCount > 0 && (
+          <Badge variant="outline" className="gap-1 border-status-waiting text-status-waiting">
+            <AlertCircle className="w-3 h-3" />
+            {invalidCount} não encontrado(s)
+          </Badge>
+        )}
       </div>
 
       {/* Scanner area */}
@@ -205,26 +237,47 @@ export function MultiCodeScanner({ scannedCodes, onCodesChange, disabled }: Mult
         </div>
       )}
 
-      {/* Scanned codes list */}
+      {/* Scanned codes list with validation status */}
       {scannedCodes.size > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {Array.from(scannedCodes).map((code) => (
-            <Badge
-              key={code}
-              variant="outline"
-              className="gap-1 pr-1 font-mono"
-            >
-              {code}
-              <button
-                type="button"
-                onClick={() => handleRemoveCode(code)}
-                className="ml-1 p-0.5 rounded hover:bg-destructive/20"
-                disabled={disabled}
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground font-medium">
+            Códigos lidos:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from(scannedCodes).map((code) => {
+              const isValid = validPatrimonies.has(code);
+              return (
+                <Badge
+                  key={code}
+                  variant={isValid ? "default" : "outline"}
+                  className={`gap-1 pr-1 font-mono ${
+                    isValid 
+                      ? 'bg-primary/90' 
+                      : 'border-status-waiting text-status-waiting'
+                  }`}
+                >
+                  {isValid ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : (
+                    <AlertCircle className="w-3 h-3" />
+                  )}
+                  {code}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCode(code)}
+                    className={`ml-1 p-0.5 rounded ${
+                      isValid 
+                        ? 'hover:bg-primary-foreground/20' 
+                        : 'hover:bg-destructive/20'
+                    }`}
+                    disabled={disabled}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
