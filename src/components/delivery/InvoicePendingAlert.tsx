@@ -60,6 +60,6 @@ export function InvoicePendingAlert({ open, onOpenChange, orderNumber }: Invoice
 export function isOrderInvoiced(erpStatus: string | null | undefined): boolean {
   if (!erpStatus) return false;
   const normalizedStatus = String(erpStatus).trim().toLowerCase();
-  // Status 3 = Faturado, Status 14 = também válido para entrega
-  return normalizedStatus === '3' || normalizedStatus === '14' || normalizedStatus === 'faturado';
+  // Status 3 = Faturado, Status 19 = também válido para entrega
+  return normalizedStatus === '3' || normalizedStatus === '19' || normalizedStatus === 'faturado';
 }
