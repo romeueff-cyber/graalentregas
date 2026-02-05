@@ -740,6 +740,7 @@ app.put('/api/equipment/:patrimonio/release', authenticate, async (req, res) => 
     const previousEquipStatus = equipResult[0].STATUS;
     
     // 2. Atualizar status na tabela EQUIPAMENTOS para DISPONIVEL
+    // IMPORTANTE: Usar exatamente 'DISPONIVEL' sem acentos para compatibilidade de charset com Firebird
     const updateEquipQuery = `
       UPDATE EQUIPAMENTOS 
       SET STATUS = 'DISPONIVEL', DATE_UPDATE = CURRENT_TIMESTAMP 
