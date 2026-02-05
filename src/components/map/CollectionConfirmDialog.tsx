@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, Package, AlertCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
 
 interface ERPEquipment {
   type: string;
@@ -42,6 +44,7 @@ export function CollectionConfirmDialog({
   clientId,
   onConfirm,
 }: CollectionConfirmDialogProps) {
+  const { user, profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [equipments, setEquipments] = useState<ERPEquipment[]>([]);
@@ -133,6 +136,22 @@ export function CollectionConfirmDialog({
   const handleConfirm = async () => {
     setIsConfirming(true);
     try {
+      // Record history for each selected patrimony before confirming
+      if (user) {
+        const userName = profile?.name || user.email || 'Usuário';
+        for (const patrimony of selectedPatrimonies) {
+          recordEquipmentHistory({
+            userId: user.id,
+            userName,
+            patrimony,
+            clientName,
+            clientId: clientId?.toString(),
+            actionType: HISTORY_ACTIONS.DEVOLUCAO,
+            orderNumber,
+          });
+        }
+      }
+      
       await onConfirm(Array.from(selectedPatrimonies));
       onOpenChange(false);
     } catch (err) {
