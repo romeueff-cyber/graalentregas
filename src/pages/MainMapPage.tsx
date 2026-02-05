@@ -13,6 +13,7 @@ import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { SprayCanIcon } from '@/components/icons';
 import { StandaloneReturnDialog } from '@/components/delivery/StandaloneReturnDialog';
+import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 import {
   Plus,
   Menu,
@@ -73,6 +74,7 @@ export default function MainMapPage() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState<DailyOrder | null>(null);
 
   // Apply geo filter to equipments
   const geoFilteredEquipments = useMemo(() => filterByGeo(equipments), [equipments, filterByGeo]);
@@ -585,6 +587,18 @@ export default function MainMapPage() {
                 const orderData = dailyOrders?.find(o => o.order_number === orderNumber);
                 const orderLoc = visibleDailyOrderLocations.find(l => l.orderNumber === orderNumber);
                 if (orderData) {
+                  // Check if order is invoiced (ID_STATUS = 3)
+                  // Cast to access erp_status which may exist on the full order data
+                  const orderWithStatus = orderData as { erp_status?: string | null } & typeof orderData;
+                  if (!isOrderInvoiced(orderWithStatus.erp_status)) {
+                    setPendingInvoiceOrder({
+                      order_number: orderData.order_number,
+                      client_name: orderData.client_name,
+                      erp_status: orderWithStatus.erp_status ?? null,
+                    } as DailyOrder);
+                    return;
+                  }
+                  
                   navigate('/new-delivery', { 
                     state: { 
                       orderData,
@@ -684,6 +698,13 @@ export default function MainMapPage() {
         <StandaloneReturnDialog
           open={showReturnDialog}
           onOpenChange={setShowReturnDialog}
+        />
+
+        {/* Invoice Pending Alert */}
+        <InvoicePendingAlert
+          open={!!pendingInvoiceOrder}
+          onOpenChange={(open) => !open && setPendingInvoiceOrder(null)}
+          orderNumber={pendingInvoiceOrder?.order_number}
         />
       </div>
     </div>

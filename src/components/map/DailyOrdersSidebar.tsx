@@ -23,6 +23,7 @@ import {
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { BoletoDialog } from './BoletoDialog';
+import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 
 interface OrderItem {
   product: string;
@@ -64,6 +65,7 @@ export function DailyOrdersSidebar({
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
   const [boletoOrder, setBoletoOrder] = useState<Order | null>(null);
   const [boletoDialogKey, setBoletoDialogKey] = useState(0);
+  const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState<Order | null>(null);
 
   // Use the shared hook with caching
   const { 
@@ -226,6 +228,13 @@ export function DailyOrdersSidebar({
 
   const handleRegisterDelivery = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Check if order is invoiced (ID_STATUS = 3)
+    if (!isOrderInvoiced(order.erp_status)) {
+      setPendingInvoiceOrder(order);
+      return;
+    }
+    
     if (onRegisterDelivery) {
       onRegisterDelivery(order);
     } else {
@@ -625,6 +634,13 @@ export function DailyOrdersSidebar({
             setBoletoDialogKey(prev => prev + 1);
           }
         }}
+      />
+
+      {/* Invoice Pending Alert */}
+      <InvoicePendingAlert
+        open={!!pendingInvoiceOrder}
+        onOpenChange={(open) => !open && setPendingInvoiceOrder(null)}
+        orderNumber={pendingInvoiceOrder?.order_number}
       />
     </div>
   );

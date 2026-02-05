@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getTodaySaoPaulo, extractTime, extractDatePart } from '@/lib/date-utils';
 import { DailyOrdersMapView } from '@/components/map/DailyOrdersMapView';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
+import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 import {
   ArrowLeft,
   User,
@@ -126,6 +127,7 @@ export default function DailyOrdersPage() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [hasGeocodingRun, setHasGeocodingRun] = useState(false);
   const [isGoogleReady, setIsGoogleReady] = useState(false);
+  const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState<Order | null>(null);
   
   const { equipments } = useEquipments();
   const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
@@ -723,6 +725,12 @@ export default function DailyOrdersPage() {
                       <Button
                         className="w-full"
                         onClick={() => {
+                          // Check if order is invoiced (ID_STATUS = 3)
+                          if (!isOrderInvoiced(order.erp_status)) {
+                            setPendingInvoiceOrder(order);
+                            return;
+                          }
+                          
                           const loc = orderLocations.find((l) => l.orderNumber === order.order_number);
                           navigate('/new-delivery', {
                             state: {
@@ -743,6 +751,13 @@ export default function DailyOrdersPage() {
           </Accordion>
         )}
       </div>
+
+      {/* Invoice Pending Alert */}
+      <InvoicePendingAlert
+        open={!!pendingInvoiceOrder}
+        onOpenChange={(open) => !open && setPendingInvoiceOrder(null)}
+        orderNumber={pendingInvoiceOrder?.order_number}
+      />
     </div>
   );
 }
