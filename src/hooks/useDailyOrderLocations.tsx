@@ -29,7 +29,9 @@ interface OrderLocation {
 }
 
 // Simple geocoding using Google Maps Geocoding API
+// Supports incomplete addresses - will geocode with just city/state if no street
 async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng: number } | null> {
+  // Build address string prioritizing more specific components
   const parts = [
     address.street,
     address.number,
@@ -39,7 +41,14 @@ async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng
     'Brasil',
   ].filter(Boolean);
 
-  if (parts.length < 3) return null;
+  // Require at least city or state for a meaningful geocode
+  // Changed from 3 to 2 to allow city + Brasil or state + Brasil
+  if (parts.length < 2) return null;
+  
+  // If we don't have a street but have neighborhood/city, still try
+  // This allows geocoding for addresses like "São Luís, Jaraguá do Sul, SC, Brasil"
+  const hasMinimumAddress = address.city || address.state;
+  if (!hasMinimumAddress) return null;
 
   const addressString = parts.join(', ');
 
@@ -51,6 +60,7 @@ async function geocodeAddress(address: OrderAddress): Promise<{ lat: number; lng
         geocoder.geocode({ address: addressString }, (results, status) => {
           if (status === 'OK' && results && results[0]) {
             const location = results[0].geometry.location;
+            console.log(`Geocoded "${addressString}" -> (${location.lat()}, ${location.lng()})`);
             resolve({ lat: location.lat(), lng: location.lng() });
           } else {
             console.log(`Geocoding failed for "${addressString}": ${status}`);
