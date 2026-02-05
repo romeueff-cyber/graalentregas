@@ -67,6 +67,8 @@ export function StandaloneReturnDialog({
         body: { patrimonio: normalized }
       });
 
+      console.log(`[StandaloneReturnDialog] Validation response for ${normalized}:`, { data, error });
+
       if (error) {
         console.error(`[StandaloneReturnDialog] Validation error for ${normalized}:`, error);
         setValidatedCodes(prev => {
@@ -82,7 +84,12 @@ export function StandaloneReturnDialog({
         return;
       }
 
-      if (data?.valid) {
+      // CRITICAL: Check if data exists and valid is explicitly true
+      const isValid = data && data.valid === true;
+      
+      console.log(`[StandaloneReturnDialog] ${normalized} isValid:`, isValid, 'data.valid:', data?.valid);
+
+      if (isValid) {
         setValidatedCodes(prev => {
           const newMap = new Map(prev);
           newMap.set(normalized, { 
@@ -105,7 +112,7 @@ export function StandaloneReturnDialog({
           });
           return newMap;
         });
-        toast.warning(data?.message || `${normalized} não está alocado`);
+        toast.error(data?.message || `${normalized} não está alocado ou não encontrado`);
       }
     } catch (err) {
       console.error(`[StandaloneReturnDialog] Exception validating ${normalized}:`, err);
@@ -118,6 +125,7 @@ export function StandaloneReturnDialog({
         });
         return newMap;
       });
+      toast.error(`Erro ao validar ${normalized}`);
     }
   }, []);
 
