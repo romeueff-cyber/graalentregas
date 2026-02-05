@@ -54,13 +54,12 @@ export function InvoicePendingAlert({ open, onOpenChange, orderNumber }: Invoice
 
 /**
  * Helper function to check if an order is invoiced (faturado).
- * ERP ID_STATUS = 3 means "Faturado" (invoiced).
+ * ERP ID_STATUS = 3 or 14 means the order is ready for delivery.
  * Returns true if order can proceed to delivery registration.
  */
 export function isOrderInvoiced(erpStatus: string | null | undefined): boolean {
   if (!erpStatus) return false;
-  // The status can be the ID "3" or contain "3" as status code
-  // Also handle cases where status description is passed
-  const normalizedStatus = String(erpStatus).trim();
-  return normalizedStatus === '3' || normalizedStatus.toLowerCase() === 'faturado';
+  const normalizedStatus = String(erpStatus).trim().toLowerCase();
+  // Status 3 = Faturado, Status 14 = também válido para entrega
+  return normalizedStatus === '3' || normalizedStatus === '14' || normalizedStatus === 'faturado';
 }
