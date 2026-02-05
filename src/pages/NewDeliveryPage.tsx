@@ -253,6 +253,7 @@ export default function NewDeliveryPage() {
   }, [getGPSLocation]);
 
   // Geocode address using Google Maps API
+  // Supports incomplete addresses - will geocode with just city/state if no street
   const geocodeAddress = useCallback(async (addressDetails: {
     street?: string;
     number?: string;
@@ -269,7 +270,9 @@ export default function NewDeliveryPage() {
       'Brasil',
     ].filter(Boolean);
 
-    if (parts.length < 3) return null;
+    // Require at least city or state for a meaningful geocode
+    const hasMinimumAddress = addressDetails.city || addressDetails.state;
+    if (!hasMinimumAddress || parts.length < 2) return null;
 
     const addressString = parts.join(', ');
 
@@ -281,7 +284,7 @@ export default function NewDeliveryPage() {
           geocoder.geocode({ address: addressString }, (results, status) => {
             if (status === 'OK' && results && results[0]) {
               const location = results[0].geometry.location;
-              console.log(`Geocoded "${addressString}" to (${location.lat()}, ${location.lng()})`);
+              console.log(`Geocoded "${addressString}" -> (${location.lat()}, ${location.lng()})`);
               resolve({ lat: location.lat(), lng: location.lng() });
             } else {
               console.warn(`Geocoding failed for "${addressString}": ${status}`);
