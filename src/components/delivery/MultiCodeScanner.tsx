@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Camera, CameraOff, Plus, X, Barcode, Hash, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, CameraOff, Plus, X, Barcode, Hash, CheckCircle2, AlertCircle, ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MultiCodeScannerProps {
   scannedCodes: Set<string>;
@@ -28,11 +29,13 @@ export function MultiCodeScanner({
 }: MultiCodeScannerProps) {
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   
   const scannerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
@@ -52,7 +55,6 @@ export function MultiCodeScanner({
     if (!normalizedCode) return;
     
     if (scannedCodes.has(normalizedCode)) {
-      // Code already scanned, don't do anything (as requested)
       console.log(`[MultiCodeScanner] Code ${normalizedCode} already scanned, ignoring`);
       return;
     }
@@ -61,11 +63,9 @@ export function MultiCodeScanner({
     newCodes.add(normalizedCode);
     onCodesChange(newCodes);
     
-    // In standalone mode, no validation - just confirm it was added
     if (standaloneMode) {
       toast.success(`✓ Código ${normalizedCode} adicionado`);
     } else {
-      // Check if code is valid against ERP list
       const isValid = validPatrimonies.has(normalizedCode);
       if (isValid) {
         toast.success(`✓ Patrimônio ${normalizedCode} encontrado na lista`);
@@ -94,13 +94,80 @@ export function MultiCodeScanner({
     onCodesChange(newCodes);
   };
 
+  // OCR photo handling
+  const handlePhotoCapture = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be selected again
+    event.target.value = '';
+
+    try {
+      setIsOcrLoading(true);
+
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      console.log('[MultiCodeScanner] Sending image for OCR...');
+
+      const { data, error: fnError } = await supabase.functions.invoke('ocr-patrimony', {
+        body: { image: base64 }
+      });
+
+      if (fnError) {
+        console.error('[MultiCodeScanner] OCR function error:', fnError);
+        toast.error('Erro ao processar imagem. Tente novamente.');
+        return;
+      }
+
+      if (data.error) {
+        console.error('[MultiCodeScanner] OCR error:', data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      console.log('[MultiCodeScanner] OCR result:', data);
+
+      if (data.codes && data.codes.length > 0) {
+        let addedCount = 0;
+        for (const code of data.codes) {
+          if (!scannedCodes.has(code)) {
+            handleCodeScanned(code);
+            addedCount++;
+          }
+        }
+        
+        if (addedCount > 0) {
+          toast.success(`📷 ${addedCount} código(s) reconhecido(s) pela IA`);
+        } else {
+          toast.info('Código(s) já foram adicionados anteriormente');
+        }
+      } else {
+        toast.warning('Nenhum código de patrimônio encontrado na imagem. Tente uma foto mais clara.');
+      }
+    } catch (err) {
+      console.error('[MultiCodeScanner] Photo processing error:', err);
+      toast.error('Erro ao processar foto');
+    } finally {
+      setIsOcrLoading(false);
+    }
+  };
+
   const startScanner = async () => {
     try {
       setError(null);
       setIsLoading(true);
       setIsScannerActive(true);
       
-      // Wait for container
       await new Promise((resolve) => setTimeout(resolve, 300));
       
       if (!containerRef.current) {
@@ -116,12 +183,10 @@ export function MultiCodeScanner({
         {
           fps: 10,
           qrbox: { width: 250, height: 150 },
-          // Enable barcode formats
-          formatsToSupport: undefined, // All formats
+          formatsToSupport: undefined,
         },
         (decodedText: string) => {
           handleCodeScanned(decodedText);
-          // Don't stop - keep scanning for more codes
         },
         () => {
           // Ignore scan errors
@@ -137,19 +202,27 @@ export function MultiCodeScanner({
     }
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopScanner();
     };
   }, [stopScanner]);
 
-  // Count valid/invalid codes
   const validCount = Array.from(scannedCodes).filter(c => validPatrimonies.has(c)).length;
   const invalidCount = scannedCodes.size - validCount;
 
   return (
     <div className="space-y-3">
+      {/* Hidden file input for photo capture */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* Manual input */}
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -174,14 +247,14 @@ export function MultiCodeScanner({
         </Button>
       </div>
 
-      {/* Scanner toggle */}
+      {/* Scanner and OCR buttons */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           type="button"
           variant={isScannerActive ? "destructive" : "secondary"}
           size="sm"
           onClick={isScannerActive ? stopScanner : startScanner}
-          disabled={disabled}
+          disabled={disabled || isOcrLoading}
           className="gap-2"
         >
           {isScannerActive ? (
@@ -192,7 +265,29 @@ export function MultiCodeScanner({
           ) : (
             <>
               <Camera className="w-4 h-4" />
-              Escanear Códigos
+              Código de Barras
+            </>
+          )}
+        </Button>
+
+        {/* OCR Photo button */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handlePhotoCapture}
+          disabled={disabled || isOcrLoading}
+          className="gap-2"
+        >
+          {isOcrLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            <>
+              <ImageIcon className="w-4 h-4" />
+              Foto (IA)
             </>
           )}
         </Button>
@@ -203,14 +298,14 @@ export function MultiCodeScanner({
           {scannedCodes.size} lido(s)
         </Badge>
         
-        {validCount > 0 && (
+        {!standaloneMode && validCount > 0 && (
           <Badge variant="default" className="gap-1 bg-primary/90">
             <CheckCircle2 className="w-3 h-3" />
             {validCount} válido(s)
           </Badge>
         )}
         
-        {invalidCount > 0 && (
+        {!standaloneMode && invalidCount > 0 && (
           <Badge variant="outline" className="gap-1 border-status-waiting text-status-waiting">
             <AlertCircle className="w-3 h-3" />
             {invalidCount} não encontrado(s)
@@ -248,7 +343,7 @@ export function MultiCodeScanner({
         </div>
       )}
 
-      {/* Scanned codes list with validation status - can be hidden if parent manages display */}
+      {/* Scanned codes list with validation status */}
       {!hideCodeList && scannedCodes.size > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground font-medium">
