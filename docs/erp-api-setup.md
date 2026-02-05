@@ -1001,13 +1001,13 @@ Retorna todos os pedidos marcados para entrega na data especificada.
 
 ---
 
-### Listar Equipamentos Alocados ao Cliente (NOVO v2.6.0)
+### Listar Equipamentos Alocados ao Cliente
 ```
 GET /api/clients/:clientId/equipment
 Headers: X-API-KEY: sua_chave
 ```
 
-Retorna todos os equipamentos atualmente alocados (STATUS = 'OCUPADO') ao cliente.
+Retorna todos os equipamentos atualmente alocados (STATUS = 'ALOCADO') ao cliente.
 
 **Parâmetros:**
 - `clientId`: ID do cliente no ERP
@@ -1033,6 +1033,35 @@ Retorna todos os equipamentos atualmente alocados (STATUS = 'OCUPADO') ao client
 ```
 
 **Uso:** Exibir todos os equipamentos do cliente durante entrega/recolha para seleção de retorno.
+
+---
+
+### Consultar Equipamento por Patrimônio (NOVO v2.7.0)
+```
+GET /api/equipment/:patrimonio
+Headers: X-API-KEY: sua_chave
+```
+
+Retorna dados e status de um equipamento específico pelo número do patrimônio.
+
+**Parâmetros:**
+- `patrimonio`: Código do patrimônio do equipamento (ex: "B1004")
+
+**Resposta:**
+```json
+{
+  "equipment_id": 306,
+  "patrimony": "B1004",
+  "status": "ALOCADO",
+  "model": "Premium 2V",
+  "description": "CHOPEIRA 2 VIAS",
+  "type": "CHOPEIRA 2 VIAS",
+  "is_allocated": true,
+  "can_return": true
+}
+```
+
+**Uso:** Validação em tempo real durante scan de patrimônios para devolução standalone.
 
 ---
 
@@ -1103,7 +1132,7 @@ Body: { "statusId": 10 }
 ```
 
 Libera um equipamento após recolha, atualizando:
-1. `EQUIPAMENTOS.STATUS` → `'DISPONIVEL'`
+1. `EQUIPAMENTOS.STATUS` → `'DISPONÍVEL'` (com acento)
 2. `EQUIP_FATURAMENTOS.ID_STATUS` → `10` (RETORNADO)
 
 **Parâmetros:**
@@ -1116,8 +1145,8 @@ Libera um equipamento após recolha, atualizando:
   "success": true,
   "patrimonio": "B1004",
   "equipment_id": 306,
-  "previous_equip_status": "OCUPADO",
-  "new_equip_status": "DISPONIVEL",
+  "previous_equip_status": "ALOCADO",
+  "new_equip_status": "DISPONÍVEL",
   "previous_fat_status": 4,
   "new_fat_status": 10
 }
@@ -1136,7 +1165,8 @@ Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
 
 ## Versão
 
-**v2.6.0** - Adicionado endpoint `/api/clients/:clientId/equipment` para listar todos os equipamentos alocados ao cliente (com STATUS = 'OCUPADO' e não retornados).
+**v2.7.0** - Adicionado endpoint `GET /api/equipment/:patrimonio` para consulta de status por patrimônio. Corrigido filtro de status de 'OCUPADO' para 'ALOCADO'. Atualizado charset para WIN1252 e status para 'DISPONÍVEL' com acento.
+**v2.6.0** - Adicionado endpoint `/api/clients/:clientId/equipment` para listar todos os equipamentos alocados ao cliente.
 **v2.5.0** - Adicionado endpoint `/api/equipment/:patrimonio/release` para liberar equipamentos na recolha.
 **v2.4.0** - Adicionado endpoint `/api/orders/analytics` para dashboards de performance financeira.
 
@@ -1157,6 +1187,10 @@ Adicione as seguintes variáveis de ambiente no Supabase (Secrets):
 - Verificar se a coluna `ENTREGAR = 1` existe nos pedidos
 
 ### Endpoint de equipamentos do cliente retorna vazio
-- Verificar se o cliente possui equipamentos com `STATUS = 'OCUPADO'` na tabela EQUIPAMENTOS
+- Verificar se o cliente possui equipamentos com `STATUS = 'ALOCADO'` na tabela EQUIPAMENTOS
 - Verificar se existe registro em EQUIP_FATURAMENTOS com `ID_STATUS` diferente de 10 (RETORNADO)
-- Confirmar que os joins EQUIP_FATURAMENTOS → FATURAMENTO → ORDENS_VENDA estão corretos para o cliente
+- Confirmar que os joins EQUIP_FATURAMENTOS → FATURAMENTO estão corretos para o cliente
+
+### Caracteres acentuados corrompidos (ex: DISPONHVEL)
+- Verificar se o charset está configurado como `WIN1252` ou `ISO8859_1` nas opções de conexão Firebird
+- Garantir que o valor enviado usa o acento correto: `'DISPONÍVEL'`
