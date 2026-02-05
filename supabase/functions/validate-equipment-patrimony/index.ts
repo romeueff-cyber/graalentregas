@@ -63,6 +63,7 @@ serve(async (req) => {
     console.log(`[validate-equipment-patrimony] Validating patrimony: ${patrimonio}`);
 
     // Call ERP API endpoint to get equipment status
+    // NOTE: The ERP proxy MUST implement GET /api/equipment/:patrimonio for this to work.
     const response = await fetch(`${erpApiUrl}/api/equipment/${encodeURIComponent(patrimonio)}`, {
       method: 'GET',
       headers: {
@@ -74,15 +75,29 @@ serve(async (req) => {
     console.log(`[validate-equipment-patrimony] ERP API response status: ${response.status}`);
 
     if (response.status === 404) {
-      console.log(`[validate-equipment-patrimony] Equipment ${patrimonio} not found in ERP`);
+      // Important: The ERP proxy might be returning 404 because the route does not exist
+      // (e.g. Express default: "Cannot GET /api/equipment/..."), not necessarily because
+      // the equipment does not exist.
+      const text = await response.text().catch(() => '');
+      const looksLikeMissingRoute = /Cannot\s+GET\s+\/api\/equipment\//i.test(text);
+
+      const message = looksLikeMissingRoute
+        ? 'Servidor do ERP não possui a rota de consulta de equipamento. Atualize o proxy para implementar a consulta de status por patrimônio.'
+        : `Patrimônio ${patrimonio} não encontrado no sistema`;
+
+      console.log(
+        `[validate-equipment-patrimony] 404 for ${patrimonio}. missingRoute=${looksLikeMissingRoute}`,
+      );
+
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
+        JSON.stringify({
+          valid: false,
           patrimonio,
           status: null,
-          message: `Patrimônio ${patrimonio} não encontrado no sistema` 
+          reason: looksLikeMissingRoute ? 'missing_route' : 'not_found',
+          message,
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -103,8 +118,9 @@ serve(async (req) => {
     console.log('[validate-equipment-patrimony] Equipment data:', equipment);
 
     // Check if status is ALOCADO (only allocated equipment can be returned)
+    // Some older proxy implementations used 'OCUPADO' for allocated.
     const status = equipment.status?.toUpperCase() || equipment.STATUS?.toUpperCase();
-    const isAlocado = status === 'ALOCADO';
+    const isAlocado = status === 'ALOCADO' || status === 'OCUPADO';
 
     if (!isAlocado) {
       console.log(`[validate-equipment-patrimony] Equipment ${patrimonio} has status ${status}, not ALOCADO`);
