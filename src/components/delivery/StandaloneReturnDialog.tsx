@@ -15,6 +15,8 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { MultiCodeScanner } from './MultiCodeScanner';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
 
 interface StandaloneReturnDialogProps {
   open: boolean;
@@ -32,6 +34,7 @@ export function StandaloneReturnDialog({
   open,
   onOpenChange,
 }: StandaloneReturnDialogProps) {
+  const { user, profile } = useAuth();
   const [isConfirming, setIsConfirming] = useState(false);
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
   const [validatedCodes, setValidatedCodes] = useState<Map<string, ValidatedCode>>(new Map());
@@ -180,6 +183,17 @@ export function StandaloneReturnDialog({
             results.push({ code, success: false, message: data.warning || 'Erro ao atualizar' });
           } else {
             results.push({ code, success: true });
+            // Record history for successful returns
+            if (user) {
+              const userName = profile?.name || user.email || 'Usuário';
+              recordEquipmentHistory({
+                userId: user.id,
+                userName,
+                patrimony: code,
+                clientName: 'Devolução Avulsa',
+                actionType: HISTORY_ACTIONS.DEVOLUCAO,
+              });
+            }
           }
         } catch (err) {
           console.error(`[StandaloneReturnDialog] Exception for ${code}:`, err);

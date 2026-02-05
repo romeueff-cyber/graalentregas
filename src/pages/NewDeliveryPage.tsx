@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEquipments } from '@/hooks/useEquipments';
+import { useAuth } from '@/hooks/useAuth';
+import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
 import { useDailyOrders, type DailyOrderData } from '@/hooks/useDailyOrders';
 import { useDailyOrderLocations } from '@/hooks/useDailyOrderLocations';
 import { Button } from '@/components/ui/button';
@@ -61,6 +63,7 @@ export default function NewDeliveryPage() {
   const routeOrderLocation = locationState?.orderLocation ?? null;
   
   const { createEquipment } = useEquipments();
+  const { user, profile } = useAuth();
   const { orders: dailyOrders, isLoading: ordersLoading, hasGrowler, hasBarrel, hasChopeira, needsCollectionDate, shouldAutoCollect } = useDailyOrders();
   const { getOrderLocation } = useDailyOrderLocations();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -362,6 +365,24 @@ export default function NewDeliveryPage() {
         cliente_ira_avisar: clienteIraAvisar && !willAutoCollect,
         ...(willAutoCollect && { status: 'RECOLHIDO' as const }),
       });
+
+      // Record equipment history for each equipment with patrimony
+      if (user && selectedOrder?.equipments) {
+        const userName = profile?.name || user.email || 'Usuário';
+        for (const eq of selectedOrder.equipments) {
+          if (eq.patrimony) {
+            recordEquipmentHistory({
+              userId: user.id,
+              userName,
+              patrimony: eq.patrimony,
+              clientName: nomeCliente,
+              clientId: selectedOrder.client_id?.toString(),
+              actionType: HISTORY_ACTIONS.ENTREGA,
+              orderNumber: pedidoDia,
+            });
+          }
+        }
+      }
 
       // Update ERP status to ENTREGUE (ID 4) - fire and forget, don't block
       if (online) {

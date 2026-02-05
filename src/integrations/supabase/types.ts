@@ -83,6 +83,45 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_history: {
+        Row: {
+          action_type: string
+          client_id: string | null
+          client_name: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_number: string | null
+          patrimony: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action_type: string
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number?: string | null
+          patrimony: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          action_type?: string
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number?: string | null
+          patrimony?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       equipments: {
         Row: {
           cliente_ira_avisar: boolean
