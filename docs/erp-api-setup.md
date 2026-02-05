@@ -48,6 +48,7 @@ app.use(cors());
 app.use(express.json());
 
 // Configuração do Firebird
+// IMPORTANTE: charset deve ser WIN1252 ou ISO8859_1 para compatibilidade com acentos do ERP
 const fbOptions = {
   host: process.env.FIREBIRD_HOST || 'localhost',
   port: parseInt(process.env.FIREBIRD_PORT) || 3050,
@@ -56,7 +57,8 @@ const fbOptions = {
   password: process.env.FIREBIRD_PASSWORD || 'masterkey',
   lowercase_keys: false,
   role: null,
-  pageSize: 4096
+  pageSize: 4096,
+  charset: 'WIN1252'  // Charset para suporte a caracteres acentuados (DISPONÍVEL, etc.)
 };
 
 // Middleware de autenticação
@@ -739,16 +741,17 @@ app.put('/api/equipment/:patrimonio/release', authenticate, async (req, res) => 
     const equipmentId = equipResult[0].ID_EQUIPAMENTO;
     const previousEquipStatus = equipResult[0].STATUS;
     
-    // 2. Atualizar status na tabela EQUIPAMENTOS para DISPONIVEL
-    // IMPORTANTE: Usar exatamente 'DISPONIVEL' sem acentos para compatibilidade de charset com Firebird
+    // 2. Atualizar status na tabela EQUIPAMENTOS para DISPONÍVEL
+    // IMPORTANTE: Usar 'DISPONÍVEL' com acento para manter consistência com o ERP
+    // O charset da conexão (WIN1252 ou ISO8859_1) deve estar configurado corretamente
     const updateEquipQuery = `
       UPDATE EQUIPAMENTOS 
-      SET STATUS = 'DISPONIVEL', DATE_UPDATE = CURRENT_TIMESTAMP 
+      SET STATUS = 'DISPONÍVEL', DATE_UPDATE = CURRENT_TIMESTAMP 
       WHERE ID_EQUIPAMENTO = ?
     `;
     
     await executeQuery(updateEquipQuery, [equipmentId]);
-    console.log(`EQUIPAMENTOS.STATUS atualizado para DISPONIVEL (ID: ${equipmentId})`);
+    console.log(`EQUIPAMENTOS.STATUS atualizado para DISPONÍVEL (ID: ${equipmentId})`);
     
     // 3. Buscar o registro mais recente em EQUIP_FATURAMENTOS para este equipamento
     const fatQuery = `
@@ -784,7 +787,7 @@ app.put('/api/equipment/:patrimonio/release', authenticate, async (req, res) => 
       patrimonio: patrimonio,
       equipment_id: equipmentId,
       previous_equip_status: previousEquipStatus,
-      new_equip_status: 'DISPONIVEL',
+      new_equip_status: 'DISPONÍVEL',
       previous_fat_status: previousFatStatus,
       new_fat_status: statusId || 10
     });
