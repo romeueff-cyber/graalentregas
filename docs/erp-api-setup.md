@@ -576,6 +576,62 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
 });
 
 // ==========================================
+// CONSULTAR EQUIPAMENTO POR PATRIMÔNIO
+// Retorna status e dados do equipamento
+// ==========================================
+app.get('/api/equipment/:patrimonio', authenticate, async (req, res) => {
+  try {
+    const patrimonio = req.params.patrimonio;
+    
+    if (!patrimonio) {
+      return res.status(400).json({ error: 'patrimônio é obrigatório' });
+    }
+    
+    console.log(`Consultando equipamento: ${patrimonio}`);
+    
+    const query = `
+      SELECT 
+        e.ID_EQUIPAMENTO,
+        e.PATRIMONIO,
+        e.STATUS,
+        e.MODELO,
+        e.DESCRICAO,
+        te.DESCRICAO AS TIPO
+      FROM EQUIPAMENTOS e
+      LEFT JOIN TIPO_EQUIPAMENTO te ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
+      WHERE e.PATRIMONIO = ?
+        AND (e.DELETED IS NULL OR e.DELETED = 0)
+    `;
+    
+    const result = await executeQuery(query, [patrimonio]);
+    
+    if (!result || result.length === 0) {
+      return res.status(404).json({ error: 'Equipamento não encontrado' });
+    }
+    
+    const eq = result[0];
+    
+    // Verificar se está alocado (elegível para retorno)
+    const isAllocated = eq.STATUS === 'ALOCADO' || eq.STATUS === 'OCUPADO';
+    
+    res.json({
+      equipment_id: eq.ID_EQUIPAMENTO,
+      patrimony: eq.PATRIMONIO?.trim() || patrimonio,
+      status: eq.STATUS?.trim() || null,
+      model: eq.MODELO?.trim() || null,
+      description: eq.DESCRICAO?.trim() || null,
+      type: eq.TIPO?.trim() || null,
+      is_allocated: isAllocated,
+      can_return: isAllocated
+    });
+    
+  } catch (error) {
+    console.error('Erro ao consultar equipamento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
 // ATUALIZAR STATUS DO PEDIDO
 // ==========================================
 app.put('/api/orders/:orderNumber/status', authenticate, async (req, res) => {
