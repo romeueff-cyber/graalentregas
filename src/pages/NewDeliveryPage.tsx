@@ -252,6 +252,51 @@ export default function NewDeliveryPage() {
     getGPSLocation();
   }, [getGPSLocation]);
 
+  // Geocode address using Google Maps API
+  const geocodeAddress = useCallback(async (addressDetails: {
+    street?: string;
+    number?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+  }): Promise<{ lat: number; lng: number } | null> => {
+    const parts = [
+      addressDetails.street,
+      addressDetails.number,
+      addressDetails.neighborhood,
+      addressDetails.city,
+      addressDetails.state,
+      'Brasil',
+    ].filter(Boolean);
+
+    if (parts.length < 3) return null;
+
+    const addressString = parts.join(', ');
+
+    try {
+      if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+        const geocoder = new google.maps.Geocoder();
+        
+        return new Promise((resolve) => {
+          geocoder.geocode({ address: addressString }, (results, status) => {
+            if (status === 'OK' && results && results[0]) {
+              const location = results[0].geometry.location;
+              console.log(`Geocoded "${addressString}" to (${location.lat()}, ${location.lng()})`);
+              resolve({ lat: location.lat(), lng: location.lng() });
+            } else {
+              console.warn(`Geocoding failed for "${addressString}": ${status}`);
+              resolve(null);
+            }
+          });
+        });
+      }
+      return null;
+    } catch (err) {
+      console.error('Geocoding error:', err);
+      return null;
+    }
+  }, []);
+
   // Search order in ERP
   const searchOrderInERP = async () => {
     if (!pedidoDia.trim()) {
@@ -299,7 +344,28 @@ export default function NewDeliveryPage() {
         setObservacoes(data.observations);
       }
 
-      toast.success('Dados do pedido carregados do ERP!');
+      // Geocode the address from ERP data
+      // The proxy returns address_details with street, number, neighborhood, city, state
+      const addressDetails = data.address_details;
+      if (addressDetails && (addressDetails.street || addressDetails.city)) {
+        console.log('Attempting to geocode address from ERP:', addressDetails);
+        const coords = await geocodeAddress(addressDetails);
+        if (coords) {
+          setGpsLocation(coords);
+          setUsingOrderLocation(true);
+          toast.success('Dados e localização do pedido carregados do ERP!');
+        } else {
+          // Fallback to GPS if geocoding fails
+          toast.success('Dados do pedido carregados! Localização será obtida via GPS.');
+          getGPSLocation();
+        }
+      } else {
+        toast.success('Dados do pedido carregados do ERP!');
+        // No address, fallback to GPS
+        if (!gpsLocation) {
+          getGPSLocation();
+        }
+      }
     } catch (err) {
       console.error('Error searching ERP:', err);
       toast.error('Erro ao conectar com o ERP');
