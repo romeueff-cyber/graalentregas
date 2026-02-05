@@ -517,7 +517,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
 
 // ==========================================
 // LISTAR EQUIPAMENTOS ALOCADOS AO CLIENTE
-// Retorna todos os equipamentos com STATUS = 'OCUPADO'
+// Retorna todos os equipamentos com STATUS = 'ALOCADO'
 // que estão vinculados ao cliente via faturamento
 // ==========================================
 app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
@@ -530,10 +530,11 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
     
     console.log(`Buscando equipamentos alocados ao cliente: ${clientId}`);
     
-    // Busca todos os equipamentos OCUPADOS vinculados ao cliente
+    // Busca todos os equipamentos ALOCADOS vinculados ao cliente
     // via EQUIP_FATURAMENTOS → FATURAMENTO (que tem ID_CLIENTE diretamente!)
     // Exclui equipamentos já retornados (ID_STATUS = 10)
     // IMPORTANTE: FATURAMENTO.ID_CLIENTE é o link direto - não precisa passar por ORDENS_VENDA
+    // IMPORTANTE: O ERP usa 'ALOCADO' (não 'OCUPADO') para equipamentos alocados
     const query = `
       SELECT DISTINCT
         e.ID_EQUIPAMENTO,
@@ -546,7 +547,7 @@ app.get('/api/clients/:clientId/equipment', authenticate, async (req, res) => {
       INNER JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
       INNER JOIN FATURAMENTO f ON f.ID_FATURAMENTO = ef.ID_FATURAMENTO
       WHERE f.ID_CLIENTE = ?
-        AND e.STATUS = 'OCUPADO'
+        AND e.STATUS = 'ALOCADO'
         AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
         AND (e.DELETED IS NULL OR e.DELETED = 0)
         AND (ef.DELETED IS NULL OR ef.DELETED = 0)
