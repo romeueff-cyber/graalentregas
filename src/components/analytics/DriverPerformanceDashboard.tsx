@@ -2,13 +2,14 @@ import { useMemo } from 'react';
 import { KPICard } from './KPICard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Package, CheckCircle, Clock, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Users, Package, CheckCircle, Clock, Trophy, TrendingUp, TrendingDown, Minus, ArrowUpFromLine } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export interface DriverMetrics {
   userId: string;
   userName: string;
   totalDeliveries: number;
+  totalCollections: number;
   confirmationRate: number;
   avgCollectionDays: number;
   score: number;
@@ -34,6 +35,11 @@ export function DriverPerformanceDashboard({ driverMetrics, isLoading }: DriverP
 
   const totalDeliveries = useMemo(() => 
     driverMetrics.reduce((sum, d) => sum + d.totalDeliveries, 0),
+    [driverMetrics]
+  );
+
+  const totalCollections = useMemo(() => 
+    driverMetrics.reduce((sum, d) => sum + d.totalCollections, 0),
     [driverMetrics]
   );
 
@@ -93,7 +99,7 @@ export function DriverPerformanceDashboard({ driverMetrics, isLoading }: DriverP
   return (
     <div className="space-y-6">
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KPICard
           title="Entregadores Ativos"
           value={driverMetrics.length}
@@ -105,7 +111,12 @@ export function DriverPerformanceDashboard({ driverMetrics, isLoading }: DriverP
           icon={<Package className="w-5 h-5" />}
         />
         <KPICard
-          title="Taxa Confirmação Média"
+          title="Total Recolhas"
+          value={totalCollections}
+          icon={<ArrowUpFromLine className="w-5 h-5" />}
+        />
+        <KPICard
+          title="Taxa Confirmação"
           value={`${avgConfirmationRate}%`}
           icon={<CheckCircle className="w-5 h-5" />}
         />
@@ -174,16 +185,16 @@ export function DriverPerformanceDashboard({ driverMetrics, isLoading }: DriverP
                   <div>
                     <p className="font-medium text-sm">{driver.userName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {driver.totalDeliveries} entregas
+                      {driver.totalDeliveries} entregas • {driver.totalCollections} recolhas
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
-                  <div className="text-right">
+                  <div className="text-right hidden sm:block">
                     <p className="text-muted-foreground text-xs">Confirmação</p>
                     <p className="font-medium">{driver.confirmationRate}%</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right hidden sm:block">
                     <p className="text-muted-foreground text-xs">Tempo Médio</p>
                     <p className="font-medium">{driver.avgCollectionDays} dias</p>
                   </div>
@@ -199,9 +210,10 @@ export function DriverPerformanceDashboard({ driverMetrics, isLoading }: DriverP
           <div className="mt-4 pt-4 border-t text-xs text-muted-foreground">
             <p className="font-medium mb-1">Como a pontuação é calculada:</p>
             <ul className="list-disc list-inside space-y-0.5">
-              <li>Entregas (40%): Mais entregas = maior pontuação</li>
-              <li>Taxa de confirmação (30%): Clientes que confirmam via link</li>
-              <li>Tempo de recolha (30%): Menor tempo = maior pontuação</li>
+              <li>Entregas (30%): Mais entregas = maior pontuação</li>
+              <li>Recolhas (25%): Mais recolhas = maior pontuação</li>
+              <li>Taxa de confirmação (25%): Clientes que confirmam via link</li>
+              <li>Tempo de recolha (20%): Menor tempo = maior pontuação</li>
             </ul>
           </div>
         </CardContent>
