@@ -17,6 +17,8 @@ import { CheckCircle2, Package, AlertCircle, RefreshCw, AlertTriangle, SkipForwa
 import { useClientAllocatedEquipment, type ERPEquipment } from '@/hooks/useClientAllocatedEquipment';
 import { MultiCodeScanner } from './MultiCodeScanner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
 import { toast } from 'sonner';
 
 interface DeliveryEquipmentReturnDialogProps {
@@ -36,6 +38,7 @@ export function DeliveryEquipmentReturnDialog({
   clientId,
   onComplete,
 }: DeliveryEquipmentReturnDialogProps) {
+  const { user, profile } = useAuth();
   const [isConfirming, setIsConfirming] = useState(false);
   const [selectedPatrimonies, setSelectedPatrimonies] = useState<Set<string>>(new Set());
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
@@ -152,6 +155,7 @@ export function DeliveryEquipmentReturnDialog({
       const patrimoniesArray = Array.from(finalPatrimonies);
       
       for (const patrimony of patrimoniesArray) {
+        // Update ERP status
         const { error } = await supabase.functions.invoke('update-erp-equipment-status', {
           body: { patrimonio: patrimony, orderNumber: orderNumber }
         });
@@ -159,6 +163,19 @@ export function DeliveryEquipmentReturnDialog({
         if (error) {
           console.error(`[DeliveryEquipmentReturnDialog] Error updating ${patrimony}:`, error);
           toast.error(`Erro ao atualizar patrimônio ${patrimony}`);
+        } else {
+          // Record in equipment history
+          if (user && profile) {
+            await recordEquipmentHistory({
+              userId: user.id,
+              userName: profile.name || user.email || 'Usuário',
+              patrimony: patrimony,
+              clientName: clientName,
+              clientId: clientId?.toString(),
+              actionType: HISTORY_ACTIONS.DEVOLUCAO,
+              orderNumber: orderNumber,
+            });
+          }
         }
       }
 
