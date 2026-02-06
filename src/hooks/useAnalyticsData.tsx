@@ -30,6 +30,7 @@ export interface DriverMetrics {
   userId: string;
   userName: string;
   totalDeliveries: number;
+  totalCollections: number;
   confirmationRate: number;
   avgCollectionDays: number;
   score: number;
@@ -120,6 +121,21 @@ export function useAnalyticsData(days: number = 7) {
       const { data, error } = await supabase
         .from('hygiene_services')
         .select('*')
+        .gte('created_at', startDate.toISOString());
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch equipment history for collections tracking
+  const { data: equipmentHistory = [], isLoading: loadingEquipmentHistory } = useQuery({
+    queryKey: ['analytics-equipment-history', days],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipment_history')
+        .select('*')
+        .eq('action_type', 'DEVOLUCAO')
         .gte('created_at', startDate.toISOString());
       
       if (error) throw error;
@@ -291,28 +307,47 @@ export function useAnalyticsData(days: number = 7) {
     // Group equipments by driver (created_by_user_id)
     const driverMap = new Map<string, {
       deliveries: typeof equipments;
+      collections: number;
       name: string;
     }>();
 
+    // Process deliveries
     equipments.forEach(e => {
       const userId = e.created_by_user_id;
       if (!driverMap.has(userId)) {
         const profile = profiles.find(p => p.id === userId);
         driverMap.set(userId, {
           deliveries: [],
+          collections: 0,
           name: profile?.name || profile?.email || 'Desconhecido',
         });
       }
       driverMap.get(userId)!.deliveries.push(e);
     });
 
+    // Process collections from equipment_history
+    equipmentHistory.forEach(h => {
+      const userId = h.user_id;
+      if (!driverMap.has(userId)) {
+        const profile = profiles.find(p => p.id === userId);
+        driverMap.set(userId, {
+          deliveries: [],
+          collections: 0,
+          name: profile?.name || h.user_name || 'Desconhecido',
+        });
+      }
+      driverMap.get(userId)!.collections++;
+    });
+
     // Calculate metrics for each driver
     const metrics: DriverMetrics[] = [];
     const maxDeliveries = Math.max(...Array.from(driverMap.values()).map(d => d.deliveries.length), 1);
+    const maxCollections = Math.max(...Array.from(driverMap.values()).map(d => d.collections), 1);
 
     driverMap.forEach((data, userId) => {
       const deliveries = data.deliveries;
       const totalDeliveries = deliveries.length;
+      const totalCollections = data.collections;
 
       // Confirmation rate
       const withTokens = deliveries.filter(e => e.confirmation_token);
@@ -336,20 +371,22 @@ export function useAnalyticsData(days: number = 7) {
         : 0;
 
       // Calculate score (0-100)
-      // 40% entregas, 30% confirmação, 30% tempo recolha (invertido)
-      const deliveryScore = (totalDeliveries / maxDeliveries) * 40;
-      const confirmationScore = (confirmationRate / 100) * 30;
-      // For collection time, lower is better. Assume 7 days is baseline
-      const collectionScore = avgCollectionDays > 0 
-        ? Math.max(0, (1 - avgCollectionDays / 14)) * 30 
-        : 15; // Default if no data
+      // 30% entregas, 25% recolhas, 25% confirmação, 20% tempo recolha (invertido)
+      const deliveryScore = (totalDeliveries / maxDeliveries) * 30;
+      const collectionScore = maxCollections > 0 ? (totalCollections / maxCollections) * 25 : 0;
+      const confirmationScore = (confirmationRate / 100) * 25;
+      // For collection time, lower is better. Assume 14 days is baseline
+      const timeScore = avgCollectionDays > 0 
+        ? Math.max(0, (1 - avgCollectionDays / 14)) * 20 
+        : 10; // Default if no data
 
-      const score = Math.round(deliveryScore + confirmationScore + collectionScore);
+      const score = Math.round(deliveryScore + collectionScore + confirmationScore + timeScore);
 
       metrics.push({
         userId,
         userName: data.name,
         totalDeliveries,
+        totalCollections,
         confirmationRate,
         avgCollectionDays,
         score,
@@ -357,7 +394,7 @@ export function useAnalyticsData(days: number = 7) {
     });
 
     return metrics.sort((a, b) => b.score - a.score);
-  }, [equipments, profiles]);
+  }, [equipments, equipmentHistory, profiles]);
 
   // Calculate client metrics
   const clientMetrics: ClientMetrics = useMemo(() => {
@@ -442,7 +479,7 @@ export function useAnalyticsData(days: number = 7) {
   }, [equipments, allEquipments]);
 
   const isLoading = loadingEquipments || loadingAllEquipments || 
-    loadingHygieneClients || loadingHygieneEquipment || loadingHygieneServices || loadingProfiles;
+    loadingHygieneClients || loadingHygieneEquipment || loadingHygieneServices || loadingProfiles || loadingEquipmentHistory;
 
   return {
     deliveryMetrics,
