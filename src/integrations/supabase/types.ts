@@ -333,6 +333,51 @@ export type Database = {
           },
         ]
       }
+      label_templates: {
+        Row: {
+          columns: number
+          created_at: string
+          created_by_user_id: string
+          elements: Json
+          gap_horizontal_mm: number
+          gap_vertical_mm: number
+          height_mm: number
+          id: string
+          name: string
+          type: string
+          updated_at: string
+          width_mm: number
+        }
+        Insert: {
+          columns?: number
+          created_at?: string
+          created_by_user_id: string
+          elements?: Json
+          gap_horizontal_mm?: number
+          gap_vertical_mm?: number
+          height_mm?: number
+          id?: string
+          name: string
+          type: string
+          updated_at?: string
+          width_mm?: number
+        }
+        Update: {
+          columns?: number
+          created_at?: string
+          created_by_user_id?: string
+          elements?: Json
+          gap_horizontal_mm?: number
+          gap_vertical_mm?: number
+          height_mm?: number
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string
+          width_mm?: number
+        }
+        Relationships: []
+      }
       optimized_routes: {
         Row: {
           color: string
