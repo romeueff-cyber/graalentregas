@@ -34,6 +34,7 @@ import {
   BarChart3,
   MapPin,
   PackageOpen,
+  Tag,
 } from 'lucide-react';
 import {
   Sheet,
@@ -346,6 +347,17 @@ export default function MainMapPage() {
                   >
                     <Route className="w-5 h-5" />
                     Otimização de Rotas
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/etiquetas');
+                    }}
+                  >
+                    <Tag className="w-5 h-5" />
+                    Etiquetas
                   </Button>
                   <Button
                     variant="ghost"
