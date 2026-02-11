@@ -92,13 +92,17 @@ export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDia
     for (let i = 0; i < copies; i++) {
       const elHtml = template.elements.map(el => {
         const resolved = resolveContent(el.content || '', printData);
+        // Scale font size proportionally to label physical size
+        // Base reference: 10pt looks good on ~50mm wide label
+        const fontScale = Math.min(widthMm, heightMm * 3) / 50;
+        const scaledFontSize = ((el.fontSize || 10) * fontScale).toFixed(1);
         const style = `
           position: absolute;
           left: ${el.x}%;
           top: ${el.y}%;
           width: ${el.width}%;
           height: ${el.height}%;
-          font-size: ${el.fontSize || 10}pt;
+          font-size: ${scaledFontSize}pt;
           font-weight: ${el.fontWeight || 'normal'};
           text-align: ${el.textAlign || 'center'};
           ${el.rotation ? `transform: rotate(${el.rotation}deg);` : ''}
