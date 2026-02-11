@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { getAppVersion } from '@/components/PWAUpdateBanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -290,7 +291,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Versão</span>
-              <span>1.0.0</span>
+              <span>{getAppVersion()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Sistema</span>
