@@ -151,7 +151,7 @@ export function LabelEditorCanvas({ template, elements, onElementsChange, printD
       top: `${el.y}%`,
       width: `${el.width}%`,
       height: `${el.height}%`,
-      fontSize: el.fontSize ? `${el.fontSize}px` : undefined,
+      fontSize: el.fontSize ? `${el.fontSize * (scale / 3)}px` : undefined,
       fontWeight: el.fontWeight,
       textAlign: el.textAlign as any,
       transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
