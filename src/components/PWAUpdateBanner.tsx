@@ -2,16 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, X } from 'lucide-react';
 
-// App version - increment this on each meaningful release
-const APP_VERSION = '1.0.0';
-const BUILD_TIME = new Date().toISOString();
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - injected by Vite define
+const APP_BUILD_ID: string = __APP_BUILD_ID__;
 
 export function getAppVersion() {
-  return APP_VERSION;
-}
-
-export function getBuildTime() {
-  return BUILD_TIME;
+  return APP_BUILD_ID;
 }
 
 export function PWAUpdateBanner() {
@@ -21,14 +17,11 @@ export function PWAUpdateBanner() {
 
   const checkForUpdate = useCallback(async () => {
     try {
-      // Check if service worker has a waiting update
       const registration = await navigator.serviceWorker?.getRegistration();
       if (registration?.waiting) {
         setUpdateAvailable(true);
         return;
       }
-
-      // Trigger a manual update check
       if (registration) {
         await registration.update();
         if (registration.waiting) {
@@ -41,15 +34,11 @@ export function PWAUpdateBanner() {
   }, []);
 
   useEffect(() => {
-    // Listen for service worker updates
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
-        // Check for waiting worker on load
         if (registration.waiting) {
           setUpdateAvailable(true);
         }
-
-        // Listen for new workers
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (newWorker) {
@@ -62,7 +51,6 @@ export function PWAUpdateBanner() {
         });
       });
 
-      // Listen for controller change (update applied)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (isUpdating) {
           window.location.reload();
@@ -70,10 +58,7 @@ export function PWAUpdateBanner() {
       });
     }
 
-    // Periodic check every 2 minutes
     const interval = setInterval(checkForUpdate, 2 * 60 * 1000);
-    
-    // Also check on focus (user returns to app)
     const onFocus = () => checkForUpdate();
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', () => {
@@ -93,7 +78,6 @@ export function PWAUpdateBanner() {
       if (registration?.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
-        // Force reload if no waiting worker
         window.location.reload();
       }
     } catch {
