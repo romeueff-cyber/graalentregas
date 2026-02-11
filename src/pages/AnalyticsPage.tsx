@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
     ? differenceInDays(dateRange.to, dateRange.from) + 1
     : parseInt(periodType);
 
-  const { deliveryMetrics, hygieneMetrics, driverMetrics, clientMetrics, isLoading } = useAnalyticsData(days);
+  const { deliveryMetrics, hygieneMetrics, driverMetrics, clientMetrics, allEquipments, equipmentHistory, isLoading } = useAnalyticsData(days);
 
 
   const handleRefresh = async () => {
@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           <TabsContent value="clientes">
-            <ClientsDashboard metrics={clientMetrics} days={days} />
+            <ClientsDashboard metrics={clientMetrics} days={days} localEquipments={allEquipments} equipmentHistory={equipmentHistory} />
           </TabsContent>
 
           <TabsContent value="entregadores">
