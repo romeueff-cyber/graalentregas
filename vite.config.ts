@@ -7,7 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
-    __APP_BUILD_ID__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')),
+    __APP_BUILD_ID__: JSON.stringify(`1.0.${Math.floor(Date.now() / 1000)}`),
   },
   server: {
     host: "::",
