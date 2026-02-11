@@ -486,6 +486,8 @@ export function useAnalyticsData(days: number = 7) {
     hygieneMetrics,
     driverMetrics,
     clientMetrics,
+    allEquipments,
+    equipmentHistory,
     isLoading,
   };
 }
