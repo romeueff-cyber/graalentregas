@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import type { LabelTemplate, LabelElement, PrintData } from '@/types/labels';
+import type { LabelTemplate, LabelElement, PrintData, LabelTemplateType } from '@/types/labels';
+import { PLACEHOLDERS } from '@/types/labels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,8 +29,16 @@ export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDia
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Determine placeholders used in this template
+  // Determine placeholders: from elements + from template type definition
   const placeholders = new Set<string>();
+  // Always include all placeholders defined for this template type
+  const templateType = (template.type || 'patrimonio') as LabelTemplateType;
+  const typePlaceholders = PLACEHOLDERS[templateType] || [];
+  typePlaceholders.forEach(p => {
+    const match = p.value.match(/\{\{(\w+)\}\}/);
+    if (match) placeholders.add(match[1]);
+  });
+  // Also scan elements for any additional custom placeholders
   template.elements.forEach(el => {
     const matches = (el.content || '').matchAll(/\{\{(\w+)\}\}/g);
     for (const m of matches) placeholders.add(m[1]);
@@ -96,6 +105,9 @@ export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDia
           return `<div style="${style}"><img src="${src}" style="width:100%;height:100%;object-fit:contain;" /></div>`;
         }
         if (el.type === 'logo') {
+          if (el.content) {
+            return `<div style="${style}"><img src="${el.content}" style="width:100%;height:100%;object-fit:contain;" /></div>`;
+          }
           return `<div style="${style}; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 8pt; color: #999;">Logo</div>`;
         }
         return `<div style="${style}">${resolved}</div>`;
@@ -211,6 +223,7 @@ export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDia
 
                 if (el.type === 'line') return <div key={el.id} style={{ ...style, borderBottom: '1px solid black', height: 0 }} />;
                 if (el.type === 'qrcode' && qrDataUrls[el.id]) return <div key={el.id} style={style}><img src={qrDataUrls[el.id]} className="w-full h-full object-contain" /></div>;
+                if (el.type === 'logo' && el.content) return <div key={el.id} style={style}><img src={el.content} className="w-full h-full object-contain" alt="Logo" /></div>;
                 if (el.type === 'logo') return <div key={el.id} style={style} className="border border-dashed text-[8px] text-muted-foreground flex items-center justify-center">Logo</div>;
                 return <div key={el.id} style={style}><span className="truncate">{resolved || el.label}</span></div>;
               })}

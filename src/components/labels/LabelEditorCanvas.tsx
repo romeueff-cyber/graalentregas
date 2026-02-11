@@ -36,12 +36,27 @@ export function LabelEditorCanvas({ template, elements, onElementsChange, printD
   const widthMm = template.width_mm || 50;
   const heightMm = template.height_mm || 30;
 
-  // Scale: 3px per mm for editor display
-  const scale = 3;
+  // Scale dynamically so the canvas is always at least 400px wide for readability
+  const minCanvasWidth = 400;
+  const scale = Math.max(3, minCanvasWidth / widthMm);
   const canvasWidth = widthMm * scale;
   const canvasHeight = heightMm * scale;
 
   const selectedElement = elements.find(el => el.id === selectedId) || null;
+
+  const updateElement = useCallback((id: string, updates: Partial<LabelElement>) => {
+    onElementsChange(elements.map(el => el.id === id ? { ...el, ...updates } : el));
+  }, [elements, onElementsChange]);
+
+  // Logo upload handler
+  const handleLogoUpload = useCallback((id: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      updateElement(id, { content: dataUrl });
+    };
+    reader.readAsDataURL(file);
+  }, [updateElement]);
 
   const addElement = useCallback((type: LabelElement['type']) => {
     const newEl: LabelElement = {
@@ -60,10 +75,6 @@ export function LabelEditorCanvas({ template, elements, onElementsChange, printD
     };
     onElementsChange([...elements, newEl]);
     setSelectedId(newEl.id);
-  }, [elements, onElementsChange]);
-
-  const updateElement = useCallback((id: string, updates: Partial<LabelElement>) => {
-    onElementsChange(elements.map(el => el.id === id ? { ...el, ...updates } : el));
   }, [elements, onElementsChange]);
 
   const removeElement = useCallback((id: string) => {
@@ -208,7 +219,11 @@ export function LabelEditorCanvas({ template, elements, onElementsChange, printD
           onTouchStart={e => handleTouchStart(e, el)}
           onClick={() => setSelectedId(el.id)}
         >
-          <Image className="w-6 h-6 text-muted-foreground" />
+          {el.content ? (
+            <img src={el.content} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            <Image className="w-6 h-6 text-muted-foreground" />
+          )}
         </div>
       );
     }
@@ -270,14 +285,32 @@ export function LabelEditorCanvas({ template, elements, onElementsChange, printD
         <h4 className="text-sm font-semibold">Propriedades</h4>
         {selectedElement ? (
           <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Conteúdo</Label>
-              <Input
-                value={selectedElement.content || ''}
-                onChange={e => updateElement(selectedElement.id, { content: e.target.value })}
-                className="h-8 text-sm"
-              />
-            </div>
+            {selectedElement.type === 'logo' ? (
+              <div>
+                <Label className="text-xs">Imagem do Logo</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  className="h-8 text-sm"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleLogoUpload(selectedElement.id, file);
+                  }}
+                />
+                {selectedElement.content && (
+                  <img src={selectedElement.content} alt="Preview" className="mt-2 max-h-16 object-contain border rounded" />
+                )}
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Conteúdo</Label>
+                <Input
+                  value={selectedElement.content || ''}
+                  onChange={e => updateElement(selectedElement.id, { content: e.target.value })}
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
 
             {/* Placeholders */}
             <div>
