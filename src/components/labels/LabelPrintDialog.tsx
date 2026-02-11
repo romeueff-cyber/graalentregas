@@ -24,10 +24,23 @@ function resolveContent(content: string, data: Record<string, string>): string {
 }
 
 export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDialogProps) {
+  const storageKey = `label-print-data-${template.id}`;
   const [copies, setCopies] = useState(1);
-  const [printData, setPrintData] = useState<Record<string, string>>({});
+  const [printData, setPrintData] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Persist print data to localStorage
+  useEffect(() => {
+    if (Object.keys(printData).length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(printData));
+    }
+  }, [printData, storageKey]);
 
   // Determine placeholders: from elements + from template type definition
   const placeholders = new Set<string>();
