@@ -25,6 +25,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { FinanceiroLegend } from '@/components/financeiro/FinanceiroLegend';
 import { ManualBoletoDialog } from '@/components/financeiro/ManualBoletoDialog';
 import { useBoletos } from '@/hooks/useBoletos';
+import { useBoleto } from '@/hooks/useBoleto';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   ArrowLeft, 
@@ -68,6 +69,10 @@ export default function FinanceiroPage() {
   const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
   const [selectedBoletoId, setSelectedBoletoId] = useState<string | null>(null);
   const [manualBoletoDialogOpen, setManualBoletoDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelOrderNumber, setCancelOrderNumber] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const { cancelBoleto } = useBoleto();
 
   // Helper function for overdue check
   const isOverdueCheck = (dueDate: string, status: string) => {
@@ -176,6 +181,26 @@ export default function FinanceiroPage() {
     } catch (error) {
       console.error('Sync error:', error);
       toast.error('Erro ao sincronizar com a Cora');
+    }
+  };
+
+  const handleCancelClick = (orderNumber: string) => {
+    setCancelOrderNumber(orderNumber);
+    setCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelOrderNumber) return;
+    setIsCancelling(true);
+    try {
+      const success = await cancelBoleto(cancelOrderNumber);
+      if (success) {
+        refetch();
+      }
+    } finally {
+      setIsCancelling(false);
+      setCancelDialogOpen(false);
+      setCancelOrderNumber(null);
     }
   };
 
@@ -531,6 +556,17 @@ export default function FinanceiroPage() {
                                 <span className="hidden sm:inline">Conciliar</span>
                               </Button>
                             )}
+                            {boleto.status.toUpperCase() !== 'PAID' && boleto.status.toUpperCase() !== 'CANCELLED' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                onClick={() => handleCancelClick(boleto.order_number)}
+                                title="Cancelar boleto"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            )}
                             {boleto.digitable_line && (
                               <Button
                                 variant="ghost"
@@ -585,6 +621,35 @@ export default function FinanceiroPage() {
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Confirmar Conciliação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar Boleto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar o(s) boleto(s) do pedido <strong>#{cancelOrderNumber}</strong>?
+              O boleto será cancelado na Cora e o status será atualizado para "Cancelado". 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmCancel}
+              disabled={isCancelling}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isCancelling ? (
+                <LoadingSpinner className="w-4 h-4 mr-2" />
+              ) : (
+                <Ban className="w-4 h-4 mr-2" />
+              )}
+              Confirmar Cancelamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
