@@ -1,12 +1,15 @@
 import localforage from 'localforage';
 import { supabase } from '@/integrations/supabase/client';
 
+export type VisitType = 'ENTREGA' | 'DEVOLUCAO';
+
 export interface VisitAttempt {
   id: string;
   userId: string;
   userName: string;
   clientName: string;
   orderNumber?: string;
+  visitType: VisitType;
   reason: string;
   notes?: string;
   latitude: number;
@@ -48,6 +51,7 @@ export async function syncVisits(): Promise<number> {
     user_name: v.userName,
     client_name: v.clientName,
     order_number: v.orderNumber || null,
+    visit_type: v.visitType,
     reason: v.reason,
     notes: v.notes || null,
     latitude: v.latitude,

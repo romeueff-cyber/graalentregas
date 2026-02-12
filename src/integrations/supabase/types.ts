@@ -632,6 +632,7 @@ export type Database = {
           synced_at: string | null
           user_id: string
           user_name: string
+          visit_type: string
         }
         Insert: {
           accuracy?: number | null
@@ -647,6 +648,7 @@ export type Database = {
           synced_at?: string | null
           user_id: string
           user_name: string
+          visit_type?: string
         }
         Update: {
           accuracy?: number | null
@@ -662,6 +664,7 @@ export type Database = {
           synced_at?: string | null
           user_id?: string
           user_name?: string
+          visit_type?: string
         }
         Relationships: []
       }
