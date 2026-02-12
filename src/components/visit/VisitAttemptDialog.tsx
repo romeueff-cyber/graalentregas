@@ -11,12 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Loader2, WifiOff, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { enqueueVisit, type VisitAttempt, type VisitType } from '@/lib/visit-queue';
+import { enqueueVisit, type VisitAttempt } from '@/lib/visit-queue';
 import { Badge } from '@/components/ui/badge';
 
 const REASONS = [
@@ -36,7 +35,6 @@ export function VisitAttemptDialog({ open, onOpenChange }: VisitAttemptDialogPro
   const { user, profile } = useAuth();
   const [clientName, setClientName] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
-  const [visitType, setVisitType] = useState<VisitType>('ENTREGA');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number | null } | null>(null);
@@ -51,7 +49,6 @@ export function VisitAttemptDialog({ open, onOpenChange }: VisitAttemptDialogPro
     // Reset form
     setClientName('');
     setOrderNumber('');
-    setVisitType('ENTREGA');
     setReason('');
     setNotes('');
   }, [open]);
@@ -92,7 +89,6 @@ export function VisitAttemptDialog({ open, onOpenChange }: VisitAttemptDialogPro
       userName: profile?.name || user.email || 'Desconhecido',
       clientName: clientName.trim().toUpperCase(),
       orderNumber: orderNumber.trim() || undefined,
-      visitType,
       reason,
       notes: notes.trim() || undefined,
       latitude: gps.lat,
@@ -109,7 +105,6 @@ export function VisitAttemptDialog({ open, onOpenChange }: VisitAttemptDialogPro
           user_name: visit.userName,
           client_name: visit.clientName,
           order_number: visit.orderNumber || null,
-          visit_type: visit.visitType,
           reason: visit.reason,
           notes: visit.notes || null,
           latitude: visit.latitude,
@@ -174,17 +169,6 @@ export function VisitAttemptDialog({ open, onOpenChange }: VisitAttemptDialogPro
                 Offline
               </Badge>
             )}
-          </div>
-
-          {/* Visit Type */}
-          <div className="space-y-2">
-            <Label>Tipo de Visita *</Label>
-            <Tabs value={visitType} onValueChange={(v) => setVisitType(v as VisitType)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="ENTREGA" className="flex-1">🚚 Entrega</TabsTrigger>
-                <TabsTrigger value="DEVOLUCAO" className="flex-1">📦 Devolução</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
 
           {/* Client Name */}
