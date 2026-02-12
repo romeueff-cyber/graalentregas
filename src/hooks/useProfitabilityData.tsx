@@ -123,15 +123,15 @@ export function useProfitabilityData() {
     return map;
   }, [deliveries]);
 
-  // Build all movements
+  // Build all movements, deduplicating same client+driver+day into one stop
   const allMovements: Movement[] = useMemo(() => {
-    const movements: Movement[] = [];
+    const rawMovements: Movement[] = [];
 
     // Deliveries
     deliveries.forEach(d => {
       if (!d.data_entrega || !d.latitude || !d.longitude) return;
       const profile = profiles.find(p => p.id === d.created_by_user_id);
-      movements.push({
+      rawMovements.push({
         clientName: d.nome_cliente.trim().toUpperCase(),
         timestamp: new Date(d.data_entrega),
         lat: d.latitude,
@@ -146,9 +146,9 @@ export function useProfitabilityData() {
     collections.forEach(c => {
       const clientKey = c.client_name.trim().toUpperCase();
       const coords = clientCoords.get(clientKey);
-      if (!coords) return; // Skip if no coordinates found
+      if (!coords) return;
       
-      movements.push({
+      rawMovements.push({
         clientName: clientKey,
         timestamp: new Date(c.created_at),
         lat: coords.lat,
@@ -159,7 +159,17 @@ export function useProfitabilityData() {
       });
     });
 
-    return movements;
+    // Deduplicate: same client + driver + day + type = one single stop
+    const seen = new Map<string, Movement>();
+    rawMovements.forEach(m => {
+      const key = `${m.clientName}|${m.driverId}|${format(m.timestamp, 'yyyy-MM-dd')}|${m.type}`;
+      const existing = seen.get(key);
+      if (!existing || m.timestamp < existing.timestamp) {
+        seen.set(key, m); // keep earliest timestamp
+      }
+    });
+
+    return Array.from(seen.values());
   }, [deliveries, collections, clientCoords, profiles]);
 
   // Calculate costs per client using real movement sequences
