@@ -617,6 +617,54 @@ export type Database = {
         }
         Relationships: []
       }
+      visit_attempts: {
+        Row: {
+          accuracy: number | null
+          captured_at: string
+          client_name: string
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          notes: string | null
+          order_number: string | null
+          reason: string
+          synced_at: string | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          accuracy?: number | null
+          captured_at: string
+          client_name: string
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          notes?: string | null
+          order_number?: string | null
+          reason: string
+          synced_at?: string | null
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          accuracy?: number | null
+          captured_at?: string
+          client_name?: string
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          notes?: string | null
+          order_number?: string | null
+          reason?: string
+          synced_at?: string | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
