@@ -17,6 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
+import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { offlineReturnQueue } from '@/lib/offline-return-queue';
 
 interface ERPEquipment {
   type: string;
@@ -64,12 +66,18 @@ export function CollectionConfirmDialog({
     setEquipments([]);
     setSelectedPatrimonies(new Set());
 
+    // If offline, show message allowing manual patrimony entry
+    if (!checkOnline()) {
+      setIsLoading(false);
+      setError('Sem conexão — não é possível buscar equipamentos do ERP. Use a devolução avulsa com scanner para registrar offline.');
+      return;
+    }
+
     try {
       console.log(`[CollectionConfirmDialog] Fetching equipment for client ${clientId || 'via order ' + orderNumber}`);
       
       let allEquipments: ERPEquipment[] = [];
 
-      // If we have clientId, try to fetch all client equipment first
       if (clientId) {
         try {
           const { data: clientData, error: clientError } = await supabase.functions.invoke(
@@ -85,11 +93,9 @@ export function CollectionConfirmDialog({
           }
         } catch (clientErr) {
           console.error('[CollectionConfirmDialog] Error fetching client equipment:', clientErr);
-          // Continue to fallback
         }
       }
 
-      // Always fallback to order-based fetch if no equipment found
       if (allEquipments.length === 0) {
         console.log('[CollectionConfirmDialog] Using order-based fallback for equipment');
         const { data, error: fetchError } = await supabase.functions.invoke(
@@ -111,8 +117,6 @@ export function CollectionConfirmDialog({
       }
       
       setEquipments(allEquipments);
-      
-      // Start with no items selected - driver must explicitly select what's being returned
       setSelectedPatrimonies(new Set());
 
     } catch (err) {

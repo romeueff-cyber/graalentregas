@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useEquipments } from '@/hooks/useEquipments';
@@ -14,6 +14,7 @@ import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { SprayCanIcon } from '@/components/icons';
 import { StandaloneReturnDialog } from '@/components/delivery/StandaloneReturnDialog';
 import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
+import { useOfflineReturnSync } from '@/hooks/useOfflineReturnSync';
 import {
   Plus,
   Menu,
@@ -67,6 +68,7 @@ export default function MainMapPage() {
   const { orders: dailyOrders, locations: dailyOrderLocations, ordersWithoutLocation, getOrderLocation } = useDailyOrderLocations();
   const { summary: hygieneSummary, mapLocations: hygieneMapLocations } = useHygieneClients();
   const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
+  useOfflineReturnSync();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);

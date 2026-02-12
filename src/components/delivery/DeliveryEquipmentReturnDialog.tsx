@@ -20,6 +20,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
 import { toast } from 'sonner';
+import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { offlineReturnQueue } from '@/lib/offline-return-queue';
 
 interface DeliveryEquipmentReturnDialogProps {
   open: boolean;
@@ -153,33 +155,75 @@ export function DeliveryEquipmentReturnDialog({
     setIsConfirming(true);
     try {
       const patrimoniesArray = Array.from(finalPatrimonies);
+      const isCurrentlyOnline = checkOnline();
       
       for (const patrimony of patrimoniesArray) {
-        // Update ERP status
+        if (!isCurrentlyOnline) {
+          // Queue for offline sync
+          await offlineReturnQueue.add({
+            id: crypto.randomUUID(),
+            patrimony,
+            clientName,
+            clientId: clientId?.toString(),
+            orderNumber,
+            userId: user?.id || '',
+            userName: profile?.name || user?.email || 'Usuário',
+            timestamp: new Date().toISOString(),
+            type: 'delivery',
+          });
+          
+          if (user && profile) {
+            await recordEquipmentHistory({
+              userId: user.id,
+              userName: profile.name || user.email || 'Usuário',
+              patrimony,
+              clientName,
+              clientId: clientId?.toString(),
+              actionType: HISTORY_ACTIONS.DEVOLUCAO,
+              orderNumber,
+              notes: 'Registrado offline - pendente sincronização ERP',
+            });
+          }
+          continue;
+        }
+
+        // Online: update ERP
         const { error } = await supabase.functions.invoke('update-erp-equipment-status', {
           body: { patrimonio: patrimony, orderNumber: orderNumber }
         });
 
         if (error) {
           console.error(`[DeliveryEquipmentReturnDialog] Error updating ${patrimony}:`, error);
-          toast.error(`Erro ao atualizar patrimônio ${patrimony}`);
+          // Queue for later sync on error
+          await offlineReturnQueue.add({
+            id: crypto.randomUUID(),
+            patrimony,
+            clientName,
+            clientId: clientId?.toString(),
+            orderNumber,
+            userId: user?.id || '',
+            userName: profile?.name || user?.email || 'Usuário',
+            timestamp: new Date().toISOString(),
+            type: 'delivery',
+          });
+          toast.warning(`${patrimony} salvo para sincronizar depois`);
         } else {
-          // Record in equipment history
           if (user && profile) {
             await recordEquipmentHistory({
               userId: user.id,
               userName: profile.name || user.email || 'Usuário',
-              patrimony: patrimony,
-              clientName: clientName,
+              patrimony,
+              clientName,
               clientId: clientId?.toString(),
               actionType: HISTORY_ACTIONS.DEVOLUCAO,
-              orderNumber: orderNumber,
+              orderNumber,
             });
           }
         }
       }
 
-      toast.success(`${patrimoniesArray.length} equipamento(s) marcado(s) como retornado(s)`);
+      const offlineMsg = !isCurrentlyOnline ? ' (pendente sincronização)' : '';
+      toast.success(`${patrimoniesArray.length} equipamento(s) marcado(s) como retornado(s)${offlineMsg}`);
       onComplete();
       onOpenChange(false);
     } catch (err) {
