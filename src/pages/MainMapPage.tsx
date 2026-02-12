@@ -15,6 +15,7 @@ import { SprayCanIcon } from '@/components/icons';
 import { StandaloneReturnDialog } from '@/components/delivery/StandaloneReturnDialog';
 import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 import { useOfflineReturnSync } from '@/hooks/useOfflineReturnSync';
+import { usePendingReturns } from '@/hooks/usePendingReturns';
 import {
   Plus,
   Menu,
@@ -69,6 +70,7 @@ export default function MainMapPage() {
   const { summary: hygieneSummary, mapLocations: hygieneMapLocations } = useHygieneClients();
   const { filterByGeo, isGeoFilterActive, geoSettings } = useGeoFilter();
   useOfflineReturnSync();
+  const { count: pendingReturnCount } = usePendingReturns();
 
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentWithCreator | null>(null);
@@ -691,11 +693,16 @@ export default function MainMapPage() {
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 items-end">
           {/* Return Equipment Button */}
           <Button
-            className="w-12 h-12 rounded-full shadow-lg bg-status-waiting hover:bg-status-waiting/90"
+            className="w-12 h-12 rounded-full shadow-lg bg-status-waiting hover:bg-status-waiting/90 relative"
             onClick={() => setShowReturnDialog(true)}
             title="Devolução de Equipamentos"
           >
             <PackageOpen className="w-5 h-5" />
+            {pendingReturnCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                {pendingReturnCount}
+              </span>
+            )}
           </Button>
           
           {/* New Delivery Button */}

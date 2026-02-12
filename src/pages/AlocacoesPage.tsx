@@ -18,13 +18,19 @@ import {
   Building,
   Phone,
   History,
+  Clock,
+  CheckCircle2,
+  WifiOff,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useEquipmentHistory } from '@/hooks/useEquipmentHistory';
 import { EquipmentHistoryFilters } from '@/components/alocacoes/EquipmentHistoryFilters';
 import { EquipmentHistoryList } from '@/components/alocacoes/EquipmentHistoryList';
+import { usePendingReturns } from '@/hooks/usePendingReturns';
+import { offlineReturnQueue } from '@/lib/offline-return-queue';
 
 interface ERPEquipment {
   type: string;
@@ -59,6 +65,9 @@ export default function AlocacoesPage() {
   const [endDate, setEndDate] = useState(() => new Date());
   const [patrimonyFilter, setPatrimonyFilter] = useState('');
   const [clientNameFilter, setClientNameFilter] = useState('');
+
+  // Pending offline returns
+  const { pending: pendingReturns, count: pendingCount, refresh: refreshPending } = usePendingReturns();
 
   // History hook with debounced filters
   const { history, isLoading: historyLoading, error: historyError, refetch } = useEquipmentHistory({
@@ -180,6 +189,15 @@ export default function AlocacoesPage() {
               <History className="w-4 h-4" />
               Histórico
             </TabsTrigger>
+            <TabsTrigger value="pendentes" className="flex-1 gap-1 relative">
+              <Clock className="w-4 h-4" />
+              Pendências
+              {pendingCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-4 px-1.5 text-[10px]">
+                  {pendingCount}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="busca" className="flex-1 gap-1">
               <Search className="w-4 h-4" />
               Buscar ERP
@@ -231,6 +249,73 @@ export default function AlocacoesPage() {
               isLoading={historyLoading}
               error={historyError}
             />
+          </TabsContent>
+
+          {/* Pending Offline Returns Tab */}
+          <TabsContent value="pendentes" className="space-y-4 mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <WifiOff className="w-4 h-4" />
+                    Devoluções Pendentes de Sincronização
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={refreshPending}
+                    className="text-xs gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Atualizar
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {pendingCount === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-8">
+                    <CheckCircle2 className="w-10 h-10 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground text-center">
+                      Todas as devoluções foram sincronizadas com o ERP
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {pendingCount} devolução(ões) aguardando conexão para sincronizar com o ERP
+                    </p>
+                    {pendingReturns.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                      >
+                        <div className="p-2 rounded-full bg-destructive/10">
+                          <Clock className="w-4 h-4 text-destructive" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm font-mono">
+                              {item.patrimony}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-destructive/10 text-destructive border-destructive/30">
+                              Pendente
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.clientName}
+                            {item.orderNumber && ` • Pedido ${item.orderNumber}`}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {format(new Date(item.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            {' • '}{item.type === 'standalone' ? 'Avulsa' : item.type === 'delivery' ? 'Pós-entrega' : 'Recolha'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ERP Search Tab */}
