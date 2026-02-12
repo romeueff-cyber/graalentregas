@@ -10,13 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, Package, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Package, AlertTriangle, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { MultiCodeScanner } from './MultiCodeScanner';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { recordEquipmentHistory, HISTORY_ACTIONS } from '@/hooks/useEquipmentHistory';
+import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { offlineReturnQueue } from '@/lib/offline-return-queue';
 
 interface StandaloneReturnDialogProps {
   open: boolean;
@@ -25,7 +27,7 @@ interface StandaloneReturnDialogProps {
 
 interface ValidatedCode {
   code: string;
-  status: 'validating' | 'valid' | 'invalid';
+  status: 'validating' | 'valid' | 'invalid' | 'offline';
   message?: string;
   erpStatus?: string;
 }
@@ -54,7 +56,7 @@ export function StandaloneReturnDialog({
     onOpenChange(newOpen);
   };
 
-  // Validate a code against ERP
+  // Validate a code against ERP (or accept offline)
   const validateCode = useCallback(async (code: string) => {
     const normalized = code.toUpperCase();
     
@@ -65,6 +67,21 @@ export function StandaloneReturnDialog({
       return newMap;
     });
 
+    // If offline, accept with warning
+    if (!checkOnline()) {
+      setValidatedCodes(prev => {
+        const newMap = new Map(prev);
+        newMap.set(normalized, { 
+          code: normalized, 
+          status: 'offline',
+          message: 'Será validado ao reconectar'
+        });
+        return newMap;
+      });
+      toast.info(`⚠️ ${normalized} aceito offline — será validado ao reconectar`);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('validate-equipment-patrimony', {
         body: { patrimonio: normalized }
@@ -74,23 +91,21 @@ export function StandaloneReturnDialog({
 
       if (error) {
         console.error(`[StandaloneReturnDialog] Validation error for ${normalized}:`, error);
+        // Network error — fallback to offline acceptance
         setValidatedCodes(prev => {
           const newMap = new Map(prev);
           newMap.set(normalized, { 
             code: normalized, 
-            status: 'invalid', 
-            message: 'Erro ao validar' 
+            status: 'offline', 
+            message: 'Sem conexão — será validado depois' 
           });
           return newMap;
         });
-        toast.error(`Erro ao validar ${normalized}`);
+        toast.info(`⚠️ ${normalized} aceito offline — sem conexão com ERP`);
         return;
       }
 
-      // CRITICAL: Check if data exists and valid is explicitly true
       const isValid = data && data.valid === true;
-      
-      console.log(`[StandaloneReturnDialog] ${normalized} isValid:`, isValid, 'data.valid:', data?.valid);
 
       if (isValid) {
         setValidatedCodes(prev => {
@@ -119,16 +134,17 @@ export function StandaloneReturnDialog({
       }
     } catch (err) {
       console.error(`[StandaloneReturnDialog] Exception validating ${normalized}:`, err);
+      // Network exception — fallback to offline
       setValidatedCodes(prev => {
         const newMap = new Map(prev);
         newMap.set(normalized, { 
           code: normalized, 
-          status: 'invalid', 
-          message: 'Erro de conexão' 
+          status: 'offline', 
+          message: 'Erro de conexão — será validado depois' 
         });
         return newMap;
       });
-      toast.error(`Erro ao validar ${normalized}`);
+      toast.info(`⚠️ ${normalized} aceito offline — erro de conexão`);
     }
   }, []);
 
@@ -156,21 +172,50 @@ export function StandaloneReturnDialog({
   }, [scannedCodes, validateCode]);
 
   const handleConfirm = async () => {
-    // Only process valid codes
-    const validCodes = Array.from(validatedCodes.entries())
-      .filter(([_, v]) => v.status === 'valid')
-      .map(([code]) => code);
+    // Process valid AND offline codes
+    const actionableCodes = Array.from(validatedCodes.entries())
+      .filter(([_, v]) => v.status === 'valid' || v.status === 'offline')
+      .map(([code, v]) => ({ code, isOffline: v.status === 'offline' }));
 
-    if (validCodes.length === 0) {
+    if (actionableCodes.length === 0) {
       toast.warning('Nenhum equipamento válido para devolver');
       return;
     }
 
     setIsConfirming(true);
     const results: typeof processedResults = [];
+    const isCurrentlyOnline = checkOnline();
 
     try {
-      for (const code of validCodes) {
+      for (const { code, isOffline } of actionableCodes) {
+        // If offline or was accepted offline, queue for later sync
+        if (!isCurrentlyOnline || isOffline) {
+          await offlineReturnQueue.add({
+            id: crypto.randomUUID(),
+            patrimony: code,
+            clientName: 'Devolução Avulsa',
+            userId: user?.id || '',
+            userName: profile?.name || user?.email || 'Usuário',
+            timestamp: new Date().toISOString(),
+            type: 'standalone',
+          });
+          results.push({ code, success: true, message: 'Salvo offline' });
+          
+          // Record history locally
+          if (user) {
+            const userName = profile?.name || user.email || 'Usuário';
+            recordEquipmentHistory({
+              userId: user.id,
+              userName,
+              patrimony: code,
+              clientName: 'Devolução Avulsa',
+              actionType: HISTORY_ACTIONS.DEVOLUCAO,
+              notes: 'Registrado offline - pendente sincronização ERP',
+            });
+          }
+          continue;
+        }
+
         try {
           const { data, error } = await supabase.functions.invoke('update-erp-equipment-status', {
             body: { patrimonio: code }
@@ -178,12 +223,21 @@ export function StandaloneReturnDialog({
 
           if (error) {
             console.error(`[StandaloneReturnDialog] Error updating ${code}:`, error);
-            results.push({ code, success: false, message: error.message || 'Erro desconhecido' });
+            // On error, queue for later
+            await offlineReturnQueue.add({
+              id: crypto.randomUUID(),
+              patrimony: code,
+              clientName: 'Devolução Avulsa',
+              userId: user?.id || '',
+              userName: profile?.name || user?.email || 'Usuário',
+              timestamp: new Date().toISOString(),
+              type: 'standalone',
+            });
+            results.push({ code, success: true, message: 'Salvo para sincronizar' });
           } else if (data?.success === false) {
             results.push({ code, success: false, message: data.warning || 'Erro ao atualizar' });
           } else {
             results.push({ code, success: true });
-            // Record history for successful returns
             if (user) {
               const userName = profile?.name || user.email || 'Usuário';
               recordEquipmentHistory({
@@ -197,7 +251,17 @@ export function StandaloneReturnDialog({
           }
         } catch (err) {
           console.error(`[StandaloneReturnDialog] Exception for ${code}:`, err);
-          results.push({ code, success: false, message: 'Erro de conexão' });
+          // Queue for later on exception
+          await offlineReturnQueue.add({
+            id: crypto.randomUUID(),
+            patrimony: code,
+            clientName: 'Devolução Avulsa',
+            userId: user?.id || '',
+            userName: profile?.name || user?.email || 'Usuário',
+            timestamp: new Date().toISOString(),
+            type: 'standalone',
+          });
+          results.push({ code, success: true, message: 'Salvo para sincronizar' });
         }
       }
 
@@ -205,9 +269,14 @@ export function StandaloneReturnDialog({
 
       const successCount = results.filter(r => r.success).length;
       const errorCount = results.filter(r => !r.success).length;
+      const offlineCount = results.filter(r => r.message?.includes('offline') || r.message?.includes('sincronizar')).length;
 
       if (successCount > 0 && errorCount === 0) {
-        toast.success(`${successCount} equipamento(s) marcado(s) como retornado(s)`);
+        if (offlineCount > 0) {
+          toast.success(`${successCount} equipamento(s) salvo(s) — ${offlineCount} pendente(s) de sincronização`);
+        } else {
+          toast.success(`${successCount} equipamento(s) marcado(s) como retornado(s)`);
+        }
         handleOpenChange(false);
       } else if (successCount > 0 && errorCount > 0) {
         toast.warning(`${successCount} sucesso, ${errorCount} erro(s)`);
@@ -222,10 +291,12 @@ export function StandaloneReturnDialog({
     }
   };
 
-  // Count valid codes
+  // Count codes by status
   const validCount = Array.from(validatedCodes.values()).filter(v => v.status === 'valid').length;
+  const offlineCount = Array.from(validatedCodes.values()).filter(v => v.status === 'offline').length;
   const invalidCount = Array.from(validatedCodes.values()).filter(v => v.status === 'invalid').length;
   const validatingCount = Array.from(validatedCodes.values()).filter(v => v.status === 'validating').length;
+  const actionableCount = validCount + offlineCount;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -241,6 +312,17 @@ export function StandaloneReturnDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Offline warning */}
+          {!checkOnline() && (
+            <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+              <WifiOff className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                <strong>Modo offline:</strong> Equipamentos serão aceitos sem validação do ERP 
+                e sincronizados quando a conexão for restabelecida.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Alert about equipment with products */}
           <Alert className="border-status-waiting/50 bg-status-waiting/10">
             <AlertTriangle className="h-4 w-4 text-status-waiting" />
@@ -265,10 +347,15 @@ export function StandaloneReturnDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Equipamentos ({validatedCodes.size})</p>
-                <div className="flex gap-2 text-xs">
+                <div className="flex gap-2 text-xs flex-wrap">
                   {validCount > 0 && (
                     <Badge variant="outline" className="bg-status-ready/10 text-status-ready border-status-ready/30">
                       {validCount} válido(s)
+                    </Badge>
+                  )}
+                  {offlineCount > 0 && (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+                      {offlineCount} offline
                     </Badge>
                   )}
                   {invalidCount > 0 && (
@@ -285,9 +372,11 @@ export function StandaloneReturnDialog({
                     className={`flex items-center justify-between p-2 rounded text-sm border ${
                       item.status === 'valid' 
                         ? 'bg-status-ready/10 border-status-ready/30' 
-                        : item.status === 'invalid'
-                          ? 'bg-destructive/10 border-destructive/30'
-                          : 'bg-muted/50 border-border'
+                        : item.status === 'offline'
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : item.status === 'invalid'
+                            ? 'bg-destructive/10 border-destructive/30'
+                            : 'bg-muted/50 border-border'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -296,6 +385,9 @@ export function StandaloneReturnDialog({
                       )}
                       {item.status === 'valid' && (
                         <CheckCircle2 className="w-4 h-4 text-status-ready" />
+                      )}
+                      {item.status === 'offline' && (
+                        <WifiOff className="w-4 h-4 text-amber-600" />
                       )}
                       {item.status === 'invalid' && (
                         <XCircle className="w-4 h-4 text-destructive" />
@@ -306,6 +398,11 @@ export function StandaloneReturnDialog({
                       {item.erpStatus && (
                         <Badge variant="secondary" className="text-xs">
                           {item.erpStatus}
+                        </Badge>
+                      )}
+                      {item.status === 'offline' && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/30">
+                          Offline
                         </Badge>
                       )}
                       {item.status === 'validating' && (
@@ -356,7 +453,7 @@ export function StandaloneReturnDialog({
           <Button
             type="button"
             onClick={handleConfirm}
-            disabled={isConfirming || validCount === 0 || validatingCount > 0}
+            disabled={isConfirming || actionableCount === 0 || validatingCount > 0}
             className="w-full sm:w-auto gap-2 bg-status-waiting hover:bg-status-waiting/90 text-white"
           >
             {isConfirming ? (
@@ -369,7 +466,7 @@ export function StandaloneReturnDialog({
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                Confirmar ({validCount})
+                Confirmar ({actionableCount})
               </>
             )}
           </Button>
