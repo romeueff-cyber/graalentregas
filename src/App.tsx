@@ -10,6 +10,7 @@ import { PWAUpdateBanner } from "@/components/PWAUpdateBanner";
 import { AdminRoute } from "@/components/AdminRoute";
 import { toast } from "sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GPSTracker } from "@/components/GPSTracker";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import NewDeliveryPage from "./pages/NewDeliveryPage";
@@ -59,7 +60,8 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
+           <AuthProvider>
+            <GPSTracker />
             <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<Index />} />

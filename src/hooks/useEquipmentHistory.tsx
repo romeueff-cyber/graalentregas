@@ -95,6 +95,21 @@ export async function recordEquipmentHistory(entry: {
   notes?: string;
 }): Promise<boolean> {
   try {
+    // Capture driver's real GPS position
+    let driverLat: number | null = null;
+    let driverLng: number | null = null;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 5000, maximumAge: 30000,
+        });
+      });
+      driverLat = pos.coords.latitude;
+      driverLng = pos.coords.longitude;
+    } catch {
+      // GPS unavailable
+    }
+
     const { error } = await supabase.from('equipment_history').insert({
       user_id: entry.userId,
       user_name: entry.userName,
@@ -104,6 +119,8 @@ export async function recordEquipmentHistory(entry: {
       action_type: entry.actionType,
       order_number: entry.orderNumber || null,
       notes: entry.notes || null,
+      driver_latitude: driverLat,
+      driver_longitude: driverLng,
     });
 
     if (error) {

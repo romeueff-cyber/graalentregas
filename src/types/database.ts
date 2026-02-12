@@ -41,6 +41,8 @@ export interface Equipment {
   cliente_ira_avisar: boolean;
   confirmation_token: string | null;
   token_used_at: string | null;
+  driver_latitude?: number | null;
+  driver_longitude?: number | null;
 }
 
 export interface Settings {
