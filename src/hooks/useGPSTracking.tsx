@@ -8,6 +8,7 @@ import {
   getCurrentPosition,
   type GPSPoint,
 } from '@/lib/gps-location-queue';
+import { syncVisits } from '@/lib/visit-queue';
 
 const CAPTURE_INTERVAL_MS = 60_000; // 60 seconds
 const SYNC_INTERVAL_MS = 120_000; // 2 minutes
@@ -72,6 +73,9 @@ export function useGPSTracking() {
 
       await clearQueue();
       console.debug(`[GPS] Synced ${queue.length} locations`);
+
+      // Also sync pending visit attempts
+      await syncVisits();
     } catch (err) {
       console.error('[GPS] Sync error:', (err as Error).message);
     } finally {
