@@ -519,6 +519,9 @@ export type Database = {
         Row: {
           centro_latitude: number | null
           centro_longitude: number | null
+          custo_fixo_parada: number
+          custo_por_hora: number
+          custo_por_km: number
           dias_exibir_recolhido: number
           filtro_geografico_ativo: boolean | null
           id: string
@@ -528,6 +531,9 @@ export type Database = {
         Insert: {
           centro_latitude?: number | null
           centro_longitude?: number | null
+          custo_fixo_parada?: number
+          custo_por_hora?: number
+          custo_por_km?: number
           dias_exibir_recolhido?: number
           filtro_geografico_ativo?: boolean | null
           id?: string
@@ -537,6 +543,9 @@ export type Database = {
         Update: {
           centro_latitude?: number | null
           centro_longitude?: number | null
+          custo_fixo_parada?: number
+          custo_por_hora?: number
+          custo_por_km?: number
           dias_exibir_recolhido?: number
           filtro_geografico_ativo?: boolean | null
           id?: string

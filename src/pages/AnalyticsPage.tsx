@@ -6,6 +6,7 @@ import { DeliveryDashboard } from '@/components/analytics/DeliveryDashboard';
 import { HygieneDashboard } from '@/components/analytics/HygieneDashboard';
 import { DriverPerformanceDashboard } from '@/components/analytics/DriverPerformanceDashboard';
 import { ClientsDashboard } from '@/components/analytics/ClientsDashboard';
+import { ProfitabilityDashboard } from '@/components/analytics/ProfitabilityDashboard';
 import { ExportPDFButton } from '@/components/analytics/ExportPDFButton';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon, Users, UserCheck } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon, Users, UserCheck, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,7 +25,7 @@ export default function AnalyticsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'entregas' | 'clientes' | 'entregadores' | 'higienizacao'>('entregas');
+  const [activeTab, setActiveTab] = useState<'entregas' | 'clientes' | 'entregadores' | 'higienizacao' | 'rentabilidade'>('entregas');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [periodType, setPeriodType] = useState<'7' | '15' | '30' | 'custom'>('7');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -87,7 +88,7 @@ export default function AnalyticsPage() {
               hygieneMetrics={hygieneMetrics}
               clientMetrics={clientMetrics}
               driverMetrics={driverMetrics}
-              activeTab={activeTab}
+              activeTab={activeTab as 'entregas' | 'clientes' | 'entregadores' | 'higienizacao'}
               days={days}
             />
           </div>
@@ -160,10 +161,10 @@ export default function AnalyticsPage() {
       <div className="p-4 pb-20">
         <Tabs 
           value={activeTab} 
-          onValueChange={(v) => setActiveTab(v as 'entregas' | 'clientes' | 'entregadores' | 'higienizacao')}
+          onValueChange={(v) => setActiveTab(v as 'entregas' | 'clientes' | 'entregadores' | 'higienizacao' | 'rentabilidade')}
           className="w-full"
         >
-          <TabsList className="w-full grid grid-cols-4 mb-6">
+          <TabsList className="w-full grid grid-cols-5 mb-6">
             <TabsTrigger value="entregas" className="flex items-center gap-1 text-xs sm:text-sm">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Entregas</span>
@@ -179,6 +180,10 @@ export default function AnalyticsPage() {
             <TabsTrigger value="higienizacao" className="flex items-center gap-1 text-xs sm:text-sm">
               <Droplets className="w-4 h-4" />
               <span className="hidden sm:inline">Higienização</span>
+            </TabsTrigger>
+            <TabsTrigger value="rentabilidade" className="flex items-center gap-1 text-xs sm:text-sm">
+              <DollarSign className="w-4 h-4" />
+              <span className="hidden sm:inline">Rentabilidade</span>
             </TabsTrigger>
           </TabsList>
 
@@ -196,6 +201,10 @@ export default function AnalyticsPage() {
 
           <TabsContent value="higienizacao">
             <HygieneDashboard metrics={hygieneMetrics} />
+          </TabsContent>
+
+          <TabsContent value="rentabilidade">
+            <ProfitabilityDashboard />
           </TabsContent>
         </Tabs>
       </div>
