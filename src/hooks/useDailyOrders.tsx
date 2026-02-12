@@ -173,9 +173,9 @@ export function useDailyOrders() {
     return hasChopeira(order);
   };
 
-  // Orders with only growler/barril/pet/garrafa should be marked as RECOLHIDO immediately
+  // Only orders WITH chopeira need collection. Everything else is RECOLHIDO immediately.
   const shouldAutoCollect = (order: DailyOrderData) => {
-    return (hasGrowler(order) || hasBarrel(order)) && !hasChopeira(order);
+    return !hasChopeira(order);
   };
 
   return {
