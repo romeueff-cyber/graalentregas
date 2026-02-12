@@ -83,12 +83,47 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_locations: {
+        Row: {
+          accuracy: number | null
+          captured_at: string
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          synced_at: string | null
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          captured_at: string
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          synced_at?: string | null
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          captured_at?: string
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          synced_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       equipment_history: {
         Row: {
           action_type: string
           client_id: string | null
           client_name: string
           created_at: string
+          driver_latitude: number | null
+          driver_longitude: number | null
           id: string
           notes: string | null
           order_number: string | null
@@ -101,6 +136,8 @@ export type Database = {
           client_id?: string | null
           client_name: string
           created_at?: string
+          driver_latitude?: number | null
+          driver_longitude?: number | null
           id?: string
           notes?: string | null
           order_number?: string | null
@@ -113,6 +150,8 @@ export type Database = {
           client_id?: string | null
           client_name?: string
           created_at?: string
+          driver_latitude?: number | null
+          driver_longitude?: number | null
           id?: string
           notes?: string | null
           order_number?: string | null
@@ -131,6 +170,8 @@ export type Database = {
           data_entrega: string | null
           data_prevista_recolha: string
           data_real_recolha: string | null
+          driver_latitude: number | null
+          driver_longitude: number | null
           foto_local_path: string | null
           foto_url: string | null
           id: string
@@ -155,6 +196,8 @@ export type Database = {
           data_entrega?: string | null
           data_prevista_recolha: string
           data_real_recolha?: string | null
+          driver_latitude?: number | null
+          driver_longitude?: number | null
           foto_local_path?: string | null
           foto_url?: string | null
           id?: string
@@ -179,6 +222,8 @@ export type Database = {
           data_entrega?: string | null
           data_prevista_recolha?: string
           data_real_recolha?: string | null
+          driver_latitude?: number | null
+          driver_longitude?: number | null
           foto_local_path?: string | null
           foto_url?: string | null
           id?: string
@@ -572,6 +617,57 @@ export type Database = {
         }
         Relationships: []
       }
+      visit_attempts: {
+        Row: {
+          accuracy: number | null
+          captured_at: string
+          client_name: string
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          notes: string | null
+          order_number: string | null
+          reason: string
+          synced_at: string | null
+          user_id: string
+          user_name: string
+          visit_type: string
+        }
+        Insert: {
+          accuracy?: number | null
+          captured_at: string
+          client_name: string
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          notes?: string | null
+          order_number?: string | null
+          reason: string
+          synced_at?: string | null
+          user_id: string
+          user_name: string
+          visit_type?: string
+        }
+        Update: {
+          accuracy?: number | null
+          captured_at?: string
+          client_name?: string
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          notes?: string | null
+          order_number?: string | null
+          reason?: string
+          synced_at?: string | null
+          user_id?: string
+          user_name?: string
+          visit_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -587,6 +683,8 @@ export type Database = {
           data_entrega: string | null
           data_prevista_recolha: string
           data_real_recolha: string | null
+          driver_latitude: number | null
+          driver_longitude: number | null
           foto_local_path: string | null
           foto_url: string | null
           id: string
