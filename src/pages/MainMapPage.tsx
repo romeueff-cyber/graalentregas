@@ -13,7 +13,6 @@ import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { SprayCanIcon } from '@/components/icons';
 import { StandaloneReturnDialog } from '@/components/delivery/StandaloneReturnDialog';
-import { VisitAttemptDialog } from '@/components/visit/VisitAttemptDialog';
 import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 import {
   Plus,
@@ -76,7 +75,6 @@ export default function MainMapPage() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [showVisitDialog, setShowVisitDialog] = useState(false);
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState<DailyOrder | null>(null);
 
   // Apply geo filter to equipments
@@ -689,15 +687,6 @@ export default function MainMapPage() {
 
         {/* FAB Group - Return Equipment & New Delivery */}
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 items-end">
-          {/* Visit Attempt Button */}
-          <Button
-            className="w-12 h-12 rounded-full shadow-lg bg-accent hover:bg-accent/90"
-            onClick={() => setShowVisitDialog(true)}
-            title="Registrar Visita"
-          >
-            <MapPin className="w-5 h-5" />
-          </Button>
-
           {/* Return Equipment Button */}
           <Button
             className="w-12 h-12 rounded-full shadow-lg bg-status-waiting hover:bg-status-waiting/90"
@@ -723,18 +712,7 @@ export default function MainMapPage() {
           onOpenChange={setShowReturnDialog}
         />
 
-        {/* Visit Attempt Dialog */}
-        <VisitAttemptDialog
-          open={showVisitDialog}
-          onOpenChange={setShowVisitDialog}
-        />
-
         {/* Invoice Pending Alert */}
-        <InvoicePendingAlert
-          open={!!pendingInvoiceOrder}
-          onOpenChange={(open) => !open && setPendingInvoiceOrder(null)}
-          orderNumber={pendingInvoiceOrder?.order_number}
-        />
         <InvoicePendingAlert
           open={!!pendingInvoiceOrder}
           onOpenChange={(open) => !open && setPendingInvoiceOrder(null)}

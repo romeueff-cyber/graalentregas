@@ -189,21 +189,6 @@ export function useEquipments() {
     const initialStatus = data.status || 'ENTREGUE';
     const isCollected = initialStatus === 'RECOLHIDO';
 
-    // Capture driver's real GPS position
-    let driverLat: number | null = null;
-    let driverLng: number | null = null;
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true, timeout: 5000, maximumAge: 30000,
-        });
-      });
-      driverLat = pos.coords.latitude;
-      driverLng = pos.coords.longitude;
-    } catch {
-      // GPS unavailable, leave as null
-    }
-
     const newEquipment: Equipment = {
       id: crypto.randomUUID(),
       ...data,
@@ -216,8 +201,6 @@ export function useEquipments() {
       updated_at: new Date().toISOString(),
       confirmation_token: crypto.randomUUID(),
       token_used_at: null,
-      driver_latitude: driverLat,
-      driver_longitude: driverLng,
     };
 
     try {
