@@ -150,9 +150,10 @@ export function useDailyOrders() {
   }, [isOnline, queryClient, today, refetch]);
 
   const hasGrowler = (order: DailyOrderData) => {
-    return order.items.some(item => 
-      item.product.toLowerCase().includes('growler')
-    );
+    return order.items.some(item => {
+      const p = item.product.toLowerCase();
+      return p.includes('growler') || p.includes('pet') || p.includes('garrafa');
+    });
   };
 
   const hasBarrel = (order: DailyOrderData) => {
@@ -172,7 +173,7 @@ export function useDailyOrders() {
     return hasChopeira(order);
   };
 
-  // Orders with only growler/barril should be marked as RECOLHIDO immediately
+  // Orders with only growler/barril/pet/garrafa should be marked as RECOLHIDO immediately
   const shouldAutoCollect = (order: DailyOrderData) => {
     return (hasGrowler(order) || hasBarrel(order)) && !hasChopeira(order);
   };
