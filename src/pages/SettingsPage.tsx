@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGeoSettings } from '@/hooks/useGeoSettings';
+import { useCostSettings } from '@/hooks/useCostSettings';
 import type { Settings } from '@/types/database';
 
 export default function SettingsPage() {
@@ -20,6 +21,7 @@ export default function SettingsPage() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { geoSettings, updateGeoSettings, isUpdating } = useGeoSettings();
+  const { costSettings, updateCostSettings, isUpdating: isUpdatingCost } = useCostSettings();
 
   const [diasExibir, setDiasExibir] = useState<number>(7);
   const [isSaving, setIsSaving] = useState(false);
@@ -31,6 +33,11 @@ export default function SettingsPage() {
   const [raioKm, setRaioKm] = useState(50);
   const [isLocating, setIsLocating] = useState(false);
 
+  // Cost settings local state
+  const [custoPorKm, setCustoPorKm] = useState(1.50);
+  const [custoPorHora, setCustoPorHora] = useState(25.00);
+  const [custoFixoParada, setCustoFixoParada] = useState(10.00);
+
   // Sync geo settings from hook
   useEffect(() => {
     if (geoSettings) {
@@ -40,6 +47,15 @@ export default function SettingsPage() {
       setRaioKm(geoSettings.raio_km);
     }
   }, [geoSettings]);
+
+  // Sync cost settings from hook
+  useEffect(() => {
+    if (costSettings) {
+      setCustoPorKm(costSettings.custo_por_km);
+      setCustoPorHora(costSettings.custo_por_hora);
+      setCustoFixoParada(costSettings.custo_fixo_parada);
+    }
+  }, [costSettings]);
 
   // Fetch settings
   const { data: settings, isLoading } = useQuery({
@@ -100,6 +116,18 @@ export default function SettingsPage() {
       centro_latitude: centroLat,
       centro_longitude: centroLng,
       raio_km: raioKm,
+    });
+  };
+
+  const handleSaveCostSettings = () => {
+    if (custoPorKm < 0 || custoPorHora < 0 || custoFixoParada < 0) {
+      toast.error('Os valores de custo não podem ser negativos');
+      return;
+    }
+    updateCostSettings({
+      custo_por_km: custoPorKm,
+      custo_por_hora: custoPorHora,
+      custo_fixo_parada: custoFixoParada,
     });
   };
 
@@ -276,6 +304,76 @@ export default function SettingsPage() {
               disabled={isUpdating}
             >
               {isUpdating ? <LoadingSpinner size="sm" /> : 'Salvar Configurações Geográficas'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Cost Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Custos Operacionais
+            </CardTitle>
+            <CardDescription>
+              Configure os valores para cálculo de rentabilidade por cliente (rateio simples por rota)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="custoPorKm">Custo por km (R$)</Label>
+              <Input
+                id="custoPorKm"
+                type="number"
+                step="0.10"
+                min={0}
+                value={custoPorKm}
+                onChange={(e) => setCustoPorKm(parseFloat(e.target.value) || 0)}
+                className="h-12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Combustível + desgaste do veículo
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="custoPorHora">Custo por hora (R$)</Label>
+              <Input
+                id="custoPorHora"
+                type="number"
+                step="1"
+                min={0}
+                value={custoPorHora}
+                onChange={(e) => setCustoPorHora(parseFloat(e.target.value) || 0)}
+                className="h-12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Salário proporcional do motorista
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="custoFixoParada">Custo fixo por parada (R$)</Label>
+              <Input
+                id="custoFixoParada"
+                type="number"
+                step="1"
+                min={0}
+                value={custoFixoParada}
+                onChange={(e) => setCustoFixoParada(parseFloat(e.target.value) || 0)}
+                className="h-12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Estacionamento, tempo de descarga, etc.
+              </p>
+            </div>
+
+            <Button
+              className="w-full h-12"
+              onClick={handleSaveCostSettings}
+              disabled={isUpdatingCost}
+            >
+              {isUpdatingCost ? <LoadingSpinner size="sm" /> : 'Salvar Custos Operacionais'}
             </Button>
           </CardContent>
         </Card>
