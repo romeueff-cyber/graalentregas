@@ -89,10 +89,11 @@ export default function NewDeliveryPage() {
   const [erpSearching, setErpSearching] = useState(false);
   const [equipmentReturnDialogOpen, setEquipmentReturnDialogOpen] = useState(false);
   const [pendingOrderData, setPendingOrderData] = useState<{ orderNumber: string; clientName: string; clientId?: string | number } | null>(null);
+  const [semRecolha, setSemRecolha] = useState(false);
 
   // Derived state: should collection date be disabled?
   const isCollectionDisabled = selectedOrder ? !needsCollectionDate(selectedOrder) : false;
-  const willAutoCollect = selectedOrder ? shouldAutoCollect(selectedOrder) : false;
+  const willAutoCollect = selectedOrder ? shouldAutoCollect(selectedOrder) : semRecolha;
 
   const { apiKey, hasApiKey, saveApiKey, clearApiKey } = useGoogleMapsKey();
 
@@ -684,6 +685,33 @@ export default function NewDeliveryPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Sem recolha checkbox - only for manual orders (no selectedOrder) */}
+        {!selectedOrder && (
+          <Card>
+            <CardContent className="py-4">
+              <div className={cn(
+                "flex items-center space-x-3 p-3 rounded-lg border",
+                semRecolha ? "bg-status-collected/10 border-status-collected/30" : "bg-muted/50 border-border"
+              )}>
+                <Checkbox
+                  id="semRecolha"
+                  checked={semRecolha}
+                  onCheckedChange={(checked) => setSemRecolha(checked === true)}
+                />
+                <Label 
+                  htmlFor="semRecolha" 
+                  className={cn(
+                    "text-sm font-medium cursor-pointer",
+                    semRecolha ? "text-status-collected" : "text-foreground"
+                  )}
+                >
+                  Sem equipamento para recolha (ex: só growler)
+                </Label>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Recolha - only show if not auto-collect */}
         {!willAutoCollect && (
