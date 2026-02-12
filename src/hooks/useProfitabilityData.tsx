@@ -22,6 +22,11 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 // Road correction factor (straight line → real road distance)
 const ROAD_FACTOR = 1.4;
 
+// Thresholds for detecting batch/impossible registrations
+const MAX_REALISTIC_SPEED_KMH = 120;
+const MIN_INTERVAL_MINUTES = 2;
+const ESTIMATED_URBAN_SPEED_KMH = 40;
+
 interface Movement {
   clientName: string;
   timestamp: Date;
@@ -189,9 +194,26 @@ export function useProfitabilityData() {
       // Calculate each leg
       movements.forEach((m, i) => {
         const distKm = haversineKm(prevLat, prevLng, m.lat, m.lng) * ROAD_FACTOR;
-        const timeHours = i === 0
-          ? 0 // First movement: no time from base
+        
+        // Calculate raw time from timestamps
+        const rawTimeHours = i === 0
+          ? 0
           : Math.max(0, (m.timestamp.getTime() - prevTime.getTime()) / 3600000);
+        
+        // Detect batch registration or impossible speed
+        const rawSpeedKmh = rawTimeHours > 0 ? distKm / rawTimeHours : Infinity;
+        const intervalMinutes = rawTimeHours * 60;
+        const isSuspicious = i > 0 && (
+          rawSpeedKmh > MAX_REALISTIC_SPEED_KMH || 
+          intervalMinutes < MIN_INTERVAL_MINUTES
+        );
+        
+        // For suspicious legs: use estimated time based on realistic urban speed
+        const timeHours = i === 0
+          ? 0
+          : isSuspicious
+            ? distKm / ESTIMATED_URBAN_SPEED_KMH
+            : rawTimeHours;
 
         const legCost = (distKm * costSettings.custo_por_km) +
                         (timeHours * costSettings.custo_por_hora) +
