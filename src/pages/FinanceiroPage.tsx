@@ -50,7 +50,7 @@ import { toast } from 'sonner';
 
 export default function FinanceiroPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { 
     boletos, 
     isLoading, 
@@ -121,6 +121,7 @@ export default function FinanceiroPage() {
     });
   };
 
+  // For non-admin users, hide paid/reconciled boletos from view
   const filteredBoletos = useMemo(() => {
     if (!boletos) return [];
     
@@ -129,8 +130,14 @@ export default function FinanceiroPage() {
         boleto.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         boleto.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         boleto.customer_document.includes(searchTerm);
+
+      // Non-admin: hide PAID boletos entirely
+      if (!isAdmin) {
+        const upper = boleto.status.toUpperCase();
+        if (upper === 'PAID') return false;
+      }
       
-      // If 'all' is selected, show everything
+      // If 'all' is selected, show everything (respecting above filter)
       if (activeFilters.has('all')) {
         return matchesSearch;
       }
@@ -149,7 +156,7 @@ export default function FinanceiroPage() {
       
       return matchesSearch && matchesStatus;
     });
-  }, [boletos, searchTerm, activeFilters]);
+  }, [boletos, searchTerm, activeFilters, isAdmin]);
 
   const copyToClipboard = async (text: string, type: string) => {
     try {
@@ -267,20 +274,22 @@ export default function FinanceiroPage() {
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Emitir</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="gap-2"
-            >
-            {isSyncing ? (
-              <LoadingSpinner className="w-4 h-4" />
-            ) : (
-              <RefreshCcw className="w-4 h-4" />
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="gap-2"
+              >
+              {isSyncing ? (
+                <LoadingSpinner className="w-4 h-4" />
+              ) : (
+                <RefreshCcw className="w-4 h-4" />
+              )}
+                <span className="hidden sm:inline">Sincronizar</span>
+              </Button>
             )}
-              <span className="hidden sm:inline">Sincronizar</span>
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -293,8 +302,8 @@ export default function FinanceiroPage() {
       </header>
 
       <main className="container px-4 py-4 space-y-4">
-        {/* Alert for unreconciled payments */}
-        {unreconciledCount > 0 && (
+        {/* Alert for unreconciled payments - Admin only */}
+        {isAdmin && unreconciledCount > 0 && (
           <div className="bg-status-waiting/10 border border-status-waiting/30 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-status-waiting flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -318,46 +327,50 @@ export default function FinanceiroPage() {
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-card border rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Total de Boletos</p>
-            <p className="text-2xl font-bold">{stats.total}</p>
+        {/* Stats Cards - Admin only */}
+        {isAdmin && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="bg-card border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Total de Boletos</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
+            <div className="bg-card border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Pendentes</p>
+              <p className="text-2xl font-bold text-status-waiting">{stats.pending}</p>
+            </div>
+            <div className="bg-card border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Pagos</p>
+              <p className="text-2xl font-bold text-status-ready">{stats.paid}</p>
+            </div>
+            <div className="bg-card border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Vencidos</p>
+              <p className="text-2xl font-bold text-destructive">{stats.overdue}</p>
+            </div>
+            <div className="bg-card border rounded-lg p-3 relative">
+              <p className="text-xs text-muted-foreground">A Conciliar</p>
+              <p className="text-2xl font-bold text-status-waiting">{stats.unreconciled}</p>
+              {stats.unreconciled > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
+              )}
+            </div>
           </div>
-          <div className="bg-card border rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Pendentes</p>
-            <p className="text-2xl font-bold text-status-waiting">{stats.pending}</p>
-          </div>
-          <div className="bg-card border rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Pagos</p>
-            <p className="text-2xl font-bold text-status-ready">{stats.paid}</p>
-          </div>
-          <div className="bg-card border rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Vencidos</p>
-            <p className="text-2xl font-bold text-destructive">{stats.overdue}</p>
-          </div>
-          <div className="bg-card border rounded-lg p-3 relative">
-            <p className="text-xs text-muted-foreground">A Conciliar</p>
-            <p className="text-2xl font-bold text-status-waiting">{stats.unreconciled}</p>
-            {stats.unreconciled > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
-            )}
-          </div>
-        </div>
+        )}
 
-        {/* Amount Summary */}
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Valor Total Emitido</p>
-              <p className="text-xl font-bold">{formatCurrency(stats.totalAmount)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Valor Recebido</p>
-              <p className="text-xl font-bold text-status-ready">{formatCurrency(stats.paidAmount)}</p>
+        {/* Amount Summary - Admin only */}
+        {isAdmin && (
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Total Emitido</p>
+                <p className="text-xl font-bold">{formatCurrency(stats.totalAmount)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Valor Recebido</p>
+                <p className="text-xl font-bold text-status-ready">{formatCurrency(stats.paidAmount)}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Search */}
         <div className="relative">
@@ -372,7 +385,7 @@ export default function FinanceiroPage() {
 
         {/* Status Filters - Chip Style */}
         <div className="flex flex-col gap-1.5">
-          {/* Row 1: All & Unreconciled */}
+          {/* Row 1: All & Unreconciled (admin only for unreconciled) */}
           <div className="flex gap-1.5">
             <button
               onClick={() => toggleFilter('all')}
@@ -383,23 +396,25 @@ export default function FinanceiroPage() {
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Todos ({boletos?.length || 0})</span>
+              <span>Todos ({filteredBoletos.length})</span>
             </button>
 
-            <button
-              onClick={() => toggleFilter('unreconciled')}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all relative ${
-                activeFilters.has('unreconciled')
-                  ? 'bg-status-waiting text-white shadow-sm'
-                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
-              }`}
-            >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>A Conciliar ({statusCounts.unreconciled})</span>
-              {statusCounts.unreconciled > 0 && !activeFilters.has('unreconciled') && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
-              )}
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => toggleFilter('unreconciled')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all relative ${
+                  activeFilters.has('unreconciled')
+                    ? 'bg-status-waiting text-white shadow-sm'
+                    : 'bg-secondary/60 text-foreground hover:bg-secondary'
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>A Conciliar ({statusCounts.unreconciled})</span>
+                {statusCounts.unreconciled > 0 && !activeFilters.has('unreconciled') && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
+                )}
+              </button>
+            )}
           </div>
 
           {/* Row 2: Status filters */}
@@ -428,29 +443,34 @@ export default function FinanceiroPage() {
               <span>{statusCounts.registered}</span>
             </button>
 
-            <button
-              onClick={() => toggleFilter('paid')}
-              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilters.has('paid')
-                  ? 'bg-status-ready text-white shadow-sm'
-                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
-              }`}
-            >
-              <CheckCircle2 className={`w-3 h-3 ${activeFilters.has('paid') ? 'text-white' : 'text-status-ready'}`} />
-              <span>{statusCounts.paid}</span>
-            </button>
+            {/* Paid & Overdue filters - Admin only */}
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => toggleFilter('paid')}
+                  className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    activeFilters.has('paid')
+                      ? 'bg-status-ready text-white shadow-sm'
+                      : 'bg-secondary/60 text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <CheckCircle2 className={`w-3 h-3 ${activeFilters.has('paid') ? 'text-white' : 'text-status-ready'}`} />
+                  <span>{statusCounts.paid}</span>
+                </button>
 
-            <button
-              onClick={() => toggleFilter('overdue')}
-              className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                activeFilters.has('overdue')
-                  ? 'bg-destructive text-destructive-foreground shadow-sm'
-                  : 'bg-secondary/60 text-foreground hover:bg-secondary'
-              }`}
-            >
-              <AlertCircle className={`w-3 h-3 ${activeFilters.has('overdue') ? 'text-destructive-foreground' : 'text-destructive'}`} />
-              <span>{statusCounts.overdue}</span>
-            </button>
+                <button
+                  onClick={() => toggleFilter('overdue')}
+                  className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    activeFilters.has('overdue')
+                      ? 'bg-destructive text-destructive-foreground shadow-sm'
+                      : 'bg-secondary/60 text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <AlertCircle className={`w-3 h-3 ${activeFilters.has('overdue') ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                  <span>{statusCounts.overdue}</span>
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => toggleFilter('cancelled')}
@@ -485,7 +505,7 @@ export default function FinanceiroPage() {
                   <TableRow>
                     <TableHead>Pedido</TableHead>
                     <TableHead>Cliente</TableHead>
-                    <TableHead>Valor</TableHead>
+                    {isAdmin && <TableHead>Valor</TableHead>}
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -495,17 +515,22 @@ export default function FinanceiroPage() {
                   {filteredBoletos.map((boleto) => {
                     const isPaidNotReconciled = boleto.status.toUpperCase() === 'PAID' && !boleto.reconciled;
                     
+                    // For non-admin, simplify status display (hide paid-related info)
+                    const displayStatus = isOverdueCheck(boleto.due_date, boleto.status) 
+                      ? 'OVERDUE' 
+                      : boleto.status;
+
                     return (
                       <TableRow 
                         key={boleto.id}
                         className={cn(
-                          isPaidNotReconciled && "bg-status-waiting/5"
+                          isAdmin && isPaidNotReconciled && "bg-status-waiting/5"
                         )}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-semibold">#{boleto.order_number}</span>
-                            {isPaidNotReconciled && (
+                            {isAdmin && isPaidNotReconciled && (
                               <span className="w-2 h-2 bg-status-waiting rounded-full animate-pulse" />
                             )}
                           </div>
@@ -516,9 +541,11 @@ export default function FinanceiroPage() {
                             <p className="text-xs text-muted-foreground">{boleto.customer_document}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrency(boleto.total_amount)}
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="font-semibold">
+                            {formatCurrency(boleto.total_amount)}
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-muted-foreground" />
@@ -532,12 +559,10 @@ export default function FinanceiroPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Badge className={cn("text-xs", getStatusColor(
-                              isOverdueCheck(boleto.due_date, boleto.status) ? 'OVERDUE' : boleto.status
-                            ))}>
-                              {isOverdueCheck(boleto.due_date, boleto.status) ? 'Vencido' : translateStatus(boleto.status)}
+                            <Badge className={cn("text-xs", getStatusColor(displayStatus))}>
+                              {displayStatus === 'OVERDUE' ? 'Vencido' : translateStatus(boleto.status)}
                             </Badge>
-                            {boleto.reconciled && (
+                            {isAdmin && boleto.reconciled && (
                               <span title="Conciliado">
                                 <CheckCircle2 className="w-4 h-4 text-status-ready" />
                               </span>
@@ -546,7 +571,8 @@ export default function FinanceiroPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
-                            {isPaidNotReconciled && (
+                            {/* Reconcile button - Admin only */}
+                            {isAdmin && isPaidNotReconciled && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -557,6 +583,7 @@ export default function FinanceiroPage() {
                                 <span className="hidden sm:inline">Conciliar</span>
                               </Button>
                             )}
+                            {/* Cancel button - All authenticated users */}
                             {boleto.status.toUpperCase() !== 'PAID' && boleto.status.toUpperCase() !== 'CANCELLED' && (
                               <Button
                                 variant="ghost"
@@ -604,7 +631,7 @@ export default function FinanceiroPage() {
       {/* Financeiro Legend */}
       <FinanceiroLegend />
 
-      {/* Reconcile Confirmation Dialog */}
+      {/* Reconcile Confirmation Dialog - Admin only */}
       <AlertDialog open={reconcileDialogOpen} onOpenChange={setReconcileDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
