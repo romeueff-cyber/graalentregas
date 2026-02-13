@@ -76,7 +76,8 @@ export default function FinanceiroPage() {
 
   // Helper function for overdue check
   const isOverdueCheck = (dueDate: string, status: string) => {
-    if (status.toUpperCase() === 'PAID' || status.toUpperCase() === 'PAGO') return false;
+    const upper = status.toUpperCase();
+    if (upper === 'PAID' || upper === 'PAGO' || upper === 'CANCELLED' || upper === 'CANCELADO') return false;
     return isBefore(parseISO(dueDate), startOfDay(new Date()));
   };
 
