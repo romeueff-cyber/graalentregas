@@ -332,8 +332,9 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       if (data.customer.email) {
         setManualEmail(data.customer.email);
       }
-      if (data.total_amount) {
-        setManualAmount((data.total_amount / 100).toFixed(2).replace('.', ','));
+      if (data.total_amount != null) {
+        // ERP returns amount in reais (e.g. 540.00), not cents
+        setManualAmount(Number(data.total_amount).toFixed(2).replace('.', ','));
       }
       toast.success('Dados carregados do ERP');
     } else {
