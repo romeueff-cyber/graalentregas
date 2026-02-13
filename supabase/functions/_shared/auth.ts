@@ -26,15 +26,18 @@ export async function verifyAuth(req: Request): Promise<AuthResult> {
   const token = authHeader.replace('Bearer ', '');
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   
-  // Use service role client to verify the token
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  // Use anon client with user's token to validate claims
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
 
-  // Verify the JWT token using the service role client
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  // Validate JWT claims (local verification, no session lookup)
+  const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
   
-  if (userError || !user) {
-    console.error('[Auth] Token verification failed:', userError?.message || 'No user');
+  if (claimsError || !claimsData?.claims?.sub) {
+    console.error('[Auth] Token verification failed:', claimsError?.message || 'No claims');
     return {
       error: new Response(
         JSON.stringify({ error: 'Token inválido ou expirado' }),
@@ -43,8 +46,12 @@ export async function verifyAuth(req: Request): Promise<AuthResult> {
     };
   }
 
-  console.log(`[Auth] User verified: ${user.id}`);
-  return { userId: user.id, supabase };
+  const userId = claimsData.claims.sub as string;
+  console.log(`[Auth] User verified: ${userId}`);
+  
+  // Use service role client for data operations
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  return { userId, supabase };
 }
 
 /**
