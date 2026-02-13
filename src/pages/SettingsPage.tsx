@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGeoSettings } from '@/hooks/useGeoSettings';
@@ -25,6 +25,32 @@ export default function SettingsPage() {
 
   const [diasExibir, setDiasExibir] = useState<number>(7);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+  const handleCheckUpdate = useCallback(async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration();
+      if (registration) {
+        await registration.update();
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          toast.success('Nova versão encontrada! Atualizando...');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          toast.info('Você já está na versão mais recente!');
+        }
+      } else {
+        toast.info('Service Worker não registrado. Recarregando...');
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Update check error:', error);
+      toast.error('Erro ao verificar atualização');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  }, []);
   
   // Geo settings local state
   const [geoAtivo, setGeoAtivo] = useState(false);
@@ -386,7 +412,7 @@ export default function SettingsPage() {
               Informações do Sistema
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Versão</span>
               <span>{getAppVersion()}</span>
@@ -395,6 +421,19 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">Sistema</span>
               <span>Graal Beer Delivery</span>
             </div>
+            <Button
+              variant="outline"
+              className="w-full h-10 mt-2 gap-2"
+              onClick={handleCheckUpdate}
+              disabled={isCheckingUpdate}
+            >
+              {isCheckingUpdate ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Verificar Atualização
+            </Button>
           </CardContent>
         </Card>
       </div>
