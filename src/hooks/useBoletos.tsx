@@ -158,6 +158,7 @@ export function useBoletos() {
         return 'text-status-ready bg-status-ready/10';
       case 'PENDING':
       case 'REGISTERED':
+      case 'OPEN':
         return 'text-status-waiting bg-status-waiting/10';
       case 'OVERDUE':
       case 'VENCIDO':
@@ -175,6 +176,7 @@ export function useBoletos() {
       case 'PAID':
         return 'Pago';
       case 'PENDING':
+      case 'OPEN':
         return 'Pendente';
       case 'REGISTERED':
         return 'Registrado';

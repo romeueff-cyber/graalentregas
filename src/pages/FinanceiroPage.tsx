@@ -86,7 +86,7 @@ export default function FinanceiroPage() {
     if (!boletos) return { pending: 0, registered: 0, paid: 0, overdue: 0, cancelled: 0, unreconciled: 0 };
     
     return {
-      pending: boletos.filter(b => b.status.toUpperCase() === 'PENDING').length,
+      pending: boletos.filter(b => ['PENDING', 'OPEN'].includes(b.status.toUpperCase())).length,
       registered: boletos.filter(b => b.status.toUpperCase() === 'REGISTERED').length,
       paid: boletos.filter(b => b.status.toUpperCase() === 'PAID').length,
       overdue: boletos.filter(b => isOverdueCheck(b.due_date, b.status)).length,
@@ -140,7 +140,7 @@ export default function FinanceiroPage() {
       const overdueCheck = isOverdueCheck(boleto.due_date, boleto.status);
       
       const matchesStatus = 
-        (activeFilters.has('pending') && status === 'PENDING') ||
+        (activeFilters.has('pending') && (status === 'PENDING' || status === 'OPEN')) ||
         (activeFilters.has('registered') && status === 'REGISTERED') ||
         (activeFilters.has('paid') && status === 'PAID') ||
         (activeFilters.has('overdue') && overdueCheck) ||
@@ -232,7 +232,7 @@ export default function FinanceiroPage() {
   const unreconciledCount = getUnreconciledPaidCount();
   const stats = {
     total: boletos?.length || 0,
-    pending: boletos?.filter(b => b.status.toUpperCase() === 'PENDING' || b.status.toUpperCase() === 'REGISTERED').length || 0,
+    pending: boletos?.filter(b => ['PENDING', 'REGISTERED', 'OPEN'].includes(b.status.toUpperCase())).length || 0,
     paid: boletos?.filter(b => b.status.toUpperCase() === 'PAID').length || 0,
     overdue: boletos?.filter(b => isOverdueCheck(b.due_date, b.status)).length || 0,
     unreconciled: unreconciledCount,
