@@ -153,11 +153,11 @@ serve(async (req) => {
     const { userId, supabase: adminSupabase } = authResult;
     console.log(`[SyncBoletos] Authenticated user: ${userId}`);
 
-    // Get all non-paid, non-cancelled boletos
+    // Get all non-paid boletos (including CANCELLED to detect payments on cancelled boletos)
     const { data: pendingBoletos, error: fetchError } = await adminSupabase
       .from('boletos')
       .select('id, cora_invoice_id, status, order_number')
-      .not('status', 'in', '("PAID","CANCELLED")');
+      .not('status', 'eq', 'PAID');
 
     if (fetchError) {
       throw new Error(`Erro ao buscar boletos: ${fetchError.message}`);
