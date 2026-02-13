@@ -317,19 +317,19 @@ export default function MainMapPage() {
                         <Users className="w-5 h-5" />
                         Gerenciar Usuários
                       </Button>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-3"
-                        onClick={() => {
-                          setShowMenu(false);
-                          navigate('/settings');
-                        }}
-                      >
-                        <Settings className="w-5 h-5" />
-                        Configurações
-                      </Button>
                     </>
                   )}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/settings');
+                    }}
+                  >
+                    <Settings className="w-5 h-5" />
+                    Configurações
+                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-3"
