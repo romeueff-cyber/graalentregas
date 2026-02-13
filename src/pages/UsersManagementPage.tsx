@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -77,6 +77,8 @@ export default function UsersManagementPage() {
 
   // Deactivate confirmation
   const [userToToggle, setUserToToggle] = useState<UserData | null>(null);
+  // Role change confirmation
+  const [userToChangeRole, setUserToChangeRole] = useState<UserData | null>(null);
 
   // Fetch all users with banned status
   const { data: users = [], isLoading, error: queryError } = useQuery({
@@ -233,6 +235,33 @@ export default function UsersManagementPage() {
       console.error('Erro ao alterar status do usuário:', error);
       toast.error('Erro ao alterar status do usuário: ' + error.message);
       setUserToToggle(null);
+    }
+  });
+
+  // Change role mutation
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const response = await supabase.functions.invoke('manage-user', {
+        body: { action: 'change_role', userId, role }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao alterar perfil');
+      }
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success(`Perfil alterado para ${variables.role === 'admin' ? 'Admin' : 'Entregador'}!`);
+      setUserToChangeRole(null);
+    },
+    onError: (error: any) => {
+      console.error('Erro ao alterar perfil:', error);
+      toast.error('Erro ao alterar perfil: ' + error.message);
+      setUserToChangeRole(null);
     }
   });
 
@@ -582,14 +611,25 @@ export default function UsersManagementPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          userData.role === 'admin' 
-                            ? 'bg-primary/10 text-primary' 
-                            : 'bg-secondary text-secondary-foreground'
-                        }`}>
+                        <button
+                          onClick={() => {
+                            // Don't allow changing own role
+                            if (userData.id === user?.id) {
+                              toast.error('Não é possível alterar seu próprio perfil');
+                              return;
+                            }
+                            setUserToChangeRole(userData);
+                          }}
+                          className={`text-xs px-2 py-1 rounded-full cursor-pointer transition-opacity hover:opacity-80 ${
+                            userData.role === 'admin' 
+                              ? 'bg-primary/10 text-primary' 
+                              : 'bg-secondary text-secondary-foreground'
+                          }`}
+                          title="Clique para alterar perfil"
+                        >
                           {userData.role === 'admin' ? 'Admin' : 'Entregador'}
-                        </span>
-                        {userData.role !== 'admin' && (
+                        </button>
+                        {userData.id !== user?.id && (
                           <>
                             <Button
                               size="icon"
@@ -644,6 +684,48 @@ export default function UsersManagementPage() {
                 <LoadingSpinner size="sm" />
               ) : (
                 userToToggle && isUserBanned(userToToggle) ? 'Ativar' : 'Inativar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Role Change Confirmation Dialog */}
+      <AlertDialog open={!!userToChangeRole} onOpenChange={() => setUserToChangeRole(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToChangeRole?.role === 'admin' ? 'Remover Admin' : 'Tornar Admin'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToChangeRole?.role === 'admin' 
+                ? `Tem certeza que deseja remover o perfil de administrador de "${userToChangeRole?.name}"? Ele passará a ser um entregador comum.`
+                : `Tem certeza que deseja tornar "${userToChangeRole?.name}" um administrador? Ele terá acesso total ao sistema.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (!userToChangeRole) return;
+                const newRole = userToChangeRole.role === 'admin' ? 'entregador' : 'admin';
+                changeRoleMutation.mutate({ userId: userToChangeRole.id, role: newRole });
+              }}
+              className={userToChangeRole?.role === 'admin' ? 'bg-destructive hover:bg-destructive/90' : ''}
+            >
+              {changeRoleMutation.isPending ? (
+                <LoadingSpinner size="sm" />
+              ) : userToChangeRole?.role === 'admin' ? (
+                <>
+                  <ShieldOff className="w-4 h-4 mr-2" />
+                  Remover Admin
+                </>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Tornar Admin
+                </>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
