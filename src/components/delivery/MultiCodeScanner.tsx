@@ -36,6 +36,8 @@ export function MultiCodeScanner({
   const scannerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastScannedRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
+  const handleCodeScannedRef = useRef<(code: string) => void>(() => {});
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
@@ -53,6 +55,13 @@ export function MultiCodeScanner({
   const handleCodeScanned = useCallback((code: string) => {
     const normalizedCode = code.trim().toUpperCase();
     if (!normalizedCode) return;
+
+    // Cooldown: ignore same code within 3 seconds
+    const now = Date.now();
+    if (lastScannedRef.current.code === normalizedCode && now - lastScannedRef.current.time < 3000) {
+      return;
+    }
+    lastScannedRef.current = { code: normalizedCode, time: now };
     
     if (scannedCodes.has(normalizedCode)) {
       console.log(`[MultiCodeScanner] Code ${normalizedCode} already scanned, ignoring`);
@@ -74,6 +83,11 @@ export function MultiCodeScanner({
       }
     }
   }, [scannedCodes, onCodesChange, validPatrimonies, standaloneMode]);
+
+  // Keep ref updated so the scanner callback always uses the latest handler
+  useEffect(() => {
+    handleCodeScannedRef.current = handleCodeScanned;
+  }, [handleCodeScanned]);
 
   const handleManualAdd = () => {
     const code = manualInput.trim().toUpperCase();
@@ -186,7 +200,7 @@ export function MultiCodeScanner({
           formatsToSupport: undefined,
         },
         (decodedText: string) => {
-          handleCodeScanned(decodedText);
+          handleCodeScannedRef.current(decodedText);
         },
         () => {
           // Ignore scan errors
