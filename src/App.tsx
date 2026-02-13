@@ -75,14 +75,7 @@ const App = () => {
                     </AdminRoute>
                   }
                 />
-                <Route
-                  path="/settings"
-                  element={
-                    <AdminRoute>
-                      <SettingsPage />
-                    </AdminRoute>
-                  }
-                />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/install" element={<InstallPage />} />
                 <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />

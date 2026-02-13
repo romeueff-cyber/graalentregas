@@ -32,16 +32,39 @@ export default function SettingsPage() {
     try {
       const registration = await navigator.serviceWorker?.getRegistration();
       if (registration) {
+        // Force the SW to check the server for a new version
         await registration.update();
+
+        // Give the browser a moment to evaluate the new SW
+        await new Promise((r) => setTimeout(r, 1000));
+
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
           toast.success('Nova versão encontrada! Atualizando...');
           setTimeout(() => window.location.reload(), 1500);
+        } else if (registration.installing) {
+          toast.success('Nova versão sendo instalada... Aguarde.');
+          registration.installing.addEventListener('statechange', (e) => {
+            if ((e.target as ServiceWorker).state === 'installed') {
+              toast.success('Atualização pronta! Recarregando...');
+              setTimeout(() => window.location.reload(), 1000);
+            }
+          });
         } else {
+          // Also try clearing caches and doing a hard reload as fallback
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((name) => caches.delete(name)));
+          }
           toast.info('Você já está na versão mais recente!');
         }
       } else {
-        toast.info('Service Worker não registrado. Recarregando...');
+        // No SW registered - just clear caches and reload
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        }
+        toast.info('Recarregando aplicação...');
         window.location.reload();
       }
     } catch (error) {
@@ -83,7 +106,7 @@ export default function SettingsPage() {
     }
   }, [costSettings]);
 
-  // Fetch settings
+  // Fetch settings - only for admin
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
@@ -179,11 +202,9 @@ export default function SettingsPage() {
     );
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || (isAdmin && isLoading)) {
     return <FullPageLoader />;
   }
-
-  // Note: Admin check is now handled by AdminRoute wrapper in App.tsx
 
   return (
     <div className="min-h-screen bg-background pb-safe-area-bottom">
@@ -203,208 +224,213 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="p-4 space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Exibição de Equipamentos Recolhidos
-            </CardTitle>
-            <CardDescription>
-              Configure por quantos dias os equipamentos recolhidos permanecerão visíveis no mapa
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="diasExibir">Dias para exibir após recolha</Label>
-              <Input
-                id="diasExibir"
-                type="number"
-                min={1}
-                max={365}
-                value={diasExibir}
-                onChange={(e) => setDiasExibir(parseInt(e.target.value) || 0)}
-                className="h-12"
-              />
-              <p className="text-xs text-muted-foreground">
-                Após este período, os equipamentos recolhidos serão ocultados automaticamente do mapa (mas não excluídos do sistema).
-              </p>
-            </div>
-
-            <Button
-              className="w-full h-12"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? <LoadingSpinner size="sm" /> : 'Salvar Configurações'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Geo Filter Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Filtro Geográfico
-            </CardTitle>
-            <CardDescription>
-              Limite a área de atuação para otimizar performance e focar nos pedidos relevantes
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Ativar filtro por raio</Label>
-                <p className="text-xs text-muted-foreground">
-                  Mostra apenas pedidos e equipamentos dentro do raio definido
-                </p>
-              </div>
-              <Switch
-                checked={geoAtivo}
-                onCheckedChange={setGeoAtivo}
-              />
-            </div>
-
-            {geoAtivo && (
-              <>
+        {/* Admin-only settings */}
+        {isAdmin && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Exibição de Equipamentos Recolhidos
+                </CardTitle>
+                <CardDescription>
+                  Configure por quantos dias os equipamentos recolhidos permanecerão visíveis no mapa
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Raio de atuação (km)</Label>
+                  <Label htmlFor="diasExibir">Dias para exibir após recolha</Label>
                   <Input
+                    id="diasExibir"
                     type="number"
                     min={1}
-                    max={500}
-                    value={raioKm}
-                    onChange={(e) => setRaioKm(parseInt(e.target.value) || 50)}
+                    max={365}
+                    value={diasExibir}
+                    onChange={(e) => setDiasExibir(parseInt(e.target.value) || 0)}
                     className="h-12"
                   />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Latitude central</Label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      value={centroLat}
-                      onChange={(e) => setCentroLat(parseFloat(e.target.value) || 0)}
-                      className="h-12"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Longitude central</Label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      value={centroLng}
-                      onChange={(e) => setCentroLng(parseFloat(e.target.value) || 0)}
-                      className="h-12"
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Após este período, os equipamentos recolhidos serão ocultados automaticamente do mapa (mas não excluídos do sistema).
+                  </p>
                 </div>
 
                 <Button
-                  variant="outline"
-                  className="w-full h-10"
-                  onClick={handleUseCurrentLocation}
-                  disabled={isLocating}
+                  className="w-full h-12"
+                  onClick={handleSave}
+                  disabled={isSaving}
                 >
-                  {isLocating ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <>
-                      <Locate className="w-4 h-4 mr-2" />
-                      Usar minha localização atual
-                    </>
-                  )}
+                  {isSaving ? <LoadingSpinner size="sm" /> : 'Salvar Configurações'}
                 </Button>
+              </CardContent>
+            </Card>
 
-                <p className="text-xs text-muted-foreground">
-                  O filtro será aplicado no Mapa de Pedidos do Dia, Mapa Principal e Otimização de Rotas.
-                </p>
-              </>
-            )}
+            {/* Geo Filter Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Filtro Geográfico
+                </CardTitle>
+                <CardDescription>
+                  Limite a área de atuação para otimizar performance e focar nos pedidos relevantes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Ativar filtro por raio</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Mostra apenas pedidos e equipamentos dentro do raio definido
+                    </p>
+                  </div>
+                  <Switch
+                    checked={geoAtivo}
+                    onCheckedChange={setGeoAtivo}
+                  />
+                </div>
 
-            <Button
-              className="w-full h-12"
-              onClick={handleSaveGeoSettings}
-              disabled={isUpdating}
-            >
-              {isUpdating ? <LoadingSpinner size="sm" /> : 'Salvar Configurações Geográficas'}
-            </Button>
-          </CardContent>
-        </Card>
+                {geoAtivo && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Raio de atuação (km)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={raioKm}
+                        onChange={(e) => setRaioKm(parseInt(e.target.value) || 50)}
+                        className="h-12"
+                      />
+                    </div>
 
-        {/* Cost Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="w-4 h-4" />
-              Custos Operacionais
-            </CardTitle>
-            <CardDescription>
-              Configure os valores para cálculo de rentabilidade por cliente (rateio simples por rota)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="custoPorKm">Custo por km (R$)</Label>
-              <Input
-                id="custoPorKm"
-                type="number"
-                step="0.10"
-                min={0}
-                value={custoPorKm}
-                onChange={(e) => setCustoPorKm(parseFloat(e.target.value) || 0)}
-                className="h-12"
-              />
-              <p className="text-xs text-muted-foreground">
-                Combustível + desgaste do veículo
-              </p>
-            </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Latitude central</Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={centroLat}
+                          onChange={(e) => setCentroLat(parseFloat(e.target.value) || 0)}
+                          className="h-12"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Longitude central</Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={centroLng}
+                          onChange={(e) => setCentroLng(parseFloat(e.target.value) || 0)}
+                          className="h-12"
+                        />
+                      </div>
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="custoPorHora">Custo por hora (R$)</Label>
-              <Input
-                id="custoPorHora"
-                type="number"
-                step="1"
-                min={0}
-                value={custoPorHora}
-                onChange={(e) => setCustoPorHora(parseFloat(e.target.value) || 0)}
-                className="h-12"
-              />
-              <p className="text-xs text-muted-foreground">
-                Salário proporcional do motorista
-              </p>
-            </div>
+                    <Button
+                      variant="outline"
+                      className="w-full h-10"
+                      onClick={handleUseCurrentLocation}
+                      disabled={isLocating}
+                    >
+                      {isLocating ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <>
+                          <Locate className="w-4 h-4 mr-2" />
+                          Usar minha localização atual
+                        </>
+                      )}
+                    </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="custoFixoParada">Custo fixo por parada (R$)</Label>
-              <Input
-                id="custoFixoParada"
-                type="number"
-                step="1"
-                min={0}
-                value={custoFixoParada}
-                onChange={(e) => setCustoFixoParada(parseFloat(e.target.value) || 0)}
-                className="h-12"
-              />
-              <p className="text-xs text-muted-foreground">
-                Estacionamento, tempo de descarga, etc.
-              </p>
-            </div>
+                    <p className="text-xs text-muted-foreground">
+                      O filtro será aplicado no Mapa de Pedidos do Dia, Mapa Principal e Otimização de Rotas.
+                    </p>
+                  </>
+                )}
 
-            <Button
-              className="w-full h-12"
-              onClick={handleSaveCostSettings}
-              disabled={isUpdatingCost}
-            >
-              {isUpdatingCost ? <LoadingSpinner size="sm" /> : 'Salvar Custos Operacionais'}
-            </Button>
-          </CardContent>
-        </Card>
+                <Button
+                  className="w-full h-12"
+                  onClick={handleSaveGeoSettings}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <LoadingSpinner size="sm" /> : 'Salvar Configurações Geográficas'}
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* System Info */}
+            {/* Cost Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Custos Operacionais
+                </CardTitle>
+                <CardDescription>
+                  Configure os valores para cálculo de rentabilidade por cliente (rateio simples por rota)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="custoPorKm">Custo por km (R$)</Label>
+                  <Input
+                    id="custoPorKm"
+                    type="number"
+                    step="0.10"
+                    min={0}
+                    value={custoPorKm}
+                    onChange={(e) => setCustoPorKm(parseFloat(e.target.value) || 0)}
+                    className="h-12"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Combustível + desgaste do veículo
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="custoPorHora">Custo por hora (R$)</Label>
+                  <Input
+                    id="custoPorHora"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={custoPorHora}
+                    onChange={(e) => setCustoPorHora(parseFloat(e.target.value) || 0)}
+                    className="h-12"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Salário proporcional do motorista
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="custoFixoParada">Custo fixo por parada (R$)</Label>
+                  <Input
+                    id="custoFixoParada"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={custoFixoParada}
+                    onChange={(e) => setCustoFixoParada(parseFloat(e.target.value) || 0)}
+                    className="h-12"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Estacionamento, tempo de descarga, etc.
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full h-12"
+                  onClick={handleSaveCostSettings}
+                  disabled={isUpdatingCost}
+                >
+                  {isUpdatingCost ? <LoadingSpinner size="sm" /> : 'Salvar Custos Operacionais'}
+                </Button>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* System Info - Available to all users */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
