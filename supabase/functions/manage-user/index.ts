@@ -24,7 +24,8 @@ const MAX_NAME_LENGTH = 100
 const MAX_EMAIL_LENGTH = 255
 const MIN_PASSWORD_LENGTH = 8
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const VALID_ACTIONS = ['update', 'deactivate', 'activate', 'delete']
+const VALID_ACTIONS = ['update', 'deactivate', 'activate', 'delete', 'change_role']
+const VALID_ROLES = ['admin', 'entregador']
 
 function validateEmail(email: string): { valid: boolean; error?: string } {
   if (!email || typeof email !== 'string') {
@@ -154,7 +155,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { action, userId, name, email, password } = await req.json()
+    const { action, userId, name, email, password, role } = await req.json()
 
     // Validate action
     const actionValidation = validateAction(action)
@@ -174,19 +175,21 @@ serve(async (req) => {
       )
     }
 
-    // Prevent modifying admin users
-    const { data: targetRoleData } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .single()
+    // Prevent modifying admin users (except for role changes by admin)
+    if (action !== 'change_role') {
+      const { data: targetRoleData } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .single()
 
-    if (targetRoleData) {
-      return new Response(
-        JSON.stringify({ error: 'Cannot modify admin users' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (targetRoleData) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot modify admin users' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     switch (action) {
@@ -338,6 +341,63 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true, message: 'User deleted successfully' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      case 'change_role': {
+        // Validate role
+        if (!role || !VALID_ROLES.includes(role)) {
+          return new Response(
+            JSON.stringify({ error: `Invalid role. Valid roles: ${VALID_ROLES.join(', ')}` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Prevent changing own role
+        if (userId === callerUser.id) {
+          return new Response(
+            JSON.stringify({ error: 'Cannot change your own role' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Upsert the role
+        const { data: existingRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', userId)
+          .single()
+
+        if (existingRole) {
+          const { error: updateRoleError } = await supabaseAdmin
+            .from('user_roles')
+            .update({ role })
+            .eq('user_id', userId)
+
+          if (updateRoleError) {
+            console.error('Error updating role:', updateRoleError)
+            return new Response(
+              JSON.stringify({ error: updateRoleError.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        } else {
+          const { error: insertRoleError } = await supabaseAdmin
+            .from('user_roles')
+            .insert({ user_id: userId, role })
+
+          if (insertRoleError) {
+            console.error('Error inserting role:', insertRoleError)
+            return new Response(
+              JSON.stringify({ error: insertRoleError.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, message: `Role changed to ${role}` }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
