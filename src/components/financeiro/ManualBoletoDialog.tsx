@@ -76,6 +76,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   
   // Manual mode state
   const [manualOrderNumber, setManualOrderNumber] = useState('');
+  const [manualBoletoIdentifier, setManualBoletoIdentifier] = useState('');
   const [manualCustomerName, setManualCustomerName] = useState('');
   const [manualDocument, setManualDocument] = useState('');
   const [manualEmail, setManualEmail] = useState('');
@@ -99,6 +100,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       setOrders([]);
       setSelectedOrderNumber(null);
       setManualOrderNumber('');
+      setManualBoletoIdentifier('');
       setManualCustomerName('');
       setManualDocument('');
       setManualEmail('');
@@ -282,8 +284,9 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
     setIsGenerating(true);
     try {
       const cleanDoc = manualDocument.replace(/\D/g, '');
+      const boletoOrderNumber = manualBoletoIdentifier.trim() || manualOrderNumber;
       const request: CreateBoletoRequest = {
-        orderNumber: manualOrderNumber,
+        orderNumber: boletoOrderNumber,
         customer: {
           name: manualCustomerName,
           document: cleanDoc,
@@ -291,7 +294,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           email: manualEmail || undefined,
         },
         services: [{
-          name: `Pedido ${manualOrderNumber}`,
+          name: `Pedido ${boletoOrderNumber}`,
           description: manualDescription || 'Boleto gerado manualmente',
           amount: Math.round(amountValue * 100),
         }],
@@ -572,7 +575,19 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
                   </div>
                 </div>
 
-                {/* Customer Name */}
+                {/* Boleto Identifier (overrides order number for saving) */}
+                <div className="space-y-1">
+                  <Label>Identificador do Boleto (opcional)</Label>
+                  <Input
+                    value={manualBoletoIdentifier}
+                    onChange={(e) => setManualBoletoIdentifier(e.target.value)}
+                    placeholder={manualOrderNumber || 'Ex: 7198-novo2'}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Nome usado para identificar o boleto no sistema. Se vazio, usa o número do pedido.
+                  </p>
+                </div>
+
                 <div className="space-y-1">
                   <Label>Nome do Cliente</Label>
                   <Input
