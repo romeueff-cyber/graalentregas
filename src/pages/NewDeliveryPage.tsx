@@ -60,7 +60,6 @@ export default function NewDeliveryPage() {
   const routerLocation = useLocation();
   const locationState = routerLocation.state as LocationState | undefined;
   const routeOrderNumber = locationState?.orderData?.order_number ?? null;
-  const routeOrderLocation = locationState?.orderLocation ?? null;
   
   const { createEquipment } = useEquipments();
   const { user, profile } = useAuth();
@@ -99,9 +98,8 @@ export default function NewDeliveryPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Prevent re-processing route state when hooks update (e.g., geocoding finishes)
+  // Prevent re-processing route state when hooks update
   const routePrefillOrderRef = useRef<string | null>(null);
-  const routeLocationToastShownRef = useRef(false);
 
   // Listen for online/offline events
   useEffect(() => {
@@ -123,7 +121,7 @@ export default function NewDeliveryPage() {
 
     if (routePrefillOrderRef.current === routeOrderNumber) return;
     routePrefillOrderRef.current = routeOrderNumber;
-    routeLocationToastShownRef.current = false;
+    
 
     const order = locationState.orderData;
     setSelectedOrder(order);
@@ -144,30 +142,8 @@ export default function NewDeliveryPage() {
       setClienteIraAvisar(false);
     }
 
-    // Prefer route-provided location (from map click) to avoid waiting for geocoding
-    if (routeOrderLocation) {
-      setGpsLocation(routeOrderLocation);
-      setUsingOrderLocation(true);
-      toast.success('Localização do pedido carregada!');
-      routeLocationToastShownRef.current = true;
-    }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeOrderNumber]);
-
-  // If we didn't receive coordinates via route, try to use the geocoded order location (once)
-  useEffect(() => {
-    if (!routeOrderNumber) return;
-    if (routeLocationToastShownRef.current) return;
-
-    const orderLoc = getOrderLocation(routeOrderNumber);
-    if (orderLoc) {
-      setGpsLocation(orderLoc);
-      setUsingOrderLocation(true);
-      toast.success('Localização do pedido carregada!');
-      routeLocationToastShownRef.current = true;
-    }
-  }, [routeOrderNumber, getOrderLocation]);
 
   // Get current location via GPS
   const getGPSLocation = useCallback(() => {
@@ -206,11 +182,11 @@ export default function NewDeliveryPage() {
     );
   }, []);
 
-  // Get current location on mount (skip when we opened from a daily order)
+  // Get current GPS location on mount (always, regardless of order source)
   useEffect(() => {
-    if (routeOrderNumber) return;
     getGPSLocation();
-  }, [getGPSLocation, routeOrderNumber]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
@@ -236,15 +212,9 @@ export default function NewDeliveryPage() {
     if (order.observations) setObservacoes(order.observations);
     setOrderSearchOpen(false);
     
-    // Try to use order's geocoded location
-    const orderLoc = getOrderLocation(order.order_number);
-    if (orderLoc) {
-      setGpsLocation(orderLoc);
-      setUsingOrderLocation(true);
-      toast.success('Dados e localização do pedido carregados!');
-    } else {
-      toast.success('Dados do pedido carregados!');
-    }
+    // Do not auto-load geocoded location as GPS — user stays on GPS mode
+    // The "Endereço do Pedido" button remains available if the user wants to use it
+    toast.success('Dados do pedido carregados!');
   };
 
   // Switch to driver's GPS location
