@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, FileText, Copy, ExternalLink, QrCode, AlertCircle, CheckCircle2, Circle, RefreshCw, Printer, Eye, Trash2 } from 'lucide-react';
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse, type ExistingBoleto } from '@/hooks/useBoleto';
+import { useBoletoSettings } from '@/hooks/useBoletoSettings';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -59,6 +60,7 @@ interface InstallmentStatus {
 
 export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const { createBoleto, formatCurrency, openBoletoUrl, copyToClipboard, printBoleto, checkExistingBoletos, getAllBoletos, deleteExistingBoletos, cancelBoleto, isLoading } = useBoleto();
+  const { boletoSettings, buildBoletoPaymentTerms } = useBoletoSettings();
   const { 
     fetchBoletoData, 
     calculateDueDates, 
@@ -313,14 +315,12 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           amount: installmentTotal,
         }],
         dueDate: inst.dueDate,
-        fine: { rate: 2 },
-        interest: { rate: 1 },
+        ...buildBoletoPaymentTerms(boletoSettings),
         notification: email ? {
           name: order.client_name,
           email: email,
           rules: ['BEFORE_DUE_DATE', 'DUE_DATE', 'OVERDUE'],
         } : undefined,
-        production: true,
       };
 
       const result = await createBoleto(request);

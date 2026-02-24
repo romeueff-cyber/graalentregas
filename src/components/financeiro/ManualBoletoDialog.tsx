@@ -25,6 +25,7 @@ import {
   Building,
 } from 'lucide-react';
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
+import { useBoletoSettings } from '@/hooks/useBoletoSettings';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ interface ERPOrder {
 
 export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBoletoDialogProps) {
   const { createBoleto, formatCurrency, isLoading: isBoletoLoading } = useBoleto();
+  const { boletoSettings, buildBoletoPaymentTerms } = useBoletoSettings();
   const { fetchBoletoData } = useERPBoletoData();
   
   const [activeTab, setActiveTab] = useState<'search' | 'manual'>('search');
@@ -233,9 +235,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           amount: Math.round(amountValue * 100),
         }],
         dueDate: editableDueDate,
-        fine: { rate: 2 },
-        interest: { rate: 1 },
-        production: true,
+        ...buildBoletoPaymentTerms(boletoSettings),
       };
       
       const result = await createBoleto(request);
@@ -296,9 +296,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           amount: Math.round(amountValue * 100),
         }],
         dueDate: manualDueDate,
-        fine: { rate: 2 },
-        interest: { rate: 1 },
-        production: true,
+        ...buildBoletoPaymentTerms(boletoSettings),
       };
       
       const result = await createBoleto(request);

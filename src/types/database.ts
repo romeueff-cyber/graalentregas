@@ -47,6 +47,15 @@ export interface Settings {
   id: string;
   dias_exibir_recolhido: number;
   updated_at: string;
+  boleto_multa_tipo: string;
+  boleto_multa_valor: number;
+  boleto_multa_ativo: boolean;
+  boleto_juros_taxa: number;
+  boleto_juros_ativo: boolean;
+  boleto_desconto_tipo: string;
+  boleto_desconto_valor: number;
+  boleto_desconto_ativo: boolean;
+  boleto_producao: boolean;
 }
 
 export interface EquipmentWithCreator extends Equipment {

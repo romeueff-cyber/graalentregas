@@ -9,11 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign, RefreshCw, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGeoSettings } from '@/hooks/useGeoSettings';
 import { useCostSettings } from '@/hooks/useCostSettings';
+import { useBoletoSettings } from '@/hooks/useBoletoSettings';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Settings } from '@/types/database';
 
 export default function SettingsPage() {
@@ -22,6 +24,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { geoSettings, updateGeoSettings, isUpdating } = useGeoSettings();
   const { costSettings, updateCostSettings, isUpdating: isUpdatingCost } = useCostSettings();
+  const { boletoSettings, updateBoletoSettings, isUpdating: isUpdatingBoleto } = useBoletoSettings();
 
   const [diasExibir, setDiasExibir] = useState<number>(7);
   const [isSaving, setIsSaving] = useState(false);
@@ -87,6 +90,17 @@ export default function SettingsPage() {
   const [custoPorHora, setCustoPorHora] = useState(25.00);
   const [custoFixoParada, setCustoFixoParada] = useState(10.00);
 
+  // Boleto settings local state
+  const [bMultaTipo, setBMultaTipo] = useState('PERCENTUAL');
+  const [bMultaValor, setBMultaValor] = useState(2.00);
+  const [bMultaAtivo, setBMultaAtivo] = useState(false);
+  const [bJurosTaxa, setBJurosTaxa] = useState(1.00);
+  const [bJurosAtivo, setBJurosAtivo] = useState(false);
+  const [bDescontoTipo, setBDescontoTipo] = useState('FIXED');
+  const [bDescontoValor, setBDescontoValor] = useState(0);
+  const [bDescontoAtivo, setBDescontoAtivo] = useState(false);
+  const [bProducao, setBProducao] = useState(false);
+
   // Sync geo settings from hook
   useEffect(() => {
     if (geoSettings) {
@@ -105,6 +119,21 @@ export default function SettingsPage() {
       setCustoFixoParada(costSettings.custo_fixo_parada);
     }
   }, [costSettings]);
+
+  // Sync boleto settings from hook
+  useEffect(() => {
+    if (boletoSettings) {
+      setBMultaTipo(boletoSettings.boleto_multa_tipo);
+      setBMultaValor(boletoSettings.boleto_multa_valor);
+      setBMultaAtivo(boletoSettings.boleto_multa_ativo);
+      setBJurosTaxa(boletoSettings.boleto_juros_taxa);
+      setBJurosAtivo(boletoSettings.boleto_juros_ativo);
+      setBDescontoTipo(boletoSettings.boleto_desconto_tipo);
+      setBDescontoValor(boletoSettings.boleto_desconto_valor);
+      setBDescontoAtivo(boletoSettings.boleto_desconto_ativo);
+      setBProducao(boletoSettings.boleto_producao);
+    }
+  }, [boletoSettings]);
 
   // Fetch settings - only for admin
   const { data: settings, isLoading } = useQuery({
@@ -165,6 +194,20 @@ export default function SettingsPage() {
       centro_latitude: centroLat,
       centro_longitude: centroLng,
       raio_km: raioKm,
+    });
+  };
+
+  const handleSaveBoletoSettings = () => {
+    updateBoletoSettings({
+      boleto_multa_tipo: bMultaTipo,
+      boleto_multa_valor: bMultaValor,
+      boleto_multa_ativo: bMultaAtivo,
+      boleto_juros_taxa: bJurosTaxa,
+      boleto_juros_ativo: bJurosAtivo,
+      boleto_desconto_tipo: bDescontoTipo,
+      boleto_desconto_valor: bDescontoValor,
+      boleto_desconto_ativo: bDescontoAtivo,
+      boleto_producao: bProducao,
     });
   };
 
@@ -424,6 +467,154 @@ export default function SettingsPage() {
                   disabled={isUpdatingCost}
                 >
                   {isUpdatingCost ? <LoadingSpinner size="sm" /> : 'Salvar Custos Operacionais'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Boleto Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Configurações do Boleto
+                </CardTitle>
+                <CardDescription>
+                  Configure multa, juros, desconto e ambiente da API Cora para emissão de boletos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Ambiente */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Ambiente de Produção</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Ativo = boletos reais. Desativado = ambiente de testes (stage).
+                    </p>
+                  </div>
+                  <Switch
+                    checked={bProducao}
+                    onCheckedChange={setBProducao}
+                  />
+                </div>
+
+                {/* Multa */}
+                <div className="space-y-3 border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-medium">Multa por atraso</Label>
+                    <Switch
+                      checked={bMultaAtivo}
+                      onCheckedChange={setBMultaAtivo}
+                    />
+                  </div>
+                  {bMultaAtivo && (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Tipo de multa</Label>
+                        <Select value={bMultaTipo} onValueChange={setBMultaTipo}>
+                          <SelectTrigger className="h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PERCENTUAL">Percentual (%)</SelectItem>
+                            <SelectItem value="FIXO">Valor fixo (R$)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>
+                          {bMultaTipo === 'PERCENTUAL' ? 'Percentual da multa (%)' : 'Valor da multa (R$)'}
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={bMultaValor}
+                          onChange={(e) => setBMultaValor(parseFloat(e.target.value) || 0)}
+                          className="h-12"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {bMultaTipo === 'PERCENTUAL'
+                            ? 'Ex: 2% sobre o valor do boleto'
+                            : 'Ex: R$ 5,00 de multa fixa'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Juros */}
+                <div className="space-y-3 border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-medium">Juros ao mês</Label>
+                    <Switch
+                      checked={bJurosAtivo}
+                      onCheckedChange={setBJurosAtivo}
+                    />
+                  </div>
+                  {bJurosAtivo && (
+                    <div className="space-y-2">
+                      <Label>Taxa de juros mensal (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={bJurosTaxa}
+                        onChange={(e) => setBJurosTaxa(parseFloat(e.target.value) || 0)}
+                        className="h-12"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Ex: 1% ao mês sobre o valor do boleto
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Desconto */}
+                <div className="space-y-3 border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-medium">Desconto para pagamento antecipado</Label>
+                    <Switch
+                      checked={bDescontoAtivo}
+                      onCheckedChange={setBDescontoAtivo}
+                    />
+                  </div>
+                  {bDescontoAtivo && (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Tipo de desconto</Label>
+                        <Select value={bDescontoTipo} onValueChange={setBDescontoTipo}>
+                          <SelectTrigger className="h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="FIXED">Valor fixo (R$)</SelectItem>
+                            <SelectItem value="PERCENT">Percentual (%)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>
+                          {bDescontoTipo === 'PERCENT' ? 'Percentual de desconto (%)' : 'Valor do desconto (R$)'}
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={bDescontoValor}
+                          onChange={(e) => setBDescontoValor(parseFloat(e.target.value) || 0)}
+                          className="h-12"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  className="w-full h-12"
+                  onClick={handleSaveBoletoSettings}
+                  disabled={isUpdatingBoleto}
+                >
+                  {isUpdatingBoleto ? <LoadingSpinner size="sm" /> : 'Salvar Configurações de Boleto'}
                 </Button>
               </CardContent>
             </Card>
