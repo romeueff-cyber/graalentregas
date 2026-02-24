@@ -562,6 +562,15 @@ export type Database = {
       }
       settings: {
         Row: {
+          boleto_desconto_ativo: boolean
+          boleto_desconto_tipo: string
+          boleto_desconto_valor: number
+          boleto_juros_ativo: boolean
+          boleto_juros_taxa: number
+          boleto_multa_ativo: boolean
+          boleto_multa_tipo: string
+          boleto_multa_valor: number
+          boleto_producao: boolean
           centro_latitude: number | null
           centro_longitude: number | null
           custo_fixo_parada: number
@@ -574,6 +583,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          boleto_desconto_ativo?: boolean
+          boleto_desconto_tipo?: string
+          boleto_desconto_valor?: number
+          boleto_juros_ativo?: boolean
+          boleto_juros_taxa?: number
+          boleto_multa_ativo?: boolean
+          boleto_multa_tipo?: string
+          boleto_multa_valor?: number
+          boleto_producao?: boolean
           centro_latitude?: number | null
           centro_longitude?: number | null
           custo_fixo_parada?: number
@@ -586,6 +604,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          boleto_desconto_ativo?: boolean
+          boleto_desconto_tipo?: string
+          boleto_desconto_valor?: number
+          boleto_juros_ativo?: boolean
+          boleto_juros_taxa?: number
+          boleto_multa_ativo?: boolean
+          boleto_multa_tipo?: string
+          boleto_multa_valor?: number
+          boleto_producao?: boolean
           centro_latitude?: number | null
           centro_longitude?: number | null
           custo_fixo_parada?: number
