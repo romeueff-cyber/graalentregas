@@ -269,7 +269,7 @@ export function DailyOrdersSidebar({
 
   // Expanded state - full sidebar
   return (
-    <div className="absolute left-2 top-2 bottom-2 w-[calc(100vw-1rem)] sm:w-96 max-w-[24rem] bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
+    <div className="absolute left-2 top-2 bottom-2 w-[calc(100vw-1rem)] sm:w-96 max-w-[24rem] bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-20 flex flex-col animate-scale-in">
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
@@ -375,7 +375,7 @@ export function DailyOrdersSidebar({
             }
           </div>
         ) : (
-          <div className="p-1.5 space-y-1">
+          <div className="pl-1.5 pr-3 py-1.5 space-y-1">
             {filteredOrders.map((order) => {
               const isOrderExpanded = expandedOrder === order.order_number;
               const isSelected = selectedOrderNumber === order.order_number;
@@ -403,11 +403,11 @@ export function DailyOrdersSidebar({
                 >
                   {/* Order Row */}
                   <div
-                    className="flex items-center gap-1.5 p-1.5 cursor-pointer"
+                    className="flex items-center gap-1 p-1.5 cursor-pointer"
                     onClick={() => onOrderSelect?.(order)}
                   >
                     {/* Order Number, Client Name, Status and Time */}
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-1 min-w-0 flex-1 pr-1">
                       <span className={cn(
                         "font-mono font-semibold text-xs",
                         isOrderDelivered && "text-status-ready"
@@ -434,7 +434,7 @@ export function DailyOrdersSidebar({
                     </div>
 
                     {/* Equipment Icons with Quantities */}
-                    <div className="flex items-center gap-1.5 ml-auto">
+                    <div className="flex items-center gap-1 ml-auto shrink-0">
                       <span title="Growler" className="flex items-center gap-0.5">
                         <span className={cn(
                           "text-[9px] font-semibold",
@@ -453,7 +453,7 @@ export function DailyOrdersSidebar({
                           "text-[9px] font-semibold whitespace-nowrap",
                           orderHasBarrel ? "text-primary" : "text-muted-foreground/40"
                         )}>
-                          {orderHasBarrel ? formatBarrelDisplay(order) : '0x'}
+                          {orderHasBarrel ? `${barrelCount}x` : '0x'}
                         </span>
                         <BeerBarrelIcon className={cn(
                           "w-3.5 h-3.5 flex-shrink-0",
@@ -476,7 +476,7 @@ export function DailyOrdersSidebar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-5 w-5 flex-shrink-0"
+                      className="h-6 w-6 flex-shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleExpand(order.order_number);
