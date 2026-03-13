@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { BoletoDialog } from './BoletoDialog';
 import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 
@@ -60,6 +61,7 @@ export function DailyOrdersSidebar({
   deliveredOrderNumbers = new Set(),
 }: DailyOrdersSidebarProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
@@ -267,7 +269,7 @@ export function DailyOrdersSidebar({
 
   // Expanded state - full sidebar
   return (
-    <div className="absolute left-2 top-2 bottom-20 w-96 bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
+    <div className="absolute left-2 top-2 bottom-20 w-[calc(100vw-1rem)] sm:w-96 max-w-[24rem] bg-card/95 backdrop-blur-sm border rounded-lg shadow-xl z-10 flex flex-col animate-scale-in">
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b bg-muted/50 rounded-t-lg">
         <div className="flex items-center gap-2">
