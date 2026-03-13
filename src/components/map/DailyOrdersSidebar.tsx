@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { BeerBottleIcon, BeerBarrelIcon, BeerTapIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { BoletoDialog } from './BoletoDialog';
 import { InvoicePendingAlert, isOrderInvoiced } from '@/components/delivery/InvoicePendingAlert';
 
