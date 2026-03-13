@@ -61,6 +61,7 @@ export function DailyOrdersSidebar({
   deliveredOrderNumbers = new Set(),
 }: DailyOrdersSidebarProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
