@@ -147,9 +147,15 @@ export function useClientHealth(days: number = 90) {
         avgIntervalDays = intervals.reduce((a, b) => a + b, 0) / intervals.length;
       }
 
-      // Trend
-      const recentOrders = orders.filter(o => new Date(o.date) >= midPoint).length;
-      const previousOrders = totalOrders - recentOrders;
+      // Trend: últimos 60d vs 60d anteriores (janela fixa)
+      const recentOrders = orders.filter(o => {
+        const d = new Date(o.date);
+        return d >= recentCutoff && d <= today;
+      }).length;
+      const previousOrders = orders.filter(o => {
+        const d = new Date(o.date);
+        return d >= previousCutoff && d < recentCutoff;
+      }).length;
       const trendPct = previousOrders > 0
         ? ((recentOrders - previousOrders) / previousOrders) * 100
         : recentOrders > 0 ? 100 : 0;
