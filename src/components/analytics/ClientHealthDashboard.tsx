@@ -353,6 +353,34 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
             {filteredRows.length} cliente(s) — mostrando {visibleRows.length}
           </p>
 
+          {/* Legenda da lógica */}
+          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
+            <p className="font-medium text-foreground">Como interpretar:</p>
+            <ul className="space-y-1 text-muted-foreground list-disc pl-4">
+              <li>
+                <strong className="text-foreground">Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.
+              </li>
+              <li>
+                <strong className="text-foreground">Últ. pedido:</strong> dias desde o último pedido.{' '}
+                <span className="text-amber-600">âmbar &gt; 30d</span> ·{' '}
+                <span className="text-destructive">vermelho &gt; 60d</span>.
+              </li>
+              <li>
+                <strong className="text-foreground">Tendência:</strong> compara pedidos dos{' '}
+                <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>.
+                Fórmula: <code className="px-1 bg-background rounded">(recente − anterior) / anterior × 100</code>.
+                Sem pedidos anteriores e com recentes → +100%.
+              </li>
+              <li>
+                <strong className="text-foreground">Status:</strong>{' '}
+                <span className="text-status-collected font-medium">Ativo</span> (no ritmo) ·{' '}
+                <span className="text-primary font-medium">Novo</span> (1º pedido no período) ·{' '}
+                <span className="text-amber-600 font-medium">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) ·{' '}
+                <span className="text-destructive font-medium">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).
+              </li>
+            </ul>
+          </div>
+
           {/* Table */}
           <div className="overflow-x-auto -mx-2">
             <table className="w-full text-sm">
