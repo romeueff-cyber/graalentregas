@@ -166,6 +166,15 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
     </tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Sem clientes para exportar</td></tr>'}</tbody>
   </table>
+  <div style="margin-top:18px;border:1px solid #e5e7eb;background:#f9fafb;border-radius:8px;padding:10px 14px;font-size:10px;color:#374151;line-height:1.55;page-break-inside:avoid;">
+    <div style="font-weight:600;color:#1a1a1a;margin-bottom:4px;">Como interpretar:</div>
+    <ul style="margin:0;padding-left:16px;">
+      <li><strong>Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.</li>
+      <li><strong>Últ. pedido:</strong> dias desde o último pedido — <span style="color:#d97706;">âmbar &gt; 30d</span> · <span style="color:#dc2626;">vermelho &gt; 60d</span>.</li>
+      <li><strong>Tendência:</strong> compara pedidos dos <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>. Fórmula: (recente − anterior) / anterior × 100. Sem pedidos anteriores e com recentes → +100%.</li>
+      <li><strong>Status:</strong> <span style="color:#16a34a;font-weight:600;">Ativo</span> (no ritmo) · <span style="color:#2563eb;font-weight:600;">Novo</span> (1º pedido no período) · <span style="color:#d97706;font-weight:600;">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) · <span style="color:#dc2626;font-weight:600;">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).</li>
+    </ul>
+  </div>
   <div class="footer">Graal Beer - Sistema de Gestão de Entregas</div>
 </body></html>`;
 
