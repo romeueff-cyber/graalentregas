@@ -71,6 +71,19 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
 
   const visibleRows = filteredRows.slice(0, 100);
 
+  // KPIs respeitam o filtro de grupo (não status/busca, para mostrar a composição do grupo)
+  const scopedRows = useMemo(
+    () => grupoFilter === 'all' ? metrics.rows : metrics.rows.filter(r => r.grupoCliente === grupoFilter),
+    [metrics.rows, grupoFilter]
+  );
+  const scopedKpis = useMemo(() => ({
+    totalClients: scopedRows.length,
+    ativos: scopedRows.filter(r => r.status === 'ativo').length,
+    emRisco: scopedRows.filter(r => r.status === 'risco').length,
+    parados: scopedRows.filter(r => r.status === 'parado').length,
+    novos: scopedRows.filter(r => r.status === 'novo').length,
+  }), [scopedRows]);
+
   const handleExportPDF = () => {
     try {
       const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
@@ -134,11 +147,11 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
     <strong>${filteredRows.length}</strong> cliente(s) · <strong>${totalPedidosFiltrado}</strong> pedido(s) · <strong>${formatCurrency(totalValorFiltrado)}</strong> em valor total
   </div>
   <div class="kpis">
-    <div class="kpi"><div class="v">${metrics.totalClients}</div><div class="l">Total</div></div>
-    <div class="kpi"><div class="v" style="color:#16a34a;">${metrics.ativos}</div><div class="l">Ativos</div></div>
-    <div class="kpi"><div class="v" style="color:#2563eb;">${metrics.novos}</div><div class="l">Novos</div></div>
-    <div class="kpi"><div class="v" style="color:#d97706;">${metrics.emRisco}</div><div class="l">Em risco</div></div>
-    <div class="kpi"><div class="v" style="color:#dc2626;">${metrics.parados}</div><div class="l">Parados</div></div>
+    <div class="kpi"><div class="v">${scopedKpis.totalClients}</div><div class="l">Total</div></div>
+    <div class="kpi"><div class="v" style="color:#16a34a;">${scopedKpis.ativos}</div><div class="l">Ativos</div></div>
+    <div class="kpi"><div class="v" style="color:#2563eb;">${scopedKpis.novos}</div><div class="l">Novos</div></div>
+    <div class="kpi"><div class="v" style="color:#d97706;">${scopedKpis.emRisco}</div><div class="l">Em risco</div></div>
+    <div class="kpi"><div class="v" style="color:#dc2626;">${scopedKpis.parados}</div><div class="l">Parados</div></div>
     <div class="kpi"><div class="v">${filteredRows.length}</div><div class="l">Filtrados</div></div>
   </div>
   <table>
@@ -219,34 +232,34 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KPICard
           title="Total de Clientes"
-          value={metrics.totalClients}
-          subtitle={`Últimos ${days} dias`}
+          value={scopedKpis.totalClients}
+          subtitle={grupoFilter !== 'all' ? grupoFilter : `Últimos ${days} dias`}
           icon={<Users className="w-5 h-5" />}
         />
         <KPICard
           title="Ativos"
-          value={metrics.ativos}
+          value={scopedKpis.ativos}
           subtitle="Comprando no ritmo"
           icon={<TrendingUp className="w-5 h-5" />}
           variant="success"
         />
         <KPICard
           title="Em risco"
-          value={metrics.emRisco}
+          value={scopedKpis.emRisco}
           subtitle="> 2× intervalo médio"
           icon={<AlertTriangle className="w-5 h-5" />}
           variant="warning"
         />
         <KPICard
           title="Parados"
-          value={metrics.parados}
+          value={scopedKpis.parados}
           subtitle="> 3× intervalo ou 120d"
           icon={<TrendingDown className="w-5 h-5" />}
           variant="warning"
         />
         <KPICard
           title="Novos"
-          value={metrics.novos}
+          value={scopedKpis.novos}
           subtitle="1º pedido no período"
           icon={<Sparkles className="w-5 h-5" />}
         />
