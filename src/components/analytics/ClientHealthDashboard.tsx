@@ -1,0 +1,305 @@
+import { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { KPICard } from './KPICard';
+import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
+import {
+  Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
+  Search, ArrowUpDown,
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+
+interface Props {
+  /** Janela de análise em dias (recomendado 90-180). */
+  days?: number;
+  onSelectClient?: (clientName: string) => void;
+}
+
+const STATUS_LABEL: Record<ClientHealthStatus, string> = {
+  ativo: 'Ativo',
+  risco: 'Em risco',
+  parado: 'Parado',
+  novo: 'Novo',
+};
+
+const STATUS_VARIANT: Record<ClientHealthStatus, 'default' | 'success' | 'warning' | 'destructive'> = {
+  ativo: 'success',
+  risco: 'warning',
+  parado: 'destructive',
+  novo: 'default',
+};
+
+function formatCurrency(v: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+}
+
+export function ClientHealthDashboard({ days = 120, onSelectClient }: Props) {
+  const { metrics, isLoading, error } = useClientHealth(days);
+  const [grupoFilter, setGrupoFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ClientHealthStatus>('all');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'daysSinceLast' | 'totalValue' | 'trendPct'>('daysSinceLast');
+
+  const filteredRows = useMemo(() => {
+    let rows = metrics.rows;
+    if (grupoFilter !== 'all') rows = rows.filter(r => r.grupoCliente === grupoFilter);
+    if (statusFilter !== 'all') rows = rows.filter(r => r.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(r => r.clientName.toLowerCase().includes(q));
+    }
+    rows = [...rows].sort((a, b) => {
+      if (sortBy === 'totalValue') return b.totalValue - a.totalValue;
+      if (sortBy === 'trendPct') return a.trendPct - b.trendPct; // worst first
+      return b.daysSinceLast - a.daysSinceLast;
+    });
+    return rows;
+  }, [metrics.rows, grupoFilter, statusFilter, search, sortBy]);
+
+  const visibleRows = filteredRows.slice(0, 100);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+        Analisando saúde dos clientes…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-sm text-destructive">
+          Erro ao carregar dados do ERP. Verifique a conexão.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KPICard
+          title="Total de Clientes"
+          value={metrics.totalClients}
+          subtitle={`Últimos ${days} dias`}
+          icon={<Users className="w-5 h-5" />}
+        />
+        <KPICard
+          title="Ativos"
+          value={metrics.ativos}
+          subtitle="Comprando no ritmo"
+          icon={<TrendingUp className="w-5 h-5" />}
+          variant="success"
+        />
+        <KPICard
+          title="Em risco"
+          value={metrics.emRisco}
+          subtitle="> 2× intervalo médio"
+          icon={<AlertTriangle className="w-5 h-5" />}
+          variant="warning"
+        />
+        <KPICard
+          title="Parados"
+          value={metrics.parados}
+          subtitle="> 3× intervalo ou 120d"
+          icon={<TrendingDown className="w-5 h-5" />}
+          variant="warning"
+        />
+        <KPICard
+          title="Novos"
+          value={metrics.novos}
+          subtitle="1º pedido no período"
+          icon={<Sparkles className="w-5 h-5" />}
+        />
+      </div>
+
+      {/* By grupo chart */}
+      {metrics.byGrupo.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Status por Grupo de Cliente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics.byGrupo}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="grupo" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="ativos" stackId="a" name="Ativos" fill="hsl(var(--status-collected))" />
+                  <Bar dataKey="novos" stackId="a" name="Novos" fill="hsl(var(--primary))" />
+                  <Bar dataKey="risco" stackId="a" name="Em risco" fill="hsl(var(--amber-500))" />
+                  <Bar dataKey="parado" stackId="a" name="Parados" fill="hsl(var(--destructive))" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Select value={grupoFilter} onValueChange={setGrupoFilter}>
+              <SelectTrigger className="w-[180px] h-9 text-sm">
+                <SelectValue placeholder="Grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os grupos</SelectItem>
+                {metrics.grupos.map(g => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | ClientHealthStatus)}>
+              <SelectTrigger className="w-[150px] h-9 text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos status</SelectItem>
+                <SelectItem value="ativo">Ativos</SelectItem>
+                <SelectItem value="novo">Novos</SelectItem>
+                <SelectItem value="risco">Em risco</SelectItem>
+                <SelectItem value="parado">Parados</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-[180px] h-9 text-sm">
+                <ArrowUpDown className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daysSinceLast">Dias sem comprar</SelectItem>
+                <SelectItem value="trendPct">Maior queda</SelectItem>
+                <SelectItem value="totalValue">Maior valor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {filteredRows.length} cliente(s) — mostrando {visibleRows.length}
+          </p>
+
+          {/* Table */}
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b">
+                  <th className="py-2 px-2 font-medium">Cliente</th>
+                  <th className="py-2 px-2 font-medium hidden md:table-cell">Grupo</th>
+                  <th className="py-2 px-2 font-medium text-right">Pedidos</th>
+                  <th className="py-2 px-2 font-medium text-right hidden sm:table-cell">Valor</th>
+                  <th className="py-2 px-2 font-medium text-right hidden lg:table-cell">Interv. médio</th>
+                  <th className="py-2 px-2 font-medium text-right">Últ. pedido</th>
+                  <th className="py-2 px-2 font-medium text-right hidden md:table-cell">Tendência</th>
+                  <th className="py-2 px-2 font-medium text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                      Nenhum cliente encontrado com os filtros aplicados.
+                    </td>
+                  </tr>
+                ) : visibleRows.map(r => {
+                  const variant = STATUS_VARIANT[r.status];
+                  return (
+                    <tr
+                      key={`${r.clientId}-${r.clientName}`}
+                      className="border-b last:border-0 hover:bg-accent/40 cursor-pointer"
+                      onClick={() => onSelectClient?.(r.clientName)}
+                    >
+                      <td className="py-2 px-2 font-medium text-foreground max-w-[200px] truncate">
+                        {r.clientName}
+                      </td>
+                      <td className="py-2 px-2 text-muted-foreground hidden md:table-cell text-xs">
+                        {r.grupoCliente}
+                      </td>
+                      <td className="py-2 px-2 text-right">{r.totalOrders}</td>
+                      <td className="py-2 px-2 text-right hidden sm:table-cell">
+                        {formatCurrency(r.totalValue)}
+                      </td>
+                      <td className="py-2 px-2 text-right hidden lg:table-cell">
+                        {r.avgIntervalDays > 0 ? `${r.avgIntervalDays}d` : '-'}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <span className={r.daysSinceLast > 60 ? 'text-destructive' : r.daysSinceLast > 30 ? 'text-amber-500' : ''}>
+                          {r.daysSinceLast}d
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-right hidden md:table-cell">
+                        <span
+                          className={
+                            r.trendPct > 0
+                              ? 'text-status-collected'
+                              : r.trendPct < 0
+                              ? 'text-destructive'
+                              : 'text-muted-foreground'
+                          }
+                        >
+                          {r.trendPct > 0 ? '+' : ''}{r.trendPct}%
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Badge
+                          variant={variant === 'destructive' ? 'destructive' : 'secondary'}
+                          className={
+                            variant === 'success'
+                              ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
+                              : variant === 'warning'
+                              ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
+                              : ''
+                          }
+                        >
+                          {STATUS_LABEL[r.status]}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredRows.length > visibleRows.length && (
+            <p className="text-xs text-muted-foreground text-center">
+              Refine os filtros para ver os {filteredRows.length - visibleRows.length} clientes restantes.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
