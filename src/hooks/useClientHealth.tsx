@@ -83,7 +83,11 @@ export function useClientHealth(days: number = 90) {
     if (!rawData || rawData.length === 0) return empty;
 
     const today = startOfDay(new Date());
-    const midPoint = subDays(today, Math.floor(days / 2));
+    // Tendência: janela fixa de 60 dias vs 60 dias anteriores (independente de "days"),
+    // assim "Todo o período" não distorce comparando 5 anos vs 5 anos.
+    const TREND_WINDOW = 60;
+    const recentCutoff = subDays(today, TREND_WINDOW);
+    const previousCutoff = subDays(today, TREND_WINDOW * 2);
 
     // Group orders by clientId|clientName
     type Bucket = {
@@ -143,9 +147,15 @@ export function useClientHealth(days: number = 90) {
         avgIntervalDays = intervals.reduce((a, b) => a + b, 0) / intervals.length;
       }
 
-      // Trend
-      const recentOrders = orders.filter(o => new Date(o.date) >= midPoint).length;
-      const previousOrders = totalOrders - recentOrders;
+      // Trend: últimos 60d vs 60d anteriores (janela fixa)
+      const recentOrders = orders.filter(o => {
+        const d = new Date(o.date);
+        return d >= recentCutoff && d <= today;
+      }).length;
+      const previousOrders = orders.filter(o => {
+        const d = new Date(o.date);
+        return d >= previousCutoff && d < recentCutoff;
+      }).length;
       const trendPct = previousOrders > 0
         ? ((recentOrders - previousOrders) / previousOrders) * 100
         : recentOrders > 0 ? 100 : 0;
