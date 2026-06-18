@@ -10,8 +10,12 @@ import { KPICard } from './KPICard';
 import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
 import {
   Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
-  Search, ArrowUpDown,
+  Search, ArrowUpDown, FileText,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type { ClientHealthRow } from '@/hooks/useClientHealth';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -67,6 +71,104 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
 
   const visibleRows = filteredRows.slice(0, 100);
 
+  const handleExportPDF = () => {
+    try {
+      const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+      const filtros: string[] = [];
+      if (search.trim()) filtros.push(`Busca: "${search.trim()}"`);
+      if (grupoFilter !== 'all') filtros.push(`Grupo: ${grupoFilter}`);
+      if (statusFilter !== 'all') filtros.push(`Status: ${STATUS_LABEL[statusFilter as ClientHealthStatus]}`);
+      const filtrosTxt = filtros.length ? filtros.join(' · ') : 'Nenhum filtro aplicado';
+
+      const totalValorFiltrado = filteredRows.reduce((s, r) => s + r.totalValue, 0);
+      const totalPedidosFiltrado = filteredRows.reduce((s, r) => s + r.totalOrders, 0);
+
+      const escapeHtml = (s: string) =>
+        String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+      const rowsHtml = filteredRows.map((r: ClientHealthRow) => {
+        const statusColor =
+          r.status === 'ativo' ? '#16a34a'
+          : r.status === 'risco' ? '#d97706'
+          : r.status === 'parado' ? '#dc2626'
+          : '#2563eb';
+        const trendColor = r.trendPct > 0 ? '#16a34a' : r.trendPct < 0 ? '#dc2626' : '#6b7280';
+        return `
+          <tr>
+            <td>${escapeHtml(r.clientName)}</td>
+            <td style="font-size:11px;color:#6b7280;">${escapeHtml(r.grupoCliente)}</td>
+            <td style="text-align:right;">${r.totalOrders}</td>
+            <td style="text-align:right;">${formatCurrency(r.totalValue)}</td>
+            <td style="text-align:right;">${r.avgIntervalDays > 0 ? r.avgIntervalDays + 'd' : '-'}</td>
+            <td style="text-align:right;">${r.daysSinceLast}d</td>
+            <td style="text-align:right;color:${trendColor};">${r.trendPct > 0 ? '+' : ''}${r.trendPct}%</td>
+            <td style="text-align:center;color:${statusColor};font-weight:600;">${STATUS_LABEL[r.status]}</td>
+          </tr>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Saúde de Clientes - Graal Beer</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:30px; color:#1a1a1a; }
+  .header { text-align:center; margin-bottom:24px; border-bottom:2px solid #ef4444; padding-bottom:14px; }
+  .header h1 { color:#ef4444; font-size:22px; margin-bottom:6px; }
+  .header p { color:#666; font-size:12px; }
+  .meta { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; margin-bottom:18px; font-size:12px; color:#374151; }
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:20px; }
+  .kpi { border:1px solid #e5e7eb; border-radius:6px; padding:10px; text-align:center; }
+  .kpi .v { font-size:18px; font-weight:bold; }
+  .kpi .l { font-size:9px; color:#666; text-transform:uppercase; margin-top:2px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:6px 8px; border-bottom:1px solid #e5e7eb; font-size:11px; text-align:left; }
+  th { background:#f9fafb; font-weight:600; font-size:10px; text-transform:uppercase; color:#6b7280; }
+  .footer { margin-top:20px; text-align:center; color:#999; font-size:10px; }
+  @media print { body { padding:15px; } .kpis { gap:6px; } tr { page-break-inside: avoid; } }
+</style></head><body>
+  <div class="header">
+    <h1>Saúde de Clientes - Graal Beer</h1>
+    <p>Janela: ${windowDays >= 3650 ? 'Todo o período' : 'Últimos ' + windowDays + ' dias'} · Gerado em ${today}</p>
+  </div>
+  <div class="meta">
+    <strong>Filtros:</strong> ${escapeHtml(filtrosTxt)}<br/>
+    <strong>${filteredRows.length}</strong> cliente(s) · <strong>${totalPedidosFiltrado}</strong> pedido(s) · <strong>${formatCurrency(totalValorFiltrado)}</strong> em valor total
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="v">${metrics.totalClients}</div><div class="l">Total</div></div>
+    <div class="kpi"><div class="v" style="color:#16a34a;">${metrics.ativos}</div><div class="l">Ativos</div></div>
+    <div class="kpi"><div class="v" style="color:#2563eb;">${metrics.novos}</div><div class="l">Novos</div></div>
+    <div class="kpi"><div class="v" style="color:#d97706;">${metrics.emRisco}</div><div class="l">Em risco</div></div>
+    <div class="kpi"><div class="v" style="color:#dc2626;">${metrics.parados}</div><div class="l">Parados</div></div>
+    <div class="kpi"><div class="v">${filteredRows.length}</div><div class="l">Filtrados</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Cliente</th><th>Grupo</th>
+      <th style="text-align:right;">Pedidos</th>
+      <th style="text-align:right;">Valor</th>
+      <th style="text-align:right;">Interv. médio</th>
+      <th style="text-align:right;">Últ. pedido</th>
+      <th style="text-align:right;">Tendência</th>
+      <th style="text-align:center;">Status</th>
+    </tr></thead>
+    <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Sem clientes para exportar</td></tr>'}</tbody>
+  </table>
+  <div class="footer">Graal Beer - Sistema de Gestão de Entregas</div>
+</body></html>`;
+
+      const w = window.open('', '_blank');
+      if (!w) throw new Error('Bloqueador de pop-up impediu abrir a janela');
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => w.print();
+      toast.success('Relatório gerado! Use Ctrl+P para salvar como PDF.');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gerar PDF');
+    }
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -93,18 +195,24 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
         <p className="text-xs text-muted-foreground">
           Janela de análise (independente do período global):
         </p>
-        <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
-          <SelectTrigger className="w-[200px] h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="90">Últimos 90 dias</SelectItem>
-            <SelectItem value="180">Últimos 180 dias</SelectItem>
-            <SelectItem value="365">Últimos 365 dias</SelectItem>
-            <SelectItem value="730">Últimos 2 anos</SelectItem>
-            <SelectItem value="3650">Todo o período</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
+            <SelectTrigger className="w-[200px] h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="180">Últimos 180 dias</SelectItem>
+              <SelectItem value="365">Últimos 365 dias</SelectItem>
+              <SelectItem value="730">Últimos 2 anos</SelectItem>
+              <SelectItem value="3650">Todo o período</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
+            <FileText className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
