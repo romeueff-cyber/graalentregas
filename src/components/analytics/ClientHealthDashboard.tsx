@@ -10,8 +10,12 @@ import { KPICard } from './KPICard';
 import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
 import {
   Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
-  Search, ArrowUpDown,
+  Search, ArrowUpDown, FileText,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type { ClientHealthRow } from '@/hooks/useClientHealth';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
