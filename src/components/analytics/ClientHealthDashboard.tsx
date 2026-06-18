@@ -195,18 +195,24 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
         <p className="text-xs text-muted-foreground">
           Janela de análise (independente do período global):
         </p>
-        <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
-          <SelectTrigger className="w-[200px] h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="90">Últimos 90 dias</SelectItem>
-            <SelectItem value="180">Últimos 180 dias</SelectItem>
-            <SelectItem value="365">Últimos 365 dias</SelectItem>
-            <SelectItem value="730">Últimos 2 anos</SelectItem>
-            <SelectItem value="3650">Todo o período</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
+            <SelectTrigger className="w-[200px] h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="180">Últimos 180 dias</SelectItem>
+              <SelectItem value="365">Últimos 365 dias</SelectItem>
+              <SelectItem value="730">Últimos 2 anos</SelectItem>
+              <SelectItem value="3650">Todo o período</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
+            <FileText className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
