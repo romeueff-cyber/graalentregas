@@ -10,6 +10,7 @@ export interface ERPOrderAnalytics {
   date: string;
   clientName: string;
   clientId: number;
+  grupoCliente?: string | null;
 }
 
 export interface ERPAnalyticsMetrics {
