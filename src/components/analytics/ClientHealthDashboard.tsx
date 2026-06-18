@@ -71,6 +71,19 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
 
   const visibleRows = filteredRows.slice(0, 100);
 
+  // KPIs respeitam o filtro de grupo (não status/busca, para mostrar a composição do grupo)
+  const scopedRows = useMemo(
+    () => grupoFilter === 'all' ? metrics.rows : metrics.rows.filter(r => r.grupoCliente === grupoFilter),
+    [metrics.rows, grupoFilter]
+  );
+  const scopedKpis = useMemo(() => ({
+    totalClients: scopedRows.length,
+    ativos: scopedRows.filter(r => r.status === 'ativo').length,
+    emRisco: scopedRows.filter(r => r.status === 'risco').length,
+    parados: scopedRows.filter(r => r.status === 'parado').length,
+    novos: scopedRows.filter(r => r.status === 'novo').length,
+  }), [scopedRows]);
+
   const handleExportPDF = () => {
     try {
       const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
