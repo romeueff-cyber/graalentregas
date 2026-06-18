@@ -232,34 +232,34 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KPICard
           title="Total de Clientes"
-          value={metrics.totalClients}
-          subtitle={`Últimos ${days} dias`}
+          value={scopedKpis.totalClients}
+          subtitle={grupoFilter !== 'all' ? grupoFilter : `Últimos ${days} dias`}
           icon={<Users className="w-5 h-5" />}
         />
         <KPICard
           title="Ativos"
-          value={metrics.ativos}
+          value={scopedKpis.ativos}
           subtitle="Comprando no ritmo"
           icon={<TrendingUp className="w-5 h-5" />}
           variant="success"
         />
         <KPICard
           title="Em risco"
-          value={metrics.emRisco}
+          value={scopedKpis.emRisco}
           subtitle="> 2× intervalo médio"
           icon={<AlertTriangle className="w-5 h-5" />}
           variant="warning"
         />
         <KPICard
           title="Parados"
-          value={metrics.parados}
+          value={scopedKpis.parados}
           subtitle="> 3× intervalo ou 120d"
           icon={<TrendingDown className="w-5 h-5" />}
           variant="warning"
         />
         <KPICard
           title="Novos"
-          value={metrics.novos}
+          value={scopedKpis.novos}
           subtitle="1º pedido no período"
           icon={<Sparkles className="w-5 h-5" />}
         />
