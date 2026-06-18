@@ -40,12 +40,14 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 }
 
-export function ClientHealthDashboard({ days = 120, onSelectClient }: Props) {
-  const { metrics, isLoading, error } = useClientHealth(days);
+export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: Props) {
+  const [windowDays, setWindowDays] = useState<number>(180);
+  const { metrics, isLoading, error } = useClientHealth(windowDays);
   const [grupoFilter, setGrupoFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ClientHealthStatus>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'daysSinceLast' | 'totalValue' | 'trendPct'>('daysSinceLast');
+  const days = windowDays;
 
   const filteredRows = useMemo(() => {
     let rows = metrics.rows;
