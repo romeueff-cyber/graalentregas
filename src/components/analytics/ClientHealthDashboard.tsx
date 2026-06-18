@@ -94,7 +94,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
           Janela de análise (independente do período global):
         </p>
         <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
-          <SelectTrigger className="w-[180px] h-9 text-sm">
+          <SelectTrigger className="w-[200px] h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -102,6 +102,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
             <SelectItem value="180">Últimos 180 dias</SelectItem>
             <SelectItem value="365">Últimos 365 dias</SelectItem>
             <SelectItem value="730">Últimos 2 anos</SelectItem>
+            <SelectItem value="3650">Todo o período</SelectItem>
           </SelectContent>
         </Select>
       </div>
