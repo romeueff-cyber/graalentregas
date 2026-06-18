@@ -147,11 +147,11 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
     <strong>${filteredRows.length}</strong> cliente(s) · <strong>${totalPedidosFiltrado}</strong> pedido(s) · <strong>${formatCurrency(totalValorFiltrado)}</strong> em valor total
   </div>
   <div class="kpis">
-    <div class="kpi"><div class="v">${metrics.totalClients}</div><div class="l">Total</div></div>
-    <div class="kpi"><div class="v" style="color:#16a34a;">${metrics.ativos}</div><div class="l">Ativos</div></div>
-    <div class="kpi"><div class="v" style="color:#2563eb;">${metrics.novos}</div><div class="l">Novos</div></div>
-    <div class="kpi"><div class="v" style="color:#d97706;">${metrics.emRisco}</div><div class="l">Em risco</div></div>
-    <div class="kpi"><div class="v" style="color:#dc2626;">${metrics.parados}</div><div class="l">Parados</div></div>
+    <div class="kpi"><div class="v">${scopedKpis.totalClients}</div><div class="l">Total</div></div>
+    <div class="kpi"><div class="v" style="color:#16a34a;">${scopedKpis.ativos}</div><div class="l">Ativos</div></div>
+    <div class="kpi"><div class="v" style="color:#2563eb;">${scopedKpis.novos}</div><div class="l">Novos</div></div>
+    <div class="kpi"><div class="v" style="color:#d97706;">${scopedKpis.emRisco}</div><div class="l">Em risco</div></div>
+    <div class="kpi"><div class="v" style="color:#dc2626;">${scopedKpis.parados}</div><div class="l">Parados</div></div>
     <div class="kpi"><div class="v">${filteredRows.length}</div><div class="l">Filtrados</div></div>
   </div>
   <table>
