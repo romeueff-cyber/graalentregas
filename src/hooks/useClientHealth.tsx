@@ -83,7 +83,11 @@ export function useClientHealth(days: number = 90) {
     if (!rawData || rawData.length === 0) return empty;
 
     const today = startOfDay(new Date());
-    const midPoint = subDays(today, Math.floor(days / 2));
+    // Tendência: janela fixa de 60 dias vs 60 dias anteriores (independente de "days"),
+    // assim "Todo o período" não distorce comparando 5 anos vs 5 anos.
+    const TREND_WINDOW = 60;
+    const recentCutoff = subDays(today, TREND_WINDOW);
+    const previousCutoff = subDays(today, TREND_WINDOW * 2);
 
     // Group orders by clientId|clientName
     type Bucket = {
