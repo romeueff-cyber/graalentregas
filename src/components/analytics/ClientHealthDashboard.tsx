@@ -100,7 +100,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
             <td style="text-align:right;">${r.totalOrders}</td>
             <td style="text-align:right;">${formatCurrency(r.totalValue)}</td>
             <td style="text-align:right;">${r.avgIntervalDays > 0 ? r.avgIntervalDays + 'd' : '-'}</td>
-            <td style="text-align:right;">${r.daysSinceLast}d</td>
+            <td style="text-align:right;color:${r.daysSinceLast > 60 ? '#dc2626' : r.daysSinceLast > 30 ? '#d97706' : '#1a1a1a'};font-weight:${r.daysSinceLast > 30 ? '600' : 'normal'};">${r.daysSinceLast}d</td>
             <td style="text-align:right;color:${trendColor};">${r.trendPct > 0 ? '+' : ''}${r.trendPct}%</td>
             <td style="text-align:center;color:${statusColor};font-weight:600;">${STATUS_LABEL[r.status]}</td>
           </tr>`;
