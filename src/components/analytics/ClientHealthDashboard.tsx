@@ -10,9 +10,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { KPICard } from './KPICard';
 import { ClientDetailView } from './ClientDetailView';
 import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
+import { useClientNotes } from '@/hooks/useClientNotes';
 import {
   Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
-  Search, ArrowUpDown, FileText, ChevronRight, ChevronDown, Info,
+  Search, ArrowUpDown, FileText, ChevronRight, ChevronDown, Info, StickyNote,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
