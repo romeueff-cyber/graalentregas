@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KPICard } from './KPICard';
 import { Badge } from '@/components/ui/badge';
 import {
   DollarSign, Package, Calendar, TrendingUp, TrendingDown, Clock, Repeat, Award,
   ArrowLeft, Receipt, CalendarClock, BarChart2, ShieldAlert, FileText,
-  Users, AlertCircle, ExternalLink,
+  Users, AlertCircle, ExternalLink, Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -17,6 +17,7 @@ import type { ERPOrderAnalytics } from '@/hooks/useERPAnalytics';
 import { useBoletos } from '@/hooks/useBoletos';
 import { ClientNotesCard } from './ClientNotesCard';
 import { toast } from 'sonner';
+import { toJpeg } from 'html-to-image';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, Line, Legend,
