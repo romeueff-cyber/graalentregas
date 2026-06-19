@@ -3,20 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KPICard } from './KPICard';
 import { Badge } from '@/components/ui/badge';
 import {
-  DollarSign, Package, Calendar, TrendingUp, Clock, Repeat, Award,
-  ArrowLeft, Receipt, CalendarClock, BarChart2,
+  DollarSign, Package, Calendar, TrendingUp, TrendingDown, Clock, Repeat, Award,
+  ArrowLeft, Receipt, CalendarClock, BarChart2, ShieldAlert, FileText,
+  Users, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
-  format, differenceInDays, startOfWeek, startOfMonth, addDays, getDay,
+  format, differenceInDays, startOfWeek, startOfMonth, addDays, getDay, isPast,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { ERPOrderAnalytics } from '@/hooks/useERPAnalytics';
+import { useBoletos } from '@/hooks/useBoletos';
+import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, Line, Legend,
 } from 'recharts';
+
+export interface GroupComparison {
+  groupName: string;
+  clientCount: number;
+  avgOrders: number;
+  avgValue: number;
+  avgTicket: number;
+}
 
 interface ClientDetailViewProps {
   clientName: string;
@@ -24,6 +35,8 @@ interface ClientDetailViewProps {
   localEquipments: any[];
   equipmentHistory: any[];
   onBack: () => void;
+  churnScore?: number;
+  groupComparison?: GroupComparison;
 }
 
 type Granularity = 'day' | 'week' | 'month';
@@ -34,16 +47,63 @@ function formatCurrency(value: number): string {
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+function diffPct(client: number, group: number): number {
+  if (!group) return 0;
+  return Math.round(((client - group) / group) * 100);
+}
+
+function ComparisonBadge({ pct, label }: { pct: number; label: string }) {
+  const positive = pct >= 0;
+  const color = pct === 0
+    ? 'text-muted-foreground bg-muted'
+    : positive
+    ? 'text-status-collected bg-status-collected/15'
+    : 'text-destructive bg-destructive/15';
+  const Icon = pct === 0 ? null : positive ? TrendingUp : TrendingDown;
+  return (
+    <div className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs ${color}`}>
+      {Icon && <Icon className="w-3 h-3" />}
+      <span className="font-semibold">{pct > 0 ? '+' : ''}{pct}%</span>
+      <span className="text-[10px] opacity-80">{label}</span>
+    </div>
+  );
+}
+
+const EQUIP_STATUS_LABEL: Record<string, string> = {
+  ENTREGUE: 'Entregue',
+  LIBERADO_PARA_RECOLHA: 'Liberado p/ recolha',
+  RECOLHIDO: 'Recolhido',
+};
+
 export function ClientDetailView({
   clientName, erpOrders, localEquipments, equipmentHistory, onBack,
+  churnScore, groupComparison,
 }: ClientDetailViewProps) {
   const [granularity, setGranularity] = useState<Granularity>('day');
+  const { boletos } = useBoletos();
+
+  // Pending boletos for this client (status != PAID and != CANCELLED)
+  const clientBoletos = useMemo(() => {
+    if (!boletos) return { pending: [], all: [] };
+    const norm = clientName.trim().toLowerCase();
+    const all = boletos.filter(b => b.customer_name?.trim().toLowerCase().includes(norm));
+    const pending = all.filter(b => {
+      const s = (b.status || '').toUpperCase();
+      return s !== 'PAID' && s !== 'CANCELLED';
+    });
+    return { pending, all };
+  }, [boletos, clientName]);
+
+  // Equipment currently in use (not collected)
+  const equipInUse = useMemo(
+    () => localEquipments.filter(e => e.status !== 'RECOLHIDO'),
+    [localEquipments]
+  );
 
   const stats = useMemo(() => {
     const totalValue = erpOrders.reduce((s, o) => s + (o.value || 0), 0);
     const avgOrderValue = erpOrders.length > 0 ? totalValue / erpOrders.length : 0;
 
-    // Grouping helpers
     const bucketKey = (d: Date) => {
       if (granularity === 'month') return format(startOfMonth(d), 'yyyy-MM');
       if (granularity === 'week') return format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -66,7 +126,6 @@ export function ClientDetailView({
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, d]) => ({ key, label: bucketLabel(key), value: d.value, count: d.count }));
 
-    // Peak weekday (1..7 -> labels)
     const weekdayMap = new Map<number, { count: number; value: number }>();
     erpOrders.forEach(o => {
       if (!o.date) return;
@@ -84,7 +143,6 @@ export function ClientDetailView({
       { label: '-', count: 0, value: 0 }
     );
 
-    // Local delivery stats
     const totalDeliveries = localEquipments.length;
     const collected = localEquipments.filter(e => e.status === 'RECOLHIDO').length;
     const pending = localEquipments.filter(e => e.status !== 'RECOLHIDO').length;
@@ -105,7 +163,6 @@ export function ClientDetailView({
     const lastDate = sortedDates[sortedDates.length - 1];
     const daysSinceLast = lastDate ? Math.max(0, differenceInDays(new Date(), lastDate)) : null;
 
-    // Avg interval -> next predicted order
     let avgInterval = 0;
     if (sortedDates.length > 1) {
       const intervals: number[] = [];
@@ -141,6 +198,146 @@ export function ClientDetailView({
     };
   }, [erpOrders, localEquipments, equipmentHistory, granularity]);
 
+  // Group comparison values
+  const cmpOrders = groupComparison ? diffPct(stats.erpOrderCount, groupComparison.avgOrders) : 0;
+  const cmpValue = groupComparison ? diffPct(stats.totalValue, groupComparison.avgValue) : 0;
+  const cmpTicket = groupComparison ? diffPct(stats.avgOrderValue, groupComparison.avgTicket) : 0;
+
+  // Churn score color
+  const churnColor =
+    churnScore == null ? 'text-muted-foreground'
+    : churnScore >= 80 ? 'text-destructive'
+    : churnScore >= 50 ? 'text-amber-600'
+    : 'text-status-collected';
+
+  const handleExportPDF = () => {
+    try {
+      const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+      const escapeHtml = (s: string) =>
+        String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+      const cmpHtml = groupComparison ? `
+        <div class="card">
+          <div class="card-title">Comparação com o grupo "${escapeHtml(groupComparison.groupName)}" (${groupComparison.clientCount} clientes)</div>
+          <table class="cmp">
+            <tr><th>Métrica</th><th>Este cliente</th><th>Média do grupo</th><th>Diferença</th></tr>
+            <tr><td>Pedidos</td><td>${stats.erpOrderCount}</td><td>${groupComparison.avgOrders.toFixed(1)}</td>
+              <td style="color:${cmpOrders >= 0 ? '#16a34a' : '#dc2626'}">${cmpOrders > 0 ? '+' : ''}${cmpOrders}%</td></tr>
+            <tr><td>Valor total</td><td>${formatCurrency(stats.totalValue)}</td><td>${formatCurrency(groupComparison.avgValue)}</td>
+              <td style="color:${cmpValue >= 0 ? '#16a34a' : '#dc2626'}">${cmpValue > 0 ? '+' : ''}${cmpValue}%</td></tr>
+            <tr><td>Ticket médio</td><td>${formatCurrency(stats.avgOrderValue)}</td><td>${formatCurrency(groupComparison.avgTicket)}</td>
+              <td style="color:${cmpTicket >= 0 ? '#16a34a' : '#dc2626'}">${cmpTicket > 0 ? '+' : ''}${cmpTicket}%</td></tr>
+          </table>
+        </div>` : '';
+
+      const equipInUseHtml = equipInUse.length ? `
+        <div class="card">
+          <div class="card-title">Equipamentos em uso (${equipInUse.length})</div>
+          <table>
+            <thead><tr><th>Patrimônio</th><th>Status</th><th>Data entrega</th><th>Período recolha</th></tr></thead>
+            <tbody>
+              ${equipInUse.map(e => `
+                <tr>
+                  <td>${escapeHtml(e.numero_patrimonio || '-')}</td>
+                  <td>${escapeHtml(EQUIP_STATUS_LABEL[e.status] || e.status || '-')}</td>
+                  <td>${e.data_entrega ? format(new Date(e.data_entrega), 'dd/MM/yyyy') : '-'}</td>
+                  <td>${escapeHtml(e.periodo_recolha || '-')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : '';
+
+      const boletosPendingHtml = clientBoletos.pending.length ? `
+        <div class="card">
+          <div class="card-title" style="color:#dc2626;">Boletos pendentes (${clientBoletos.pending.length})</div>
+          <table>
+            <thead><tr><th>Pedido</th><th>Vencimento</th><th>Valor</th><th>Status</th></tr></thead>
+            <tbody>
+              ${clientBoletos.pending.map(b => {
+                const overdue = b.due_date && isPast(new Date(b.due_date));
+                return `<tr>
+                  <td>#${escapeHtml(b.order_number)}</td>
+                  <td style="color:${overdue ? '#dc2626' : '#1a1a1a'}">${b.due_date ? format(new Date(b.due_date), 'dd/MM/yyyy') : '-'}${overdue ? ' (vencido)' : ''}</td>
+                  <td>${formatCurrency((b.total_amount || 0) / 100)}</td>
+                  <td>${escapeHtml(b.status)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>` : '';
+
+      const recentOrdersHtml = stats.recentOrders.length ? `
+        <div class="card">
+          <div class="card-title">Últimos pedidos (ERP)</div>
+          <table>
+            <thead><tr><th>Pedido</th><th>Data</th><th style="text-align:right">Valor</th></tr></thead>
+            <tbody>
+              ${stats.recentOrders.map(o => `
+                <tr>
+                  <td>#${escapeHtml(o.orderNumber)}</td>
+                  <td>${o.date ? format(new Date(o.date), 'dd/MM/yyyy') : '-'}</td>
+                  <td style="text-align:right">${formatCurrency(o.value)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : '';
+
+      const churnHtml = churnScore != null ? `
+        <div class="kpi">
+          <div class="kpi-l">Score de Churn</div>
+          <div class="kpi-v" style="color:${churnScore >= 80 ? '#dc2626' : churnScore >= 50 ? '#d97706' : '#16a34a'}">${churnScore}/100</div>
+        </div>` : '';
+
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(clientName)} - Detalhe</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:30px;color:#1a1a1a;}
+  .header{border-bottom:2px solid #ef4444;padding-bottom:14px;margin-bottom:18px;}
+  .header h1{color:#ef4444;font-size:20px;margin-bottom:4px;}
+  .header p{color:#666;font-size:11px;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px;}
+  .kpi{border:1px solid #e5e7eb;border-radius:6px;padding:10px;text-align:center;}
+  .kpi-v{font-size:16px;font-weight:bold;}
+  .kpi-l{font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px;}
+  .card{border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:14px;page-break-inside:avoid;}
+  .card-title{font-size:12px;font-weight:600;margin-bottom:8px;color:#1a1a1a;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:left;}
+  th{background:#f9fafb;font-size:10px;text-transform:uppercase;color:#6b7280;font-weight:600;}
+  table.cmp td:nth-child(n+2),table.cmp th:nth-child(n+2){text-align:right;}
+  .footer{margin-top:18px;text-align:center;color:#999;font-size:10px;}
+  @media print{body{padding:15px;}}
+</style></head><body>
+  <div class="header">
+    <h1>${escapeHtml(clientName)}</h1>
+    <p>Análise detalhada · Gerado em ${today}</p>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-l">Valor Total</div><div class="kpi-v" style="color:#16a34a">${formatCurrency(stats.totalValue)}</div></div>
+    <div class="kpi"><div class="kpi-l">Pedidos</div><div class="kpi-v">${stats.erpOrderCount}</div></div>
+    <div class="kpi"><div class="kpi-l">Ticket Médio</div><div class="kpi-v">${formatCurrency(stats.avgOrderValue)}</div></div>
+    <div class="kpi"><div class="kpi-l">Intervalo</div><div class="kpi-v">${stats.avgInterval > 0 ? stats.avgInterval + 'd' : '-'}</div></div>
+    ${churnHtml || '<div class="kpi"><div class="kpi-l">Há sem pedir</div><div class="kpi-v">' + (stats.daysSinceLast ?? '-') + 'd</div></div>'}
+  </div>
+  ${cmpHtml}
+  ${boletosPendingHtml}
+  ${equipInUseHtml}
+  ${recentOrdersHtml}
+  <div class="footer">Graal Beer - Sistema de Gestão de Entregas</div>
+</body></html>`;
+
+      const w = window.open('', '_blank');
+      if (!w) throw new Error('Bloqueador de pop-up impediu abrir a janela');
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => w.print();
+      toast.success('Relatório gerado! Use Ctrl+P para salvar como PDF.');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gerar PDF');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -148,11 +345,67 @@ export function ClientDetailView({
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="font-semibold text-foreground text-base sm:text-lg truncate">{clientName}</h2>
-          <p className="text-xs text-muted-foreground">Análise detalhada do cliente</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {groupComparison?.groupName ? `Grupo: ${groupComparison.groupName} · ` : ''}Análise detalhada
+          </p>
         </div>
+        <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9 shrink-0">
+          <FileText className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">PDF</span>
+        </Button>
       </div>
+
+      {/* Churn score + group comparison */}
+      {(churnScore != null || groupComparison) && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            {churnScore != null && (
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center justify-center w-14 h-14 rounded-full bg-muted ${churnColor}`}>
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-2xl font-bold ${churnColor}`}>{churnScore}</span>
+                    <span className="text-xs text-muted-foreground">/100 score de churn</span>
+                  </div>
+                  <div className="h-2 mt-1 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${
+                        churnScore >= 80 ? 'bg-destructive'
+                        : churnScore >= 50 ? 'bg-amber-500'
+                        : 'bg-status-collected'
+                      }`}
+                      style={{ width: `${churnScore}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {churnScore >= 80 ? 'Alto risco — priorize contato'
+                      : churnScore >= 50 ? 'Atenção — acompanhar'
+                      : 'Baixo risco'}
+                  </p>
+                </div>
+              </div>
+            )}
+            {groupComparison && groupComparison.clientCount > 1 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                  <Users className="w-3.5 h-3.5" />
+                  Vs. média do grupo <strong className="text-foreground">{groupComparison.groupName}</strong>
+                  <span>({groupComparison.clientCount} clientes)</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <ComparisonBadge pct={cmpOrders} label="pedidos" />
+                  <ComparisonBadge pct={cmpValue} label="valor" />
+                  <ComparisonBadge pct={cmpTicket} label="ticket" />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Financial KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -208,13 +461,98 @@ export function ClientDetailView({
         <KPICard
           title="Próx. Previsto"
           value={stats.predictedNext ? format(stats.predictedNext, 'dd/MM', { locale: ptBR }) : '-'}
-          subtitle={stats.predictedNext ? format(stats.predictedNext, "EEE", { locale: ptBR }) : 'Sem previsão'}
+          subtitle={stats.predictedNext ? format(stats.predictedNext, 'EEE', { locale: ptBR }) : 'Sem previsão'}
           icon={<Calendar className="w-5 h-5" />}
-          variant={
-            stats.predictedNext && stats.predictedNext < new Date() ? 'warning' : 'default'
-          }
+          variant={stats.predictedNext && stats.predictedNext < new Date() ? 'warning' : 'default'}
         />
       </div>
+
+      {/* Boletos pendentes */}
+      {clientBoletos.pending.length > 0 && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              Boletos Pendentes ({clientBoletos.pending.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-[260px] overflow-y-auto">
+              {clientBoletos.pending.map(b => {
+                const overdue = b.due_date && isPast(new Date(b.due_date));
+                return (
+                  <div key={b.id} className="flex items-center justify-between gap-2 py-2 border-b last:border-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm text-foreground">#{b.order_number}</span>
+                        <Badge variant={overdue ? 'destructive' : 'secondary'} className="text-[10px]">
+                          {overdue ? 'Vencido' : b.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Vence em {b.due_date ? format(new Date(b.due_date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm whitespace-nowrap">
+                        {formatCurrency((b.total_amount || 0) / 100)}
+                      </span>
+                      {b.pdf_url && (
+                        <a
+                          href={b.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:text-primary/80"
+                          title="Abrir boleto"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Equipamentos em uso */}
+      {equipInUse.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Equipamentos em Uso ({equipInUse.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-[260px] overflow-y-auto">
+              {equipInUse.map(e => (
+                <div key={e.id} className="flex items-center justify-between gap-2 py-2 border-b last:border-0">
+                  <div className="min-w-0">
+                    <span className="font-mono text-sm text-foreground">{e.numero_patrimonio || 'sem patrimônio'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      Entregue {e.data_entrega ? format(new Date(e.data_entrega), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                      {e.periodo_recolha ? ` · ${e.periodo_recolha}` : ''}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      e.status === 'LIBERADO_PARA_RECOLHA'
+                        ? 'bg-amber-500/15 text-amber-600'
+                        : 'bg-primary/15 text-primary'
+                    }
+                  >
+                    {EQUIP_STATUS_LABEL[e.status] || e.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sales Chart with granularity */}
       {stats.salesSeries.length > 0 && (
@@ -244,12 +582,7 @@ export function ClientDetailView({
                 <ComposedChart data={stats.salesSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-                  <YAxis
-                    yAxisId="left"
-                    allowDecimals={false}
-                    tick={{ fontSize: 11 }}
-                    label={{ value: 'Pedidos', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }}
-                  />
+                  <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11 }} />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
@@ -313,9 +646,6 @@ export function ClientDetailView({
                       borderRadius: '8px',
                       fontSize: 12,
                     }}
-                    formatter={(value: number, name: string) =>
-                      name === 'value' ? [formatCurrency(value), 'Volume'] : [value, 'Pedidos']
-                    }
                   />
                   <Bar dataKey="count" name="Pedidos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -373,7 +703,6 @@ export function ClientDetailView({
         </Card>
       )}
 
-      {/* No data state */}
       {stats.erpOrderCount === 0 && stats.totalDeliveries === 0 && (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
