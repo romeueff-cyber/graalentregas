@@ -37,7 +37,13 @@ const MATURITY_MIN = 0.85;
 const MATURITY_MAX = 1.5;
 const MATURITY_PROVAVEL_MAX = 1.15;
 
-const normalizeName = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ');
+const normalizeName = (s: string) =>
+  (s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
 
 /**
  * Cruza saúde do cliente (frequência) com coordenadas conhecidas das entregas
@@ -110,8 +116,19 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje
-      if (confirmedClientNames.has(normalizeName(r.clientName))) return;
+      // Ignora clientes que já têm entrega confirmada hoje (match exato ou por substring)
+      const nName = normalizeName(r.clientName);
+      let alreadyConfirmed = confirmedClientNames.has(nName);
+      if (!alreadyConfirmed) {
+        for (const cn of confirmedClientNames) {
+          if (!cn || !nName) continue;
+          if (cn.includes(nName) || nName.includes(cn)) {
+            alreadyConfirmed = true;
+            break;
+          }
+        }
+      }
+      if (alreadyConfirmed) return;
 
       const maturity = r.daysSinceLast / r.avgIntervalDays;
       if (maturity < MATURITY_MIN || maturity > MATURITY_MAX) return;
@@ -165,7 +182,7 @@ export function useOpportunityForecast(days: number = 180) {
     });
 
     return rows;
-  }, [metrics.rows, clientCoords, confirmedDeliveries]);
+  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientNames]);
 
   const summary = useMemo(() => {
     const provaveis = opportunities.filter((o) => o.status === 'provavel').length;
