@@ -467,6 +467,9 @@ export function ClientDetailView({
         />
       </div>
 
+      {/* Notas & Follow-up */}
+      <ClientNotesCard clientName={clientName} />
+
       {/* Boletos pendentes */}
       {clientBoletos.pending.length > 0 && (
         <Card className="border-destructive/40">
