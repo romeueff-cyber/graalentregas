@@ -83,6 +83,8 @@ export function ClientDetailView({
 }: ClientDetailViewProps) {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const { boletos } = useBoletos();
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Sempre abrir o detalhe no topo da página (mobile costuma estar rolado)
   useEffect(() => {
