@@ -182,7 +182,7 @@ export function useOpportunityForecast(days: number = 180) {
     });
 
     return rows;
-  }, [metrics.rows, clientCoords, confirmedDeliveries]);
+  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientNames]);
 
   const summary = useMemo(() => {
     const provaveis = opportunities.filter((o) => o.status === 'provavel').length;
