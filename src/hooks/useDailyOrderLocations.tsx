@@ -14,6 +14,7 @@ interface OrderAddress {
 
 interface Order {
   order_number: string;
+  client_id?: number | string | null;
   client_name: string;
   expected_delivery: string | null;
   address: OrderAddress;
