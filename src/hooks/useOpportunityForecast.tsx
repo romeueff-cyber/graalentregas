@@ -121,6 +121,11 @@ export function useOpportunityForecast(days: number = 180) {
     return set;
   }, [deliveryOrders, deliveryLocations]);
 
+  // Tokens significativos por cliente confirmado (para match por palavra-chave)
+  const confirmedTokenSets = useMemo(() => {
+    return Array.from(confirmedClientNames).map((n) => new Set(significantTokens(n)));
+  }, [confirmedClientNames]);
+
   const opportunities: OpportunityRow[] = useMemo(() => {
     if (!metrics.rows.length) return [];
 
