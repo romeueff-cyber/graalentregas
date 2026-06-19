@@ -3,10 +3,12 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 import { ClientHealthDashboard } from '@/components/analytics/ClientHealthDashboard';
+import { OpportunityForecastTab } from '@/components/analytics/OpportunityForecastTab';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, HeartPulse, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function ClientHealthPage() {
@@ -76,11 +78,28 @@ export default function ClientHealthPage() {
       </div>
 
       <div className="p-4 pb-20">
-        <ClientHealthDashboard
-          days={days}
-          localEquipments={allEquipments}
-          equipmentHistory={equipmentHistory}
-        />
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="dashboard" className="gap-2">
+              <Activity className="w-4 h-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="forecast" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Previsão Hoje
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="dashboard">
+            <ClientHealthDashboard
+              days={days}
+              localEquipments={allEquipments}
+              equipmentHistory={equipmentHistory}
+            />
+          </TabsContent>
+          <TabsContent value="forecast">
+            <OpportunityForecastTab days={days} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
