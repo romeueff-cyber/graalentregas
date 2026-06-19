@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { KPICard } from './KPICard';
+import { ClientDetailView } from './ClientDetailView';
 import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
 import {
   Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
-  Search, ArrowUpDown, FileText,
+  Search, ArrowUpDown, FileText, ChevronRight, ChevronDown, Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
