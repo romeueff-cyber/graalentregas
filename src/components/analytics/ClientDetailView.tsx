@@ -414,7 +414,7 @@ export function ClientDetailView({
     <div className="space-y-6" ref={exportRef}>
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} data-html2canvas-ignore="true">
+        <Button variant="ghost" size="icon" onClick={onBack} data-export-ignore="true">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -423,7 +423,7 @@ export function ClientDetailView({
             {groupComparison?.groupName ? `Grupo: ${groupComparison.groupName} · ` : ''}Análise detalhada
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0" data-html2canvas-ignore="true">
+        <div className="flex items-center gap-2 shrink-0" data-export-ignore="true">
           <Button variant="outline" size="sm" onClick={handleExportJPG} disabled={exporting} className="h-9">
             <ImageIcon className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">{exporting ? 'Gerando...' : 'JPG'}</span>
