@@ -109,7 +109,7 @@ export function useOpportunityForecast(days: number = 180) {
     [deliveryLocations]
   );
 
-  // Conjunto de nomes (normalizados) já confirmados hoje — para excluir da previsão
+  // Conjunto de nomes (normalizados) já confirmados hoje — fallback caso o ERP não retorne ID
   const confirmedClientNames = useMemo(() => {
     const set = new Set<string>();
     (deliveryOrders || []).forEach((o) => {
@@ -121,7 +121,18 @@ export function useOpportunityForecast(days: number = 180) {
     return set;
   }, [deliveryOrders, deliveryLocations]);
 
-  // Tokens significativos por cliente confirmado (para match por palavra-chave)
+  // Conjunto de IDs de cliente já confirmados hoje (fonte primária de match)
+  const confirmedClientIds = useMemo(() => {
+    const set = new Set<string>();
+    (deliveryOrders || []).forEach((o) => {
+      if (o.client_id !== undefined && o.client_id !== null && o.client_id !== '') {
+        set.add(String(o.client_id));
+      }
+    });
+    return set;
+  }, [deliveryOrders]);
+
+  // Tokens significativos por cliente confirmado (fallback para diferenças no nome)
   const confirmedTokenSets = useMemo(() => {
     return Array.from(confirmedClientNames).map((n) => new Set(significantTokens(n)));
   }, [confirmedClientNames]);
