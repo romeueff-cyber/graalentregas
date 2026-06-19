@@ -45,6 +45,21 @@ const normalizeName = (s: string) =>
     .replace(/[^A-Z0-9]+/g, ' ')
     .trim();
 
+// Palavras genéricas que não devem servir de "match" entre nomes de clientes
+const STOP_TOKENS = new Set([
+  'RESTAURANTE', 'BAR', 'LANCHONETE', 'LANCHES', 'PIZZARIA', 'PIZZA',
+  'CHOPERIA', 'CHOPP', 'CERVEJARIA', 'PUB', 'HOTEL', 'POUSADA',
+  'MERCADO', 'MERCEARIA', 'SUPERMERCADO', 'EMPORIO', 'CONVENIENCIA',
+  'COMERCIO', 'COMERCIAL', 'INDUSTRIA', 'SERVICOS', 'EVENTOS',
+  'LTDA', 'EPP', 'EIRELI', 'CIA', 'DA', 'DE', 'DO', 'DAS', 'DOS',
+  'CASA', 'PONTO', 'CANTINHO', 'ESPACO', 'GRUPO', 'CLUBE',
+]);
+
+const significantTokens = (s: string): string[] =>
+  normalizeName(s)
+    .split(' ')
+    .filter((t) => t.length >= 4 && !STOP_TOKENS.has(t));
+
 /**
  * Cruza saúde do cliente (frequência) com coordenadas conhecidas das entregas
  * registradas (tabela equipments) e com as entregas confirmadas do dia (ERP)
@@ -106,6 +121,11 @@ export function useOpportunityForecast(days: number = 180) {
     return set;
   }, [deliveryOrders, deliveryLocations]);
 
+  // Tokens significativos por cliente confirmado (para match por palavra-chave)
+  const confirmedTokenSets = useMemo(() => {
+    return Array.from(confirmedClientNames).map((n) => new Set(significantTokens(n)));
+  }, [confirmedClientNames]);
+
   const opportunities: OpportunityRow[] = useMemo(() => {
     if (!metrics.rows.length) return [];
 
@@ -116,7 +136,7 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje (match exato ou por substring)
+      // Ignora clientes que já têm entrega confirmada hoje
       const nName = normalizeName(r.clientName);
       let alreadyConfirmed = confirmedClientNames.has(nName);
       if (!alreadyConfirmed) {
@@ -125,6 +145,23 @@ export function useOpportunityForecast(days: number = 180) {
           if (cn.includes(nName) || nName.includes(cn)) {
             alreadyConfirmed = true;
             break;
+          }
+        }
+      }
+      if (!alreadyConfirmed) {
+        // Match por tokens significativos (ignora palavras genéricas como RESTAURANTE)
+        const candTokens = significantTokens(r.clientName);
+        if (candTokens.length > 0) {
+          for (const cset of confirmedTokenSets) {
+            if (cset.size === 0) continue;
+            let shared = 0;
+            for (const t of candTokens) if (cset.has(t)) shared++;
+            // 1 token compartilhado já basta quando o nome do candidato é curto
+            const need = candTokens.length <= 2 ? 1 : 2;
+            if (shared >= need) {
+              alreadyConfirmed = true;
+              break;
+            }
           }
         }
       }
@@ -182,7 +219,7 @@ export function useOpportunityForecast(days: number = 180) {
     });
 
     return rows;
-  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientNames]);
+  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientNames, confirmedTokenSets]);
 
   const summary = useMemo(() => {
     const provaveis = opportunities.filter((o) => o.status === 'provavel').length;
