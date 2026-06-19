@@ -176,6 +176,21 @@ export function useClientHealth(days: number = 90) {
         status = 'ativo';
       }
 
+      // Churn score (0-100) — quanto maior, mais provável o cliente parar de comprar
+      let churnScore = 0;
+      if (avgIntervalDays > 0) {
+        churnScore += Math.min(60, (daysSinceLast / avgIntervalDays) * 20);
+      } else {
+        churnScore += Math.min(60, daysSinceLast / 2);
+      }
+      // queda na tendência adiciona até 30 pts
+      churnScore += Math.min(30, Math.max(0, -trendPct / 2));
+      if (status === 'parado') churnScore = Math.max(churnScore, 85);
+      else if (status === 'risco') churnScore = Math.max(churnScore, 60);
+      else if (status === 'ativo') churnScore = Math.min(churnScore, 40);
+      else if (status === 'novo') churnScore = Math.min(churnScore, 30);
+      churnScore = Math.max(0, Math.min(100, Math.round(churnScore)));
+
       rows.push({
         clientId: bucket.clientId,
         clientName: bucket.clientName,
@@ -191,6 +206,7 @@ export function useClientHealth(days: number = 90) {
         recentOrders,
         previousOrders,
         trendPct: Math.round(trendPct),
+        churnScore,
       });
     });
 
