@@ -201,7 +201,11 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           <TabsContent value="saude">
-            <ClientHealthDashboard days={Math.max(days, 90)} />
+            <ClientHealthDashboard
+              days={Math.max(days, 90)}
+              localEquipments={allEquipments}
+              equipmentHistory={equipmentHistory}
+            />
           </TabsContent>
 
           <TabsContent value="entregadores">

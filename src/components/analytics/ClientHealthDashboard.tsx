@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { KPICard } from './KPICard';
+import { ClientDetailView } from './ClientDetailView';
 import { useClientHealth, type ClientHealthStatus } from '@/hooks/useClientHealth';
 import {
   Users, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Loader2,
-  Search, ArrowUpDown, FileText,
+  Search, ArrowUpDown, FileText, ChevronRight, ChevronDown, Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -24,6 +26,10 @@ interface Props {
   /** Janela de análise em dias (recomendado 90-180). */
   days?: number;
   onSelectClient?: (clientName: string) => void;
+  /** Equipamentos locais — usados ao abrir o detalhe do cliente. */
+  localEquipments?: any[];
+  /** Histórico de equipamentos — usado no detalhe. */
+  equipmentHistory?: any[];
 }
 
 const STATUS_LABEL: Record<ClientHealthStatus, string> = {
@@ -44,13 +50,20 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 }
 
-export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: Props) {
+export function ClientHealthDashboard({
+  days: _ignored = 180,
+  onSelectClient,
+  localEquipments = [],
+  equipmentHistory = [],
+}: Props) {
   const [windowDays, setWindowDays] = useState<number>(180);
-  const { metrics, isLoading, error } = useClientHealth(windowDays);
+  const { data: rawData, metrics, isLoading, error } = useClientHealth(windowDays);
   const [grupoFilter, setGrupoFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ClientHealthStatus>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'daysSinceLast' | 'totalValue' | 'trendPct'>('daysSinceLast');
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const days = windowDays;
 
   const filteredRows = useMemo(() => {
@@ -210,16 +223,38 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
     );
   }
 
+  // Detalhe de cliente
+  if (selectedClient) {
+    const norm = selectedClient.trim().toLowerCase();
+    const clientErpOrders = (rawData || []).filter(o => o.clientName?.trim().toLowerCase() === norm);
+    const clientEquipments = localEquipments.filter(e => e.nome_cliente?.trim().toLowerCase() === norm);
+    const clientHistory = equipmentHistory.filter(h => h.client_name?.trim().toLowerCase() === norm);
+    return (
+      <ClientDetailView
+        clientName={selectedClient}
+        erpOrders={clientErpOrders}
+        localEquipments={clientEquipments}
+        equipmentHistory={clientHistory}
+        onBack={() => setSelectedClient(null)}
+      />
+    );
+  }
+
+  const handleRowClick = (name: string) => {
+    setSelectedClient(name);
+    onSelectClient?.(name);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Window selector */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      {/* Window selector + export */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           Janela de análise (independente do período global):
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
-            <SelectTrigger className="w-[200px] h-9 text-sm">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[200px] h-9 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -230,9 +265,9 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
               <SelectItem value="3650">Todo o período</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
-            <FileText className="w-4 h-4 mr-2" />
-            Exportar PDF
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9 shrink-0">
+            <FileText className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar PDF</span>
           </Button>
         </div>
       </div>
@@ -312,18 +347,18 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
           <CardTitle className="text-sm font-medium">Clientes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar cliente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-9 w-full"
               />
             </div>
             <Select value={grupoFilter} onValueChange={setGrupoFilter}>
-              <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <SelectValue placeholder="Grupo" />
               </SelectTrigger>
               <SelectContent>
@@ -334,7 +369,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | ClientHealthStatus)}>
-              <SelectTrigger className="w-[150px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -346,7 +381,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <ArrowUpDown className="w-3 h-3 mr-1" />
                 <SelectValue />
               </SelectTrigger>
@@ -359,39 +394,56 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {filteredRows.length} cliente(s) — mostrando {visibleRows.length}
+            {filteredRows.length} cliente(s) — mostrando {visibleRows.length} · toque numa linha para ver detalhes
           </p>
 
-          {/* Legenda da lógica */}
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
-            <p className="font-medium text-foreground">Como interpretar:</p>
-            <ul className="space-y-1 text-muted-foreground list-disc pl-4">
-              <li>
-                <strong className="text-foreground">Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.
-              </li>
-              <li>
-                <strong className="text-foreground">Últ. pedido:</strong> dias desde o último pedido.{' '}
-                <span className="text-amber-600">âmbar &gt; 30d</span> ·{' '}
-                <span className="text-destructive">vermelho &gt; 60d</span>.
-              </li>
-              <li>
-                <strong className="text-foreground">Tendência:</strong> compara pedidos dos{' '}
-                <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>.
-                Fórmula: <code className="px-1 bg-background rounded">(recente − anterior) / anterior × 100</code>.
-                Sem pedidos anteriores e com recentes → +100%.
-              </li>
-              <li>
-                <strong className="text-foreground">Status:</strong>{' '}
-                <span className="text-status-collected font-medium">Ativo</span> (no ritmo) ·{' '}
-                <span className="text-primary font-medium">Novo</span> (1º pedido no período) ·{' '}
-                <span className="text-amber-600 font-medium">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) ·{' '}
-                <span className="text-destructive font-medium">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).
-              </li>
-            </ul>
-          </div>
+          {/* Legenda da lógica (colapsável) */}
+          <Collapsible open={legendOpen} onOpenChange={setLegendOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-xs text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Info className="w-3.5 h-3.5" />
+                  Como interpretar
+                </span>
+                {legendOpen
+                  ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
+                <ul className="space-y-1 text-muted-foreground list-disc pl-4">
+                  <li>
+                    <strong className="text-foreground">Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Últ. pedido:</strong> dias desde o último pedido.{' '}
+                    <span className="text-amber-600">âmbar &gt; 30d</span> ·{' '}
+                    <span className="text-destructive">vermelho &gt; 60d</span>.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Tendência:</strong> compara pedidos dos{' '}
+                    <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>.
+                    Fórmula: <code className="px-1 bg-background rounded">(recente − anterior) / anterior × 100</code>.
+                    Sem pedidos anteriores e com recentes → +100%.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Status:</strong>{' '}
+                    <span className="text-status-collected font-medium">Ativo</span> (no ritmo) ·{' '}
+                    <span className="text-primary font-medium">Novo</span> (1º pedido no período) ·{' '}
+                    <span className="text-amber-600 font-medium">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) ·{' '}
+                    <span className="text-destructive font-medium">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).
+                  </li>
+                </ul>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Table */}
-          <div className="overflow-x-auto -mx-2">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b">
@@ -403,24 +455,30 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
                   <th className="py-2 px-2 font-medium text-right">Últ. pedido</th>
                   <th className="py-2 px-2 font-medium text-right hidden md:table-cell">Tendência</th>
                   <th className="py-2 px-2 font-medium text-center">Status</th>
+                  <th className="py-2 px-1 w-6" aria-hidden />
                 </tr>
               </thead>
               <tbody>
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
                       Nenhum cliente encontrado com os filtros aplicados.
                     </td>
                   </tr>
                 ) : visibleRows.map(r => {
                   const variant = STATUS_VARIANT[r.status];
+                  const statusDotColor =
+                    variant === 'success' ? 'bg-status-collected'
+                    : variant === 'warning' ? 'bg-amber-500'
+                    : variant === 'destructive' ? 'bg-destructive'
+                    : 'bg-primary';
                   return (
                     <tr
                       key={`${r.clientId}-${r.clientName}`}
-                      className="border-b last:border-0 hover:bg-accent/40 cursor-pointer"
-                      onClick={() => onSelectClient?.(r.clientName)}
+                      className="border-b last:border-0 hover:bg-accent/40 cursor-pointer active:bg-accent/60"
+                      onClick={() => handleRowClick(r.clientName)}
                     >
-                      <td className="py-2 px-2 font-medium text-foreground max-w-[200px] truncate">
+                      <td className="py-2 px-2 font-medium text-foreground max-w-[140px] sm:max-w-[200px] truncate">
                         {r.clientName}
                       </td>
                       <td className="py-2 px-2 text-muted-foreground hidden md:table-cell text-xs">
@@ -433,7 +491,7 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
                       <td className="py-2 px-2 text-right hidden lg:table-cell">
                         {r.avgIntervalDays > 0 ? `${r.avgIntervalDays}d` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right">
+                      <td className="py-2 px-2 text-right whitespace-nowrap">
                         <span className={r.daysSinceLast > 60 ? 'text-destructive' : r.daysSinceLast > 30 ? 'text-amber-500' : ''}>
                           {r.daysSinceLast}d
                         </span>
@@ -452,18 +510,28 @@ export function ClientHealthDashboard({ days: _ignored = 180, onSelectClient }: 
                         </span>
                       </td>
                       <td className="py-2 px-2 text-center">
+                        {/* Dot on mobile, full badge on sm+ */}
+                        <span
+                          className={`inline-block sm:hidden w-2.5 h-2.5 rounded-full ${statusDotColor}`}
+                          aria-label={STATUS_LABEL[r.status]}
+                        />
                         <Badge
                           variant={variant === 'destructive' ? 'destructive' : 'secondary'}
                           className={
-                            variant === 'success'
-                              ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
-                              : variant === 'warning'
-                              ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
-                              : ''
+                            'hidden sm:inline-flex ' + (
+                              variant === 'success'
+                                ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
+                                : variant === 'warning'
+                                ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
+                                : ''
+                            )
                           }
                         >
                           {STATUS_LABEL[r.status]}
                         </Badge>
+                      </td>
+                      <td className="py-2 px-1 text-muted-foreground">
+                        <ChevronRight className="w-4 h-4" />
                       </td>
                     </tr>
                   );
