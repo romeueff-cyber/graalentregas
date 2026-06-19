@@ -6,7 +6,7 @@ import { DeliveryDashboard } from '@/components/analytics/DeliveryDashboard';
 import { HygieneDashboard } from '@/components/analytics/HygieneDashboard';
 import { DriverPerformanceDashboard } from '@/components/analytics/DriverPerformanceDashboard';
 import { ClientsDashboard } from '@/components/analytics/ClientsDashboard';
-import { ClientHealthDashboard } from '@/components/analytics/ClientHealthDashboard';
+
 import { ProfitabilityDashboard } from '@/components/analytics/ProfitabilityDashboard';
 import { ExportPDFButton } from '@/components/analytics/ExportPDFButton';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon, Users, UserCheck, DollarSign, HeartPulse } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Droplets, RefreshCw, CalendarIcon, Users, UserCheck, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'entregas' | 'clientes' | 'saude' | 'entregadores' | 'higienizacao' | 'rentabilidade'>('entregas');
+  const [activeTab, setActiveTab] = useState<'entregas' | 'clientes' | 'entregadores' | 'higienizacao' | 'rentabilidade'>('entregas');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [periodType, setPeriodType] = useState<'7' | '15' | '30' | 'custom'>('7');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -39,6 +39,7 @@ export default function AnalyticsPage() {
     : parseInt(periodType);
 
   const { deliveryMetrics, hygieneMetrics, driverMetrics, clientMetrics, allEquipments, equipmentHistory, isLoading } = useAnalyticsData(days);
+  void allEquipments; void equipmentHistory;
 
 
   const handleRefresh = async () => {
@@ -162,10 +163,10 @@ export default function AnalyticsPage() {
       <div className="p-4 pb-20">
         <Tabs 
           value={activeTab} 
-          onValueChange={(v) => setActiveTab(v as 'entregas' | 'clientes' | 'saude' | 'entregadores' | 'higienizacao' | 'rentabilidade')}
+          onValueChange={(v) => setActiveTab(v as 'entregas' | 'clientes' | 'entregadores' | 'higienizacao' | 'rentabilidade')}
           className="w-full"
         >
-          <TabsList className="w-full grid grid-cols-6 mb-6">
+          <TabsList className="w-full grid grid-cols-5 mb-6">
             <TabsTrigger value="entregas" className="flex items-center gap-1 text-xs sm:text-sm">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Entregas</span>
@@ -173,10 +174,6 @@ export default function AnalyticsPage() {
             <TabsTrigger value="clientes" className="flex items-center gap-1 text-xs sm:text-sm">
               <UserCheck className="w-4 h-4" />
               <span className="hidden sm:inline">Clientes</span>
-            </TabsTrigger>
-            <TabsTrigger value="saude" className="flex items-center gap-1 text-xs sm:text-sm">
-              <HeartPulse className="w-4 h-4" />
-              <span className="hidden sm:inline">Saúde</span>
             </TabsTrigger>
             <TabsTrigger value="entregadores" className="flex items-center gap-1 text-xs sm:text-sm">
               <Users className="w-4 h-4" />
@@ -198,14 +195,6 @@ export default function AnalyticsPage() {
 
           <TabsContent value="clientes">
             <ClientsDashboard metrics={clientMetrics} days={days} localEquipments={allEquipments} equipmentHistory={equipmentHistory} />
-          </TabsContent>
-
-          <TabsContent value="saude">
-            <ClientHealthDashboard
-              days={Math.max(days, 90)}
-              localEquipments={allEquipments}
-              equipmentHistory={equipmentHistory}
-            />
           </TabsContent>
 
           <TabsContent value="entregadores">
