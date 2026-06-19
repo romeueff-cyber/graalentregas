@@ -347,18 +347,18 @@ export function ClientHealthDashboard({
           <CardTitle className="text-sm font-medium">Clientes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar cliente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-9 w-full"
               />
             </div>
             <Select value={grupoFilter} onValueChange={setGrupoFilter}>
-              <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <SelectValue placeholder="Grupo" />
               </SelectTrigger>
               <SelectContent>
@@ -369,7 +369,7 @@ export function ClientHealthDashboard({
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | ClientHealthStatus)}>
-              <SelectTrigger className="w-[150px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -381,7 +381,7 @@ export function ClientHealthDashboard({
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm w-full">
                 <ArrowUpDown className="w-3 h-3 mr-1" />
                 <SelectValue />
               </SelectTrigger>
@@ -394,36 +394,53 @@ export function ClientHealthDashboard({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {filteredRows.length} cliente(s) — mostrando {visibleRows.length}
+            {filteredRows.length} cliente(s) — mostrando {visibleRows.length} · toque numa linha para ver detalhes
           </p>
 
-          {/* Legenda da lógica */}
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
-            <p className="font-medium text-foreground">Como interpretar:</p>
-            <ul className="space-y-1 text-muted-foreground list-disc pl-4">
-              <li>
-                <strong className="text-foreground">Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.
-              </li>
-              <li>
-                <strong className="text-foreground">Últ. pedido:</strong> dias desde o último pedido.{' '}
-                <span className="text-amber-600">âmbar &gt; 30d</span> ·{' '}
-                <span className="text-destructive">vermelho &gt; 60d</span>.
-              </li>
-              <li>
-                <strong className="text-foreground">Tendência:</strong> compara pedidos dos{' '}
-                <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>.
-                Fórmula: <code className="px-1 bg-background rounded">(recente − anterior) / anterior × 100</code>.
-                Sem pedidos anteriores e com recentes → +100%.
-              </li>
-              <li>
-                <strong className="text-foreground">Status:</strong>{' '}
-                <span className="text-status-collected font-medium">Ativo</span> (no ritmo) ·{' '}
-                <span className="text-primary font-medium">Novo</span> (1º pedido no período) ·{' '}
-                <span className="text-amber-600 font-medium">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) ·{' '}
-                <span className="text-destructive font-medium">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).
-              </li>
-            </ul>
-          </div>
+          {/* Legenda da lógica (colapsável) */}
+          <Collapsible open={legendOpen} onOpenChange={setLegendOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-xs text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Info className="w-3.5 h-3.5" />
+                  Como interpretar
+                </span>
+                {legendOpen
+                  ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
+                <ul className="space-y-1 text-muted-foreground list-disc pl-4">
+                  <li>
+                    <strong className="text-foreground">Interv. médio:</strong> média de dias entre pedidos do cliente na janela analisada.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Últ. pedido:</strong> dias desde o último pedido.{' '}
+                    <span className="text-amber-600">âmbar &gt; 30d</span> ·{' '}
+                    <span className="text-destructive">vermelho &gt; 60d</span>.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Tendência:</strong> compara pedidos dos{' '}
+                    <strong>últimos 60 dias</strong> vs os <strong>60 dias anteriores</strong>.
+                    Fórmula: <code className="px-1 bg-background rounded">(recente − anterior) / anterior × 100</code>.
+                    Sem pedidos anteriores e com recentes → +100%.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Status:</strong>{' '}
+                    <span className="text-status-collected font-medium">Ativo</span> (no ritmo) ·{' '}
+                    <span className="text-primary font-medium">Novo</span> (1º pedido no período) ·{' '}
+                    <span className="text-amber-600 font-medium">Em risco</span> (sem comprar há &gt; 2× o intervalo médio) ·{' '}
+                    <span className="text-destructive font-medium">Parado</span> (&gt; 3× intervalo ou &gt; 120 dias).
+                  </li>
+                </ul>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Table */}
           <div className="overflow-x-auto -mx-2">
