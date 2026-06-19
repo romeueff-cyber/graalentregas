@@ -26,6 +26,10 @@ interface Props {
   /** Janela de análise em dias (recomendado 90-180). */
   days?: number;
   onSelectClient?: (clientName: string) => void;
+  /** Equipamentos locais — usados ao abrir o detalhe do cliente. */
+  localEquipments?: any[];
+  /** Histórico de equipamentos — usado no detalhe. */
+  equipmentHistory?: any[];
 }
 
 const STATUS_LABEL: Record<ClientHealthStatus, string> = {
