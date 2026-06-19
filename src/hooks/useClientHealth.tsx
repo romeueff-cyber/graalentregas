@@ -22,6 +22,8 @@ export interface ClientHealthRow {
   recentOrders: number;
   previousOrders: number;
   trendPct: number; // % change (recent vs previous)
+  /** 0-100: quanto maior, maior o risco de churn. */
+  churnScore: number;
 }
 
 export interface ClientHealthMetrics {
