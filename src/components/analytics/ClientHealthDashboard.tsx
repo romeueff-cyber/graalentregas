@@ -443,7 +443,7 @@ export function ClientHealthDashboard({
           </Collapsible>
 
           {/* Table */}
-          <div className="overflow-x-auto -mx-2">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b">
@@ -455,24 +455,30 @@ export function ClientHealthDashboard({
                   <th className="py-2 px-2 font-medium text-right">Últ. pedido</th>
                   <th className="py-2 px-2 font-medium text-right hidden md:table-cell">Tendência</th>
                   <th className="py-2 px-2 font-medium text-center">Status</th>
+                  <th className="py-2 px-1 w-6" aria-hidden />
                 </tr>
               </thead>
               <tbody>
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
                       Nenhum cliente encontrado com os filtros aplicados.
                     </td>
                   </tr>
                 ) : visibleRows.map(r => {
                   const variant = STATUS_VARIANT[r.status];
+                  const statusDotColor =
+                    variant === 'success' ? 'bg-status-collected'
+                    : variant === 'warning' ? 'bg-amber-500'
+                    : variant === 'destructive' ? 'bg-destructive'
+                    : 'bg-primary';
                   return (
                     <tr
                       key={`${r.clientId}-${r.clientName}`}
-                      className="border-b last:border-0 hover:bg-accent/40 cursor-pointer"
-                      onClick={() => onSelectClient?.(r.clientName)}
+                      className="border-b last:border-0 hover:bg-accent/40 cursor-pointer active:bg-accent/60"
+                      onClick={() => handleRowClick(r.clientName)}
                     >
-                      <td className="py-2 px-2 font-medium text-foreground max-w-[200px] truncate">
+                      <td className="py-2 px-2 font-medium text-foreground max-w-[140px] sm:max-w-[200px] truncate">
                         {r.clientName}
                       </td>
                       <td className="py-2 px-2 text-muted-foreground hidden md:table-cell text-xs">
@@ -485,7 +491,7 @@ export function ClientHealthDashboard({
                       <td className="py-2 px-2 text-right hidden lg:table-cell">
                         {r.avgIntervalDays > 0 ? `${r.avgIntervalDays}d` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right">
+                      <td className="py-2 px-2 text-right whitespace-nowrap">
                         <span className={r.daysSinceLast > 60 ? 'text-destructive' : r.daysSinceLast > 30 ? 'text-amber-500' : ''}>
                           {r.daysSinceLast}d
                         </span>
@@ -504,18 +510,28 @@ export function ClientHealthDashboard({
                         </span>
                       </td>
                       <td className="py-2 px-2 text-center">
+                        {/* Dot on mobile, full badge on sm+ */}
+                        <span
+                          className={`inline-block sm:hidden w-2.5 h-2.5 rounded-full ${statusDotColor}`}
+                          aria-label={STATUS_LABEL[r.status]}
+                        />
                         <Badge
                           variant={variant === 'destructive' ? 'destructive' : 'secondary'}
                           className={
-                            variant === 'success'
-                              ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
-                              : variant === 'warning'
-                              ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
-                              : ''
+                            'hidden sm:inline-flex ' + (
+                              variant === 'success'
+                                ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
+                                : variant === 'warning'
+                                ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
+                                : ''
+                            )
                           }
                         >
                           {STATUS_LABEL[r.status]}
                         </Badge>
+                      </td>
+                      <td className="py-2 px-1 text-muted-foreground">
+                        <ChevronRight className="w-4 h-4" />
                       </td>
                     </tr>
                   );
