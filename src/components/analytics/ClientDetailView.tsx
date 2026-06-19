@@ -15,6 +15,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import type { ERPOrderAnalytics } from '@/hooks/useERPAnalytics';
 import { useBoletos } from '@/hooks/useBoletos';
+import { ClientNotesCard } from './ClientNotesCard';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -466,6 +467,9 @@ export function ClientDetailView({
           variant={stats.predictedNext && stats.predictedNext < new Date() ? 'warning' : 'default'}
         />
       </div>
+
+      {/* Notas & Follow-up */}
+      <ClientNotesCard clientName={clientName} />
 
       {/* Boletos pendentes */}
       {clientBoletos.pending.length > 0 && (
