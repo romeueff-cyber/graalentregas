@@ -502,8 +502,21 @@ export function ClientHealthDashboard({
                       className="border-b last:border-0 hover:bg-accent/40 cursor-pointer active:bg-accent/60"
                       onClick={() => handleRowClick(r.clientName)}
                     >
-                      <td className="py-2 px-2 font-medium text-foreground max-w-[140px] sm:max-w-[200px] truncate">
-                        {r.clientName}
+                      <td className="py-2 px-2 font-medium text-foreground max-w-[140px] sm:max-w-[200px]">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {(() => {
+                            const ind = noteIndicators.get(r.clientName.trim().toLowerCase());
+                            if (!ind?.hasOpen) return null;
+                            const color = ind.hasDueOrOverdue ? 'text-destructive' : 'text-amber-500';
+                            return (
+                              <StickyNote
+                                className={`w-3.5 h-3.5 shrink-0 ${color}`}
+                                aria-label={ind.hasDueOrOverdue ? 'Follow-up vencido' : 'Tem notas'}
+                              />
+                            );
+                          })()}
+                          <span className="truncate">{r.clientName}</span>
+                        </div>
                       </td>
                       <td className="py-2 px-2 text-muted-foreground hidden md:table-cell text-xs">
                         {r.grupoCliente}
