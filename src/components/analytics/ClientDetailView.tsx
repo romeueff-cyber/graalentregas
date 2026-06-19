@@ -83,6 +83,11 @@ export function ClientDetailView({
   const [granularity, setGranularity] = useState<Granularity>('day');
   const { boletos } = useBoletos();
 
+  // Sempre abrir o detalhe no topo da página (mobile costuma estar rolado)
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+  }, [clientName]);
+
   // Pending boletos for this client (status != PAID and != CANCELLED)
   const clientBoletos = useMemo(() => {
     if (!boletos) return { pending: [], all: [] };
