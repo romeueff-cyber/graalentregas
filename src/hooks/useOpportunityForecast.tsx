@@ -147,31 +147,34 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje
-      const nName = normalizeName(r.clientName);
-      let alreadyConfirmed = confirmedClientNames.has(nName);
+      // Ignora clientes que já têm entrega confirmada hoje.
+      // Match primário por ID; fallback por nome quando o ERP não retorna ID.
+      const rId = r.clientId !== undefined && r.clientId !== null ? String(r.clientId) : '';
+      let alreadyConfirmed = rId !== '' && confirmedClientIds.has(rId);
       if (!alreadyConfirmed) {
-        for (const cn of confirmedClientNames) {
-          if (!cn || !nName) continue;
-          if (cn.includes(nName) || nName.includes(cn)) {
-            alreadyConfirmed = true;
-            break;
-          }
-        }
-      }
-      if (!alreadyConfirmed) {
-        // Match por tokens significativos (ignora palavras genéricas como RESTAURANTE)
-        const candTokens = significantTokens(r.clientName);
-        if (candTokens.length > 0) {
-          for (const cset of confirmedTokenSets) {
-            if (cset.size === 0) continue;
-            let shared = 0;
-            for (const t of candTokens) if (cset.has(t)) shared++;
-            // 1 token compartilhado já basta quando o nome do candidato é curto
-            const need = candTokens.length <= 2 ? 1 : 2;
-            if (shared >= need) {
+        const nName = normalizeName(r.clientName);
+        alreadyConfirmed = confirmedClientNames.has(nName);
+        if (!alreadyConfirmed) {
+          for (const cn of confirmedClientNames) {
+            if (!cn || !nName) continue;
+            if (cn.includes(nName) || nName.includes(cn)) {
               alreadyConfirmed = true;
               break;
+            }
+          }
+        }
+        if (!alreadyConfirmed) {
+          const candTokens = significantTokens(r.clientName);
+          if (candTokens.length > 0) {
+            for (const cset of confirmedTokenSets) {
+              if (cset.size === 0) continue;
+              let shared = 0;
+              for (const t of candTokens) if (cset.has(t)) shared++;
+              const need = candTokens.length <= 2 ? 1 : 2;
+              if (shared >= need) {
+                alreadyConfirmed = true;
+                break;
+              }
             }
           }
         }
