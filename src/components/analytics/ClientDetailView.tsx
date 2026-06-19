@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KPICard } from './KPICard';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +82,11 @@ export function ClientDetailView({
 }: ClientDetailViewProps) {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const { boletos } = useBoletos();
+
+  // Sempre abrir o detalhe no topo da página (mobile costuma estar rolado)
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+  }, [clientName]);
 
   // Pending boletos for this client (status != PAID and != CANCELLED)
   const clientBoletos = useMemo(() => {

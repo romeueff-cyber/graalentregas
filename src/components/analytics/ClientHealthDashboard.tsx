@@ -267,6 +267,14 @@ export function ClientHealthDashboard({
   const handleRowClick = (name: string) => {
     setSelectedClient(name);
     onSelectClient?.(name);
+    // Garante que o usuário veja o detalhe (mobile costuma estar rolado)
+    requestAnimationFrame(() => {
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+    });
   };
 
   return (
