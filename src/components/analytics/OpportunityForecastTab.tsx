@@ -59,9 +59,12 @@ export function OpportunityForecastTab({ days }: Props) {
     return { lat: sumLat / pts.length, lng: sumLng / pts.length };
   }, [confirmedDeliveries, opportunityMarkers]);
 
+  const [mapReady, setMapReady] = useState(false);
+
   const onMapLoad = useCallback(
     (m: google.maps.Map) => {
       setMap(m);
+      setMapReady(true);
       const pts = [
         ...confirmedDeliveries.map((d) => ({ lat: d.lat, lng: d.lng })),
         ...opportunityMarkers.map((o) => ({ lat: o.lat!, lng: o.lng! })),
