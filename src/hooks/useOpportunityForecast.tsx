@@ -48,6 +48,7 @@ const normalizeName = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ')
 export function useOpportunityForecast(days: number = 180) {
   const { metrics, isLoading: healthLoading } = useClientHealth(days);
   const {
+    orders: deliveryOrders,
     locations: deliveryLocations,
     isLoading: deliveryLoading,
     isGoogleReady,
@@ -87,6 +88,18 @@ export function useOpportunityForecast(days: number = 180) {
     [deliveryLocations]
   );
 
+  // Conjunto de nomes (normalizados) já confirmados hoje — para excluir da previsão
+  const confirmedClientNames = useMemo(() => {
+    const set = new Set<string>();
+    (deliveryOrders || []).forEach((o) => {
+      if (o.client_name) set.add(normalizeName(o.client_name));
+    });
+    (deliveryLocations || []).forEach((l) => {
+      if (l.clientName) set.add(normalizeName(l.clientName));
+    });
+    return set;
+  }, [deliveryOrders, deliveryLocations]);
+
   const opportunities: OpportunityRow[] = useMemo(() => {
     if (!metrics.rows.length) return [];
 
@@ -97,6 +110,8 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
+      // Ignora clientes que já têm entrega confirmada hoje
+      if (confirmedClientNames.has(normalizeName(r.clientName))) return;
 
       const maturity = r.daysSinceLast / r.avgIntervalDays;
       if (maturity < MATURITY_MIN || maturity > MATURITY_MAX) return;
