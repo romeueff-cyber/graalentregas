@@ -48,6 +48,7 @@ const normalizeName = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ')
 export function useOpportunityForecast(days: number = 180) {
   const { metrics, isLoading: healthLoading } = useClientHealth(days);
   const {
+    orders: deliveryOrders,
     locations: deliveryLocations,
     isLoading: deliveryLoading,
     isGoogleReady,
