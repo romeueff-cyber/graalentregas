@@ -381,11 +381,36 @@ export function ClientDetailView({
     }
   };
 
+  const handleExportJPG = async () => {
+    if (!exportRef.current) return;
+    try {
+      setExporting(true);
+      // pequeno delay para que o React re-renderize sem o overflow truncado
+      await new Promise(r => setTimeout(r, 50));
+      const dataUrl = await toJpeg(exportRef.current, {
+        quality: 0.95,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+      const link = document.createElement('a');
+      link.download = `${clientName.replace(/[^\w\s-]/g, '').slice(0, 60)}-${format(new Date(), 'yyyy-MM-dd')}.jpg`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Imagem JPG gerada!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gerar imagem');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={exportRef}>
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+        <Button variant="ghost" size="icon" onClick={onBack} data-html2canvas-ignore="true">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -394,11 +419,18 @@ export function ClientDetailView({
             {groupComparison?.groupName ? `Grupo: ${groupComparison.groupName} · ` : ''}Análise detalhada
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9 shrink-0">
-          <FileText className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">PDF</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0" data-html2canvas-ignore="true">
+          <Button variant="outline" size="sm" onClick={handleExportJPG} disabled={exporting} className="h-9">
+            <ImageIcon className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">{exporting ? 'Gerando...' : 'JPG'}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
+            <FileText className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </div>
+
 
       {/* Churn score + group comparison */}
       {(churnScore != null || groupComparison) && (
