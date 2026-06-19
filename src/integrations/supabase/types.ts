@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      client_notes: {
+        Row: {
+          client_name: string
+          created_at: string
+          created_by: string | null
+          follow_up_date: string | null
+          id: string
+          note: string
+          resolved: boolean
+          updated_at: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          created_by?: string | null
+          follow_up_date?: string | null
+          id?: string
+          note: string
+          resolved?: boolean
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          follow_up_date?: string | null
+          id?: string
+          note?: string
+          resolved?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_locations: {
         Row: {
           accuracy: number | null
