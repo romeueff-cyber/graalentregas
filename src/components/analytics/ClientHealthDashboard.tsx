@@ -229,6 +229,26 @@ export function ClientHealthDashboard({
     const clientErpOrders = (rawData || []).filter(o => o.clientName?.trim().toLowerCase() === norm);
     const clientEquipments = localEquipments.filter(e => e.nome_cliente?.trim().toLowerCase() === norm);
     const clientHistory = equipmentHistory.filter(h => h.client_name?.trim().toLowerCase() === norm);
+
+    const selectedRow = metrics.rows.find(r => r.clientName.trim().toLowerCase() === norm);
+    const groupName = selectedRow?.grupoCliente;
+    let groupComparison;
+    if (groupName) {
+      const peers = metrics.rows.filter(r => r.grupoCliente === groupName);
+      if (peers.length > 0) {
+        const sumOrders = peers.reduce((s, r) => s + r.totalOrders, 0);
+        const sumValue = peers.reduce((s, r) => s + r.totalValue, 0);
+        const sumTicket = peers.reduce((s, r) => s + r.avgTicket, 0);
+        groupComparison = {
+          groupName,
+          clientCount: peers.length,
+          avgOrders: sumOrders / peers.length,
+          avgValue: sumValue / peers.length,
+          avgTicket: sumTicket / peers.length,
+        };
+      }
+    }
+
     return (
       <ClientDetailView
         clientName={selectedClient}
@@ -236,6 +256,8 @@ export function ClientHealthDashboard({
         localEquipments={clientEquipments}
         equipmentHistory={clientHistory}
         onBack={() => setSelectedClient(null)}
+        churnScore={selectedRow?.churnScore}
+        groupComparison={groupComparison}
       />
     );
   }
