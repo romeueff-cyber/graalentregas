@@ -181,6 +181,43 @@ export function ClientDetailView({
       ? addDays(lastDate, Math.round(avgInterval))
       : null;
 
+    // Forecast: next 15 days of predicted orders
+    const forecastDates: Date[] = [];
+    if (lastDate && avgInterval > 0) {
+      const today = new Date();
+      const horizon = addDays(today, 15);
+      let next = addDays(lastDate, Math.round(avgInterval));
+      // Avança até alcançar o futuro próximo
+      let safety = 0;
+      while (next < today && safety < 200) {
+        next = addDays(next, Math.round(avgInterval));
+        safety++;
+      }
+      safety = 0;
+      while (next <= horizon && safety < 30) {
+        forecastDates.push(next);
+        next = addDays(next, Math.round(avgInterval));
+        safety++;
+      }
+    }
+    forecastDates.forEach(d => {
+      const k = bucketKey(d);
+      const ex = bucketMap.get(k) || { value: 0, count: 0, forecast: 0, forecastValue: 0 };
+      bucketMap.set(k, { ...ex, forecast: ex.forecast + 1, forecastValue: ex.forecastValue + avgOrderValue });
+    });
+
+    const salesSeries = Array.from(bucketMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, d]) => ({
+        key,
+        label: bucketLabel(key),
+        value: d.value,
+        count: d.count,
+        forecast: d.forecast,
+        forecastValue: d.forecastValue,
+        totalValue: d.value + d.forecastValue,
+      }));
+
     const recentOrders = [...erpOrders]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 20);
