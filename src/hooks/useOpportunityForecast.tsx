@@ -37,7 +37,13 @@ const MATURITY_MIN = 0.85;
 const MATURITY_MAX = 1.5;
 const MATURITY_PROVAVEL_MAX = 1.15;
 
-const normalizeName = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ');
+const normalizeName = (s: string) =>
+  (s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
 
 /**
  * Cruza saúde do cliente (frequência) com coordenadas conhecidas das entregas
