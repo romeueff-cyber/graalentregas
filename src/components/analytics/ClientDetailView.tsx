@@ -647,11 +647,12 @@ export function ClientDetailView({
                     }
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="count" name="Pedidos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="count" name="Pedidos" stackId="orders" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="forecast" name="Previsto (15d)" stackId="orders" fill="hsl(var(--primary))" fillOpacity={0.35} stroke="hsl(var(--primary))" strokeDasharray="3 3" radius={[4, 4, 0, 0]} />
                   <Line
                     yAxisId="right"
                     type="monotone"
-                    dataKey="value"
+                    dataKey="totalValue"
                     name="Volume (R$)"
                     stroke="hsl(var(--status-collected))"
                     strokeWidth={2}
