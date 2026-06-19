@@ -95,6 +95,8 @@ export function useOpportunityForecast(days: number = 180) {
     metrics.rows.forEach((r: ClientHealthRow) => {
       if (r.totalOrders < MIN_ORDERS_FOR_FORECAST) return;
       if (r.avgIntervalDays <= 0) return;
+      // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
+      if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
 
       const maturity = r.daysSinceLast / r.avgIntervalDays;
       if (maturity < MATURITY_MIN || maturity > MATURITY_MAX) return;
