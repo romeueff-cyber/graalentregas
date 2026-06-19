@@ -136,7 +136,7 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje (match exato ou por substring)
+      // Ignora clientes que já têm entrega confirmada hoje
       const nName = normalizeName(r.clientName);
       let alreadyConfirmed = confirmedClientNames.has(nName);
       if (!alreadyConfirmed) {
@@ -145,6 +145,23 @@ export function useOpportunityForecast(days: number = 180) {
           if (cn.includes(nName) || nName.includes(cn)) {
             alreadyConfirmed = true;
             break;
+          }
+        }
+      }
+      if (!alreadyConfirmed) {
+        // Match por tokens significativos (ignora palavras genéricas como RESTAURANTE)
+        const candTokens = significantTokens(r.clientName);
+        if (candTokens.length > 0) {
+          for (const cset of confirmedTokenSets) {
+            if (cset.size === 0) continue;
+            let shared = 0;
+            for (const t of candTokens) if (cset.has(t)) shared++;
+            // 1 token compartilhado já basta quando o nome do candidato é curto
+            const need = candTokens.length <= 2 ? 1 : 2;
+            if (shared >= need) {
+              alreadyConfirmed = true;
+              break;
+            }
           }
         }
       }
