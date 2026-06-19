@@ -45,6 +45,21 @@ const normalizeName = (s: string) =>
     .replace(/[^A-Z0-9]+/g, ' ')
     .trim();
 
+// Palavras genéricas que não devem servir de "match" entre nomes de clientes
+const STOP_TOKENS = new Set([
+  'RESTAURANTE', 'BAR', 'LANCHONETE', 'LANCHES', 'PIZZARIA', 'PIZZA',
+  'CHOPERIA', 'CHOPP', 'CERVEJARIA', 'PUB', 'HOTEL', 'POUSADA',
+  'MERCADO', 'MERCEARIA', 'SUPERMERCADO', 'EMPORIO', 'CONVENIENCIA',
+  'COMERCIO', 'COMERCIAL', 'INDUSTRIA', 'SERVICOS', 'EVENTOS',
+  'LTDA', 'EPP', 'EIRELI', 'CIA', 'DA', 'DE', 'DO', 'DAS', 'DOS',
+  'CASA', 'PONTO', 'CANTINHO', 'ESPACO', 'GRUPO', 'CLUBE',
+]);
+
+const significantTokens = (s: string): string[] =>
+  normalizeName(s)
+    .split(' ')
+    .filter((t) => t.length >= 4 && !STOP_TOKENS.has(t));
+
 /**
  * Cruza saúde do cliente (frequência) com coordenadas conhecidas das entregas
  * registradas (tabela equipments) e com as entregas confirmadas do dia (ERP)
