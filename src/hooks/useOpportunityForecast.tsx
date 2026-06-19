@@ -116,8 +116,19 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje
-      if (confirmedClientNames.has(normalizeName(r.clientName))) return;
+      // Ignora clientes que já têm entrega confirmada hoje (match exato ou por substring)
+      const nName = normalizeName(r.clientName);
+      let alreadyConfirmed = confirmedClientNames.has(nName);
+      if (!alreadyConfirmed) {
+        for (const cn of confirmedClientNames) {
+          if (!cn || !nName) continue;
+          if (cn.includes(nName) || nName.includes(cn)) {
+            alreadyConfirmed = true;
+            break;
+          }
+        }
+      }
+      if (alreadyConfirmed) return;
 
       const maturity = r.daysSinceLast / r.avgIntervalDays;
       if (maturity < MATURITY_MIN || maturity > MATURITY_MAX) return;
