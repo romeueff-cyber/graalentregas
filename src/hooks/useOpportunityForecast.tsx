@@ -109,7 +109,7 @@ export function useOpportunityForecast(days: number = 180) {
     [deliveryLocations]
   );
 
-  // Conjunto de nomes (normalizados) já confirmados hoje — para excluir da previsão
+  // Conjunto de nomes (normalizados) já confirmados hoje — fallback caso o ERP não retorne ID
   const confirmedClientNames = useMemo(() => {
     const set = new Set<string>();
     (deliveryOrders || []).forEach((o) => {
@@ -121,7 +121,18 @@ export function useOpportunityForecast(days: number = 180) {
     return set;
   }, [deliveryOrders, deliveryLocations]);
 
-  // Tokens significativos por cliente confirmado (para match por palavra-chave)
+  // Conjunto de IDs de cliente já confirmados hoje (fonte primária de match)
+  const confirmedClientIds = useMemo(() => {
+    const set = new Set<string>();
+    (deliveryOrders || []).forEach((o) => {
+      if (o.client_id !== undefined && o.client_id !== null && o.client_id !== '') {
+        set.add(String(o.client_id));
+      }
+    });
+    return set;
+  }, [deliveryOrders]);
+
+  // Tokens significativos por cliente confirmado (fallback para diferenças no nome)
   const confirmedTokenSets = useMemo(() => {
     return Array.from(confirmedClientNames).map((n) => new Set(significantTokens(n)));
   }, [confirmedClientNames]);
@@ -136,31 +147,34 @@ export function useOpportunityForecast(days: number = 180) {
       if (r.avgIntervalDays <= 0) return;
       // Ignora grupos cuja descrição contenha "consumidor" (ex.: consumidor final)
       if ((r.grupoCliente || '').toLowerCase().includes('consumidor')) return;
-      // Ignora clientes que já têm entrega confirmada hoje
-      const nName = normalizeName(r.clientName);
-      let alreadyConfirmed = confirmedClientNames.has(nName);
+      // Ignora clientes que já têm entrega confirmada hoje.
+      // Match primário por ID; fallback por nome quando o ERP não retorna ID.
+      const rId = r.clientId !== undefined && r.clientId !== null ? String(r.clientId) : '';
+      let alreadyConfirmed = rId !== '' && confirmedClientIds.has(rId);
       if (!alreadyConfirmed) {
-        for (const cn of confirmedClientNames) {
-          if (!cn || !nName) continue;
-          if (cn.includes(nName) || nName.includes(cn)) {
-            alreadyConfirmed = true;
-            break;
-          }
-        }
-      }
-      if (!alreadyConfirmed) {
-        // Match por tokens significativos (ignora palavras genéricas como RESTAURANTE)
-        const candTokens = significantTokens(r.clientName);
-        if (candTokens.length > 0) {
-          for (const cset of confirmedTokenSets) {
-            if (cset.size === 0) continue;
-            let shared = 0;
-            for (const t of candTokens) if (cset.has(t)) shared++;
-            // 1 token compartilhado já basta quando o nome do candidato é curto
-            const need = candTokens.length <= 2 ? 1 : 2;
-            if (shared >= need) {
+        const nName = normalizeName(r.clientName);
+        alreadyConfirmed = confirmedClientNames.has(nName);
+        if (!alreadyConfirmed) {
+          for (const cn of confirmedClientNames) {
+            if (!cn || !nName) continue;
+            if (cn.includes(nName) || nName.includes(cn)) {
               alreadyConfirmed = true;
               break;
+            }
+          }
+        }
+        if (!alreadyConfirmed) {
+          const candTokens = significantTokens(r.clientName);
+          if (candTokens.length > 0) {
+            for (const cset of confirmedTokenSets) {
+              if (cset.size === 0) continue;
+              let shared = 0;
+              for (const t of candTokens) if (cset.has(t)) shared++;
+              const need = candTokens.length <= 2 ? 1 : 2;
+              if (shared >= need) {
+                alreadyConfirmed = true;
+                break;
+              }
             }
           }
         }
@@ -219,7 +233,7 @@ export function useOpportunityForecast(days: number = 180) {
     });
 
     return rows;
-  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientNames, confirmedTokenSets]);
+  }, [metrics.rows, clientCoords, confirmedDeliveries, confirmedClientIds, confirmedClientNames, confirmedTokenSets]);
 
   const summary = useMemo(() => {
     const provaveis = opportunities.filter((o) => o.status === 'provavel').length;
