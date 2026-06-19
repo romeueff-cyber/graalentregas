@@ -59,9 +59,12 @@ export function OpportunityForecastTab({ days }: Props) {
     return { lat: sumLat / pts.length, lng: sumLng / pts.length };
   }, [confirmedDeliveries, opportunityMarkers]);
 
+  const [mapReady, setMapReady] = useState(false);
+
   const onMapLoad = useCallback(
     (m: google.maps.Map) => {
       setMap(m);
+      setMapReady(true);
       const pts = [
         ...confirmedDeliveries.map((d) => ({ lat: d.lat, lng: d.lng })),
         ...opportunityMarkers.map((o) => ({ lat: o.lat!, lng: o.lng! })),
@@ -274,49 +277,53 @@ export function OpportunityForecastTab({ days }: Props) {
                     styles: mapStyles as google.maps.MapTypeStyle[],
                   }}
                 >
-                  {/* Confirmed delivery 5km circles */}
-                  {confirmedDeliveries.map((d) => (
-                    <Circle
-                      key={`circle-${d.orderNumber}`}
-                      center={{ lat: d.lat, lng: d.lng }}
-                      radius={nearRadiusKm * 1000}
-                      options={circleOptions(COLOR_CONFIRMED)}
-                    />
-                  ))}
-                  {/* Confirmed delivery markers */}
-                  {confirmedDeliveries.map((d) => (
-                    <Marker
-                      key={`conf-${d.orderNumber}`}
-                      position={{ lat: d.lat, lng: d.lng }}
-                      title={`Entrega: ${d.clientName}`}
-                      icon={{
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 8,
-                        fillColor: COLOR_CONFIRMED,
-                        fillOpacity: 1,
-                        strokeColor: '#fff',
-                        strokeWeight: 2,
-                      }}
-                    />
-                  ))}
-                  {/* Opportunity markers */}
-                  {opportunityMarkers.map((o) => (
-                    <Marker
-                      key={`opp-${o.clientId}-${o.clientName}`}
-                      position={{ lat: o.lat!, lng: o.lng! }}
-                      title={`${o.clientName} (há ${o.daysSinceLast}d)`}
-                      onClick={() => setSelected(o)}
-                      icon={{
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: selected?.clientId === o.clientId ? 10 : 7,
-                        fillColor:
-                          o.status === 'provavel' ? COLOR_PROVAVEL : COLOR_ATRASADO,
-                        fillOpacity: 0.9,
-                        strokeColor: '#fff',
-                        strokeWeight: 2,
-                      }}
-                    />
-                  ))}
+                  {mapReady && (
+                    <>
+                      {/* Confirmed delivery 5km circles */}
+                      {confirmedDeliveries.map((d) => (
+                        <Circle
+                          key={`circle-${d.orderNumber}`}
+                          center={{ lat: d.lat, lng: d.lng }}
+                          radius={nearRadiusKm * 1000}
+                          options={circleOptions(COLOR_CONFIRMED)}
+                        />
+                      ))}
+                      {/* Confirmed delivery markers */}
+                      {confirmedDeliveries.map((d) => (
+                        <Marker
+                          key={`conf-${d.orderNumber}`}
+                          position={{ lat: d.lat, lng: d.lng }}
+                          title={`Entrega: ${d.clientName}`}
+                          icon={{
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: COLOR_CONFIRMED,
+                            fillOpacity: 1,
+                            strokeColor: '#fff',
+                            strokeWeight: 2,
+                          }}
+                        />
+                      ))}
+                      {/* Opportunity markers */}
+                      {opportunityMarkers.map((o) => (
+                        <Marker
+                          key={`opp-${o.clientId}-${o.clientName}`}
+                          position={{ lat: o.lat!, lng: o.lng! }}
+                          title={`${o.clientName} (há ${o.daysSinceLast}d)`}
+                          onClick={() => setSelected(o)}
+                          icon={{
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: selected?.clientId === o.clientId ? 10 : 7,
+                            fillColor:
+                              o.status === 'provavel' ? COLOR_PROVAVEL : COLOR_ATRASADO,
+                            fillOpacity: 0.9,
+                            strokeColor: '#fff',
+                            strokeWeight: 2,
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
                 </GoogleMap>
               </LoadScript>
             </div>
