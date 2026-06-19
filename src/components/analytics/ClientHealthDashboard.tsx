@@ -59,6 +59,7 @@ export function ClientHealthDashboard({
 }: Props) {
   const [windowDays, setWindowDays] = useState<number>(180);
   const { data: rawData, metrics, isLoading, error } = useClientHealth(windowDays);
+  const { indicators: noteIndicators } = useClientNotes();
   const [grupoFilter, setGrupoFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ClientHealthStatus>('all');
   const [search, setSearch] = useState('');
