@@ -124,16 +124,13 @@ export function ClientDetailView({
       return format(new Date(key + 'T12:00:00'), 'dd/MM', { locale: ptBR });
     };
 
-    const bucketMap = new Map<string, { value: number; count: number }>();
+    const bucketMap = new Map<string, { value: number; count: number; forecast: number; forecastValue: number }>();
     erpOrders.forEach(o => {
       if (!o.date) return;
       const k = bucketKey(new Date(o.date));
-      const ex = bucketMap.get(k) || { value: 0, count: 0 };
-      bucketMap.set(k, { value: ex.value + (o.value || 0), count: ex.count + 1 });
+      const ex = bucketMap.get(k) || { value: 0, count: 0, forecast: 0, forecastValue: 0 };
+      bucketMap.set(k, { ...ex, value: ex.value + (o.value || 0), count: ex.count + 1 });
     });
-    const salesSeries = Array.from(bucketMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, d]) => ({ key, label: bucketLabel(key), value: d.value, count: d.count }));
 
     const weekdayMap = new Map<number, { count: number; value: number }>();
     erpOrders.forEach(o => {
