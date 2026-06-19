@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KPICard } from './KPICard';
 import { Badge } from '@/components/ui/badge';
 import {
   DollarSign, Package, Calendar, TrendingUp, TrendingDown, Clock, Repeat, Award,
   ArrowLeft, Receipt, CalendarClock, BarChart2, ShieldAlert, FileText,
-  Users, AlertCircle, ExternalLink,
+  Users, AlertCircle, ExternalLink, Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -17,6 +17,7 @@ import type { ERPOrderAnalytics } from '@/hooks/useERPAnalytics';
 import { useBoletos } from '@/hooks/useBoletos';
 import { ClientNotesCard } from './ClientNotesCard';
 import { toast } from 'sonner';
+import { toJpeg } from 'html-to-image';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, Line, Legend,
@@ -82,6 +83,8 @@ export function ClientDetailView({
 }: ClientDetailViewProps) {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const { boletos } = useBoletos();
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Sempre abrir o detalhe no topo da página (mobile costuma estar rolado)
   useEffect(() => {
@@ -121,16 +124,13 @@ export function ClientDetailView({
       return format(new Date(key + 'T12:00:00'), 'dd/MM', { locale: ptBR });
     };
 
-    const bucketMap = new Map<string, { value: number; count: number }>();
+    const bucketMap = new Map<string, { value: number; count: number; forecast: number; forecastValue: number }>();
     erpOrders.forEach(o => {
       if (!o.date) return;
       const k = bucketKey(new Date(o.date));
-      const ex = bucketMap.get(k) || { value: 0, count: 0 };
-      bucketMap.set(k, { value: ex.value + (o.value || 0), count: ex.count + 1 });
+      const ex = bucketMap.get(k) || { value: 0, count: 0, forecast: 0, forecastValue: 0 };
+      bucketMap.set(k, { ...ex, value: ex.value + (o.value || 0), count: ex.count + 1 });
     });
-    const salesSeries = Array.from(bucketMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, d]) => ({ key, label: bucketLabel(key), value: d.value, count: d.count }));
 
     const weekdayMap = new Map<number, { count: number; value: number }>();
     erpOrders.forEach(o => {
@@ -180,6 +180,43 @@ export function ClientDetailView({
     const predictedNext = lastDate && avgInterval > 0
       ? addDays(lastDate, Math.round(avgInterval))
       : null;
+
+    // Forecast: next 15 days of predicted orders
+    const forecastDates: Date[] = [];
+    if (lastDate && avgInterval > 0) {
+      const today = new Date();
+      const horizon = addDays(today, 15);
+      let next = addDays(lastDate, Math.round(avgInterval));
+      // Avança até alcançar o futuro próximo
+      let safety = 0;
+      while (next < today && safety < 200) {
+        next = addDays(next, Math.round(avgInterval));
+        safety++;
+      }
+      safety = 0;
+      while (next <= horizon && safety < 30) {
+        forecastDates.push(next);
+        next = addDays(next, Math.round(avgInterval));
+        safety++;
+      }
+    }
+    forecastDates.forEach(d => {
+      const k = bucketKey(d);
+      const ex = bucketMap.get(k) || { value: 0, count: 0, forecast: 0, forecastValue: 0 };
+      bucketMap.set(k, { ...ex, forecast: ex.forecast + 1, forecastValue: ex.forecastValue + avgOrderValue });
+    });
+
+    const salesSeries = Array.from(bucketMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, d]) => ({
+        key,
+        label: bucketLabel(key),
+        value: d.value,
+        count: d.count,
+        forecast: d.forecast,
+        forecastValue: d.forecastValue,
+        totalValue: d.value + d.forecastValue,
+      }));
 
     const recentOrders = [...erpOrders]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -344,11 +381,40 @@ export function ClientDetailView({
     }
   };
 
+  const handleExportJPG = async () => {
+    if (!exportRef.current) return;
+    try {
+      setExporting(true);
+      // pequeno delay para que o React re-renderize sem o overflow truncado
+      await new Promise(r => setTimeout(r, 50));
+      const dataUrl = await toJpeg(exportRef.current, {
+        quality: 0.95,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+        filter: (node) => {
+          if (!(node instanceof HTMLElement)) return true;
+          return node.dataset?.exportIgnore !== 'true';
+        },
+      });
+      const link = document.createElement('a');
+      link.download = `${clientName.replace(/[^\w\s-]/g, '').slice(0, 60)}-${format(new Date(), 'yyyy-MM-dd')}.jpg`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Imagem JPG gerada!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gerar imagem');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={exportRef}>
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+        <Button variant="ghost" size="icon" onClick={onBack} data-export-ignore="true">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -357,11 +423,18 @@ export function ClientDetailView({
             {groupComparison?.groupName ? `Grupo: ${groupComparison.groupName} · ` : ''}Análise detalhada
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9 shrink-0">
-          <FileText className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">PDF</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0" data-export-ignore="true">
+          <Button variant="outline" size="sm" onClick={handleExportJPG} disabled={exporting} className="h-9">
+            <ImageIcon className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">{exporting ? 'Gerando...' : 'JPG'}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
+            <FileText className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </div>
+
 
       {/* Churn score + group comparison */}
       {(churnScore != null || groupComparison) && (
@@ -610,11 +683,12 @@ export function ClientDetailView({
                     }
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="count" name="Pedidos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="count" name="Pedidos" stackId="orders" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="forecast" name="Previsto (15d)" stackId="orders" fill="hsl(var(--primary))" fillOpacity={0.35} stroke="hsl(var(--primary))" strokeDasharray="3 3" radius={[4, 4, 0, 0]} />
                   <Line
                     yAxisId="right"
                     type="monotone"
-                    dataKey="value"
+                    dataKey="totalValue"
                     name="Volume (R$)"
                     stroke="hsl(var(--status-collected))"
                     strokeWidth={2}
