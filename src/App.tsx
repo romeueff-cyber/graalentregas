@@ -24,6 +24,7 @@ import HygienePage from "./pages/HygienePage";
 import FinanceiroPage from "./pages/FinanceiroPage";
 import RoutesPage from "./pages/RoutesPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import ClientHealthPage from "./pages/ClientHealthPage";
 import AlocacoesPage from "./pages/AlocacoesPage";
 import EtiquetasPage from "./pages/EtiquetasPage";
 import NotFound from "./pages/NotFound";
@@ -77,6 +78,7 @@ const App = () => {
                 />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/saude-cliente" element={<ClientHealthPage />} />
                 <Route path="/install" element={<InstallPage />} />
                 <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
                 <Route path="/pedidos-dia" element={<DailyOrdersPage />} />

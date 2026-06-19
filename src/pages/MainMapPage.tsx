@@ -311,6 +311,17 @@ export default function MainMapPage() {
                         className="w-full justify-start gap-3"
                         onClick={() => {
                           setShowMenu(false);
+                          navigate('/saude-cliente');
+                        }}
+                      >
+                        <HeartPulse className="w-5 h-5" />
+                        Saúde do Cliente
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => {
+                          setShowMenu(false);
                           navigate('/users');
                         }}
                       >
