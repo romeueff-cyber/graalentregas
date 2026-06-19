@@ -392,6 +392,10 @@ export function ClientDetailView({
         backgroundColor: '#ffffff',
         pixelRatio: 2,
         cacheBust: true,
+        filter: (node) => {
+          if (!(node instanceof HTMLElement)) return true;
+          return node.dataset?.exportIgnore !== 'true';
+        },
       });
       const link = document.createElement('a');
       link.download = `${clientName.replace(/[^\w\s-]/g, '').slice(0, 60)}-${format(new Date(), 'yyyy-MM-dd')}.jpg`;
