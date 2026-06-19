@@ -223,16 +223,38 @@ export function ClientHealthDashboard({
     );
   }
 
+  // Detalhe de cliente
+  if (selectedClient) {
+    const norm = selectedClient.trim().toLowerCase();
+    const clientErpOrders = (rawData || []).filter(o => o.clientName?.trim().toLowerCase() === norm);
+    const clientEquipments = localEquipments.filter(e => e.nome_cliente?.trim().toLowerCase() === norm);
+    const clientHistory = equipmentHistory.filter(h => h.client_name?.trim().toLowerCase() === norm);
+    return (
+      <ClientDetailView
+        clientName={selectedClient}
+        erpOrders={clientErpOrders}
+        localEquipments={clientEquipments}
+        equipmentHistory={clientHistory}
+        onBack={() => setSelectedClient(null)}
+      />
+    );
+  }
+
+  const handleRowClick = (name: string) => {
+    setSelectedClient(name);
+    onSelectClient?.(name);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Window selector */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      {/* Window selector + export */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           Janela de análise (independente do período global):
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={String(windowDays)} onValueChange={(v) => setWindowDays(parseInt(v))}>
-            <SelectTrigger className="w-[200px] h-9 text-sm">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[200px] h-9 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -243,9 +265,9 @@ export function ClientHealthDashboard({
               <SelectItem value="3650">Todo o período</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9">
-            <FileText className="w-4 h-4 mr-2" />
-            Exportar PDF
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-9 shrink-0">
+            <FileText className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar PDF</span>
           </Button>
         </div>
       </div>
