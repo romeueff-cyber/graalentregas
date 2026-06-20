@@ -4,11 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 import { ClientHealthDashboard } from '@/components/analytics/ClientHealthDashboard';
 import { OpportunityForecastTab } from '@/components/analytics/OpportunityForecastTab';
+import { FinancialHealthDashboard } from '@/components/analytics/FinancialHealthDashboard';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity } from 'lucide-react';
+import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function ClientHealthPage() {
@@ -79,14 +80,18 @@ export default function ClientHealthPage() {
 
       <div className="p-4 pb-20">
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="dashboard" className="gap-2">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="dashboard" className="gap-1.5 text-xs sm:text-sm">
               <Activity className="w-4 h-4" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="forecast" className="gap-2">
+            <TabsTrigger value="forecast" className="gap-1.5 text-xs sm:text-sm">
               <Sparkles className="w-4 h-4" />
-              Previsão Hoje
+              Previsão
+            </TabsTrigger>
+            <TabsTrigger value="financial" className="gap-1.5 text-xs sm:text-sm">
+              <DollarSign className="w-4 h-4" />
+              Financeiro
             </TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard">
@@ -98,6 +103,9 @@ export default function ClientHealthPage() {
           </TabsContent>
           <TabsContent value="forecast">
             <OpportunityForecastTab days={days} />
+          </TabsContent>
+          <TabsContent value="financial">
+            <FinancialHealthDashboard days={days} />
           </TabsContent>
         </Tabs>
       </div>
