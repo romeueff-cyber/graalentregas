@@ -4,11 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 import { ClientHealthDashboard } from '@/components/analytics/ClientHealthDashboard';
 import { OpportunityForecastTab } from '@/components/analytics/OpportunityForecastTab';
+import { FinancialHealthDashboard } from '@/components/analytics/FinancialHealthDashboard';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity } from 'lucide-react';
+import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function ClientHealthPage() {
