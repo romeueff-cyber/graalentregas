@@ -88,6 +88,7 @@ const App = () => {
                 <Route path="/rotas" element={<RoutesPage />} />
                 <Route path="/alocacoes" element={<AlocacoesPage />} />
                 <Route path="/etiquetas" element={<EtiquetasPage />} />
+                <Route path="/pedidos-venda" element={<PedidosVendaPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </ErrorBoundary>
