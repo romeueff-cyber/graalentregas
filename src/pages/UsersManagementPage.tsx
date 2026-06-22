@@ -8,6 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
 import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'entregador', label: 'Entregador' },
+  { value: 'vendedor', label: 'Vendedor' },
+  { value: 'financeiro', label: 'Financeiro' },
+] as const;
+const roleLabel = (r: string | null) => ROLE_OPTIONS.find(o => o.value === r)?.label || '—';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -62,6 +71,7 @@ export default function UsersManagementPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<string>('entregador');
   const [showPassword, setShowPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
@@ -133,9 +143,9 @@ export default function UsersManagementPage() {
 
   // Create user mutation using edge function
   const createUserMutation = useMutation({
-    mutationFn: async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    mutationFn: async ({ name, email, password, role }: { name: string; email: string; password: string; role: string }) => {
       const response = await supabase.functions.invoke('create-user', {
-        body: { name, email, password }
+        body: { name, email, password, role }
       });
 
       if (response.error) {
@@ -154,7 +164,8 @@ export default function UsersManagementPage() {
       setName('');
       setEmail('');
       setPassword('');
-      toast.success('Entregador criado com sucesso!');
+      setNewUserRole('entregador');
+      toast.success('Usuário criado com sucesso!');
     },
     onError: (error: any) => {
       const msg = error.message?.toLowerCase() || '';
@@ -255,7 +266,7 @@ export default function UsersManagementPage() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(`Perfil alterado para ${variables.role === 'admin' ? 'Admin' : 'Entregador'}!`);
+      toast.success(`Perfil alterado para ${roleLabel(variables.role)}!`);
       setUserToChangeRole(null);
     },
     onError: (error: any) => {
@@ -283,7 +294,7 @@ export default function UsersManagementPage() {
 
     setIsCreating(true);
     try {
-      await createUserMutation.mutateAsync({ name, email, password });
+      await createUserMutation.mutateAsync({ name, email, password, role: newUserRole });
     } finally {
       setIsCreating(false);
     }
@@ -383,7 +394,7 @@ export default function UsersManagementPage() {
             onClick={() => setShowNewUserForm(true)}
           >
             <Plus className="w-5 h-5" />
-            Novo Entregador
+            Novo Usuário
           </Button>
         )}
 
@@ -391,7 +402,7 @@ export default function UsersManagementPage() {
         {showNewUserForm && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Novo Entregador</CardTitle>
+              <CardTitle className="text-base">Novo Usuário</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateUser} className="space-y-4">
@@ -401,13 +412,25 @@ export default function UsersManagementPage() {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
                       id="name"
-                      placeholder="Nome do entregador"
+                      placeholder="Nome do usuário"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10 h-12"
                     />
                   </div>
                   {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Perfil</Label>
+                  <Select value={newUserRole} onValueChange={setNewUserRole}>
+                    <SelectTrigger id="role" className="h-12"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ROLE_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -611,24 +634,30 @@ export default function UsersManagementPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            // Don't allow changing own role
-                            if (userData.id === user?.id) {
-                              toast.error('Não é possível alterar seu próprio perfil');
-                              return;
-                            }
-                            setUserToChangeRole(userData);
-                          }}
-                          className={`text-xs px-2 py-1 rounded-full cursor-pointer transition-opacity hover:opacity-80 ${
-                            userData.role === 'admin' 
-                              ? 'bg-primary/10 text-primary' 
-                              : 'bg-secondary text-secondary-foreground'
-                          }`}
-                          title="Clique para alterar perfil"
-                        >
-                          {userData.role === 'admin' ? 'Admin' : 'Entregador'}
-                        </button>
+                        {userData.id === user?.id ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                            {roleLabel(userData.role)}
+                          </span>
+                        ) : (
+                          <Select
+                            value={userData.role || 'entregador'}
+                            onValueChange={(newRole) => {
+                              if (newRole === userData.role) return;
+                              changeRoleMutation.mutate({ userId: userData.id, role: newRole });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-32 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLE_OPTIONS.map(o => (
+                                <SelectItem key={o.value} value={o.value} className="text-xs">
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {userData.id !== user?.id && (
                           <>
                             <Button
