@@ -394,7 +394,7 @@ export default function UsersManagementPage() {
             onClick={() => setShowNewUserForm(true)}
           >
             <Plus className="w-5 h-5" />
-            Novo Entregador
+            Novo Usuário
           </Button>
         )}
 
@@ -402,7 +402,7 @@ export default function UsersManagementPage() {
         {showNewUserForm && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Novo Entregador</CardTitle>
+              <CardTitle className="text-base">Novo Usuário</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateUser} className="space-y-4">
