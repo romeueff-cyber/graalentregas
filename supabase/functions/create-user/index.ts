@@ -185,7 +185,7 @@ serve(async (req) => {
       .from('user_roles')
       .insert({
         user_id: newUserData.user.id,
-        role: 'entregador'
+        role: finalRole
       })
 
     if (roleError) {
