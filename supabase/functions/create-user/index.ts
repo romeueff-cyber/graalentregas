@@ -132,7 +132,9 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, name } = await req.json()
+    const { email, password, name, role } = await req.json()
+    const VALID_ROLES = ['admin', 'entregador', 'vendedor', 'financeiro']
+    const finalRole = VALID_ROLES.includes(role) ? role : 'entregador'
 
     // Server-side input validation
     const emailValidation = validateEmail(email)
