@@ -8,6 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
 import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'entregador', label: 'Entregador' },
+  { value: 'vendedor', label: 'Vendedor' },
+  { value: 'financeiro', label: 'Financeiro' },
+] as const;
+const roleLabel = (r: string | null) => ROLE_OPTIONS.find(o => o.value === r)?.label || '—';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
