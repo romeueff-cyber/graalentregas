@@ -294,7 +294,7 @@ export default function UsersManagementPage() {
 
     setIsCreating(true);
     try {
-      await createUserMutation.mutateAsync({ name, email, password });
+      await createUserMutation.mutateAsync({ name, email, password, role: newUserRole });
     } finally {
       setIsCreating(false);
     }
