@@ -11,6 +11,10 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   isAdmin: boolean;
+  isFinanceiro: boolean;
+  isVendedor: boolean;
+  isEntregador: boolean;
+  canApprovePedidoVenda: boolean;
   isLoading: boolean;
   isOffline: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
