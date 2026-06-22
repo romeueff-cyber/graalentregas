@@ -266,7 +266,7 @@ export default function UsersManagementPage() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(`Perfil alterado para ${variables.role === 'admin' ? 'Admin' : 'Entregador'}!`);
+      toast.success(`Perfil alterado para ${roleLabel(variables.role)}!`);
       setUserToChangeRole(null);
     },
     onError: (error: any) => {
