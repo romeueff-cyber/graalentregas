@@ -25,7 +25,7 @@ const MAX_EMAIL_LENGTH = 255
 const MIN_PASSWORD_LENGTH = 8
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const VALID_ACTIONS = ['update', 'deactivate', 'activate', 'delete', 'change_role']
-const VALID_ROLES = ['admin', 'entregador']
+const VALID_ROLES = ['admin', 'entregador', 'vendedor', 'financeiro']
 
 function validateEmail(email: string): { valid: boolean; error?: string } {
   if (!email || typeof email !== 'string') {
