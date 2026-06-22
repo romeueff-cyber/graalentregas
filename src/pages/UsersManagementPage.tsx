@@ -143,9 +143,9 @@ export default function UsersManagementPage() {
 
   // Create user mutation using edge function
   const createUserMutation = useMutation({
-    mutationFn: async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    mutationFn: async ({ name, email, password, role }: { name: string; email: string; password: string; role: string }) => {
       const response = await supabase.functions.invoke('create-user', {
-        body: { name, email, password }
+        body: { name, email, password, role }
       });
 
       if (response.error) {
@@ -164,7 +164,8 @@ export default function UsersManagementPage() {
       setName('');
       setEmail('');
       setPassword('');
-      toast.success('Entregador criado com sucesso!');
+      setNewUserRole('entregador');
+      toast.success('Usuário criado com sucesso!');
     },
     onError: (error: any) => {
       const msg = error.message?.toLowerCase() || '';
