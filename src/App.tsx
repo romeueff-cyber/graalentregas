@@ -27,6 +27,7 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import ClientHealthPage from "./pages/ClientHealthPage";
 import AlocacoesPage from "./pages/AlocacoesPage";
 import EtiquetasPage from "./pages/EtiquetasPage";
+import PedidosVendaPage from "./pages/PedidosVendaPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
