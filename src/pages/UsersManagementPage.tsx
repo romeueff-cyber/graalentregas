@@ -71,6 +71,7 @@ export default function UsersManagementPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<string>('entregador');
   const [showPassword, setShowPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
