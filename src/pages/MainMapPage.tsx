@@ -64,7 +64,7 @@ import type { EquipmentWithCreator } from '@/types/database';
 
 export default function MainMapPage() {
   const navigate = useNavigate();
-  const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
+  const { user, profile, isAdmin, isVendedor, canApprovePedidoVenda, signOut, isLoading: authLoading } = useAuth();
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
