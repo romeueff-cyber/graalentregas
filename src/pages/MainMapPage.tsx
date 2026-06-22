@@ -38,6 +38,7 @@ import {
   PackageOpen,
   Tag,
   HeartPulse,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   Sheet,
