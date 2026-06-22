@@ -288,7 +288,7 @@ export default function MainMapPage() {
                     <SheetTitle className="text-left">
                       <p className="font-semibold">{profile?.name}</p>
                       <p className="text-xs text-muted-foreground font-normal">
-                        {isAdmin ? 'Administrador' : 'Entregador'}
+                        {isAdmin ? 'Administrador' : isVendedor ? 'Vendedor' : canApprovePedidoVenda ? 'Financeiro' : 'Entregador'}
                       </p>
                     </SheetTitle>
                   </div>
