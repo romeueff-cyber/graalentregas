@@ -412,13 +412,25 @@ export default function UsersManagementPage() {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
                       id="name"
-                      placeholder="Nome do entregador"
+                      placeholder="Nome do usuário"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10 h-12"
                     />
                   </div>
                   {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Perfil</Label>
+                  <Select value={newUserRole} onValueChange={setNewUserRole}>
+                    <SelectTrigger id="role" className="h-12"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ROLE_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
