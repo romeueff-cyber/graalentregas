@@ -116,6 +116,57 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes_vendedor: {
+        Row: {
+          cpf_cnpj: string
+          created_at: string
+          email: string | null
+          endereco: string
+          id: string
+          id_cliente_erp: string | null
+          latitude: number | null
+          longitude: number | null
+          nome: string
+          nome_fantasia: string | null
+          observacoes: string | null
+          telefone: string | null
+          updated_at: string
+          vendedor_id: string
+        }
+        Insert: {
+          cpf_cnpj: string
+          created_at?: string
+          email?: string | null
+          endereco: string
+          id?: string
+          id_cliente_erp?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          nome: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+          updated_at?: string
+          vendedor_id: string
+        }
+        Update: {
+          cpf_cnpj?: string
+          created_at?: string
+          email?: string | null
+          endereco?: string
+          id?: string
+          id_cliente_erp?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          nome?: string
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+          updated_at?: string
+          vendedor_id?: string
+        }
+        Relationships: []
+      }
       driver_locations: {
         Row: {
           accuracy: number | null
@@ -507,6 +558,109 @@ export type Database = {
         }
         Relationships: []
       }
+      pedidos_venda: {
+        Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
+          cliente_vendedor_id: string | null
+          created_at: string
+          data_entrega: string
+          endereco_entrega: string
+          horario_entrega: string | null
+          id: string
+          id_cliente_erp: string | null
+          latitude: number | null
+          longitude: number | null
+          motivo_recusa: string | null
+          nome_cliente: string
+          observacoes: string | null
+          status: Database["public"]["Enums"]["pedido_venda_status"]
+          updated_at: string
+          vendedor_id: string
+        }
+        Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cliente_vendedor_id?: string | null
+          created_at?: string
+          data_entrega: string
+          endereco_entrega: string
+          horario_entrega?: string | null
+          id?: string
+          id_cliente_erp?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          motivo_recusa?: string | null
+          nome_cliente: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["pedido_venda_status"]
+          updated_at?: string
+          vendedor_id: string
+        }
+        Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cliente_vendedor_id?: string | null
+          created_at?: string
+          data_entrega?: string
+          endereco_entrega?: string
+          horario_entrega?: string | null
+          id?: string
+          id_cliente_erp?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          motivo_recusa?: string | null
+          nome_cliente?: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["pedido_venda_status"]
+          updated_at?: string
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_venda_cliente_vendedor_id_fkey"
+            columns: ["cliente_vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_vendedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedidos_venda_itens: {
+        Row: {
+          created_at: string
+          id: string
+          observacao: string | null
+          pedido_id: string
+          produto: string
+          quantidade: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pedido_id: string
+          produto: string
+          quantidade?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pedido_id?: string
+          produto?: string
+          quantidade?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_venda_itens_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos_venda"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -677,6 +831,33 @@ export type Database = {
         }
         Relationships: []
       }
+      vendedor_clientes_erp: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          id_cliente_erp: string
+          nome_cliente: string
+          vendedor_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          id_cliente_erp: string
+          nome_cliente: string
+          vendedor_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          id_cliente_erp?: string
+          nome_cliente?: string
+          vendedor_id?: string
+        }
+        Relationships: []
+      }
       visit_attempts: {
         Row: {
           accuracy: number | null
@@ -781,6 +962,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_or_financeiro: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "entregador" | "vendedor" | "financeiro"
@@ -793,6 +975,12 @@ export type Database = {
       equipment_status: "ENTREGUE" | "LIBERADO_PARA_RECOLHA" | "RECOLHIDO"
       hygiene_equipment_type: "chopeira" | "geladeira" | "balcao"
       hygiene_service_type: "limpeza" | "troca"
+      pedido_venda_status:
+        | "pendente_aprovacao"
+        | "aprovado"
+        | "recusado"
+        | "cancelado"
+        | "entregue"
       sync_status: "synced" | "pending"
     }
     CompositeTypes: {
@@ -932,6 +1120,13 @@ export const Constants = {
       equipment_status: ["ENTREGUE", "LIBERADO_PARA_RECOLHA", "RECOLHIDO"],
       hygiene_equipment_type: ["chopeira", "geladeira", "balcao"],
       hygiene_service_type: ["limpeza", "troca"],
+      pedido_venda_status: [
+        "pendente_aprovacao",
+        "aprovado",
+        "recusado",
+        "cancelado",
+        "entregue",
+      ],
       sync_status: ["synced", "pending"],
     },
   },
