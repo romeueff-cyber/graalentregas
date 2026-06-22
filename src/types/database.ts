@@ -1,4 +1,4 @@
-export type AppRole = 'admin' | 'entregador';
+export type AppRole = 'admin' | 'entregador' | 'vendedor' | 'financeiro';
 
 export type EquipmentStatus = 'ENTREGUE' | 'LIBERADO_PARA_RECOLHA' | 'RECOLHIDO';
 
