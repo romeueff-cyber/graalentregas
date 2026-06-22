@@ -634,24 +634,30 @@ export default function UsersManagementPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            // Don't allow changing own role
-                            if (userData.id === user?.id) {
-                              toast.error('Não é possível alterar seu próprio perfil');
-                              return;
-                            }
-                            setUserToChangeRole(userData);
-                          }}
-                          className={`text-xs px-2 py-1 rounded-full cursor-pointer transition-opacity hover:opacity-80 ${
-                            userData.role === 'admin' 
-                              ? 'bg-primary/10 text-primary' 
-                              : 'bg-secondary text-secondary-foreground'
-                          }`}
-                          title="Clique para alterar perfil"
-                        >
-                          {userData.role === 'admin' ? 'Admin' : 'Entregador'}
-                        </button>
+                        {userData.id === user?.id ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                            {roleLabel(userData.role)}
+                          </span>
+                        ) : (
+                          <Select
+                            value={userData.role || 'entregador'}
+                            onValueChange={(newRole) => {
+                              if (newRole === userData.role) return;
+                              changeRoleMutation.mutate({ userId: userData.id, role: newRole });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-32 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLE_OPTIONS.map(o => (
+                                <SelectItem key={o.value} value={o.value} className="text-xs">
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {userData.id !== user?.id && (
                           <>
                             <Button
