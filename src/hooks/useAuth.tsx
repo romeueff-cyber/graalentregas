@@ -11,6 +11,10 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   isAdmin: boolean;
+  isFinanceiro: boolean;
+  isVendedor: boolean;
+  isEntregador: boolean;
+  canApprovePedidoVenda: boolean;
   isLoading: boolean;
   isOffline: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -277,6 +281,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     role,
     isAdmin: role === 'admin',
+    isFinanceiro: role === 'financeiro',
+    isVendedor: role === 'vendedor',
+    isEntregador: role === 'entregador',
+    canApprovePedidoVenda: role === 'admin' || role === 'financeiro',
     isLoading,
     isOffline,
     signIn,

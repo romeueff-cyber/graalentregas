@@ -38,6 +38,7 @@ import {
   PackageOpen,
   Tag,
   HeartPulse,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   Sheet,
@@ -63,7 +64,7 @@ import type { EquipmentWithCreator } from '@/types/database';
 
 export default function MainMapPage() {
   const navigate = useNavigate();
-  const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
+  const { user, profile, isAdmin, isVendedor, canApprovePedidoVenda, signOut, isLoading: authLoading } = useAuth();
   const { equipments, isLoading, isSyncing, isOnline, confirmCollection, deleteEquipment } =
     useEquipments();
   const { location: driverLocation } = useDriverLocation();
@@ -287,13 +288,26 @@ export default function MainMapPage() {
                     <SheetTitle className="text-left">
                       <p className="font-semibold">{profile?.name}</p>
                       <p className="text-xs text-muted-foreground font-normal">
-                        {isAdmin ? 'Administrador' : 'Entregador'}
+                        {isAdmin ? 'Administrador' : isVendedor ? 'Vendedor' : canApprovePedidoVenda ? 'Financeiro' : 'Entregador'}
                       </p>
                     </SheetTitle>
                   </div>
                 </SheetHeader>
 
                 <div className="space-y-2">
+                  {(isVendedor || canApprovePedidoVenda) && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3"
+                      onClick={() => {
+                        setShowMenu(false);
+                        navigate('/pedidos-venda');
+                      }}
+                    >
+                      <ClipboardCheck className="w-5 h-5" />
+                      Pedidos de Venda
+                    </Button>
+                  )}
                   {isAdmin && (
                     <>
                       <Button
