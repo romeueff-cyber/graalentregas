@@ -892,12 +892,16 @@ app.get('/api/vendedores', authenticate, async (req, res) => {
 // ==========================================
 app.get('/api/clients', authenticate, async (req, res) => {
   try {
-    const { vendedor_id, search, limit } = req.query;
+    const { vendedor_id, client_id, search, limit } = req.query;
     const max = Math.min(parseInt(limit) || 500, 2000);
 
     const where = ['(cl.DELETED IS NULL OR cl.DELETED = 0)'];
     const params = [];
 
+    if (client_id) {
+      where.push('cl.ID_CLIENTE = ?');
+      params.push(parseInt(client_id));
+    }
     if (vendedor_id) {
       where.push('cl.ID_VENDEDOR = ?');
       params.push(parseInt(vendedor_id));
