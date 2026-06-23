@@ -105,7 +105,7 @@ function PedidoCard({
 
 export default function PedidosVendaPage() {
   const navigate = useNavigate();
-  const { user, isVendedor, canApprovePedidoVenda } = useAuth();
+  const { isVendedor, canApprovePedidoVenda } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
@@ -134,11 +134,9 @@ export default function PedidosVendaPage() {
             </Button>
             <h1 className="font-semibold">Pedidos de Venda</h1>
           </div>
-          {user && (
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4 mr-1" />Novo
-            </Button>
-          )}
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1" />Novo
+          </Button>
         </div>
       </header>
 
@@ -196,11 +194,9 @@ export default function PedidosVendaPage() {
           )}
 
           <TabsContent value="clientes" className="space-y-3 mt-4">
-            {user && (
-              <Button variant="outline" className="w-full" onClick={() => setShowCliente(true)}>
-                <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
-              </Button>
-            )}
+            <Button variant="outline" className="w-full" onClick={() => setShowCliente(true)}>
+              <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
+            </Button>
             {loadingClientes ? (
               <div className="flex justify-center py-10"><LoadingSpinner /></div>
             ) : clientes.length === 0 ? (
