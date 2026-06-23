@@ -295,19 +295,17 @@ export default function MainMapPage() {
                 </SheetHeader>
 
                 <div className="space-y-2">
-                  {(isVendedor || canApprovePedidoVenda) && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3"
-                      onClick={() => {
-                        setShowMenu(false);
-                        navigate('/pedidos-venda');
-                      }}
-                    >
-                      <ClipboardCheck className="w-5 h-5" />
-                      Pedidos de Venda
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/pedidos-venda');
+                    }}
+                  >
+                    <ClipboardCheck className="w-5 h-5" />
+                    Pedidos de Venda
+                  </Button>
                   {isAdmin && (
                     <>
                       <Button
