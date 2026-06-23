@@ -855,6 +855,151 @@ app.put('/api/equipment/:patrimonio/release', authenticate, async (req, res) => 
   }
 });
 
+// ==========================================
+// LISTAR VENDEDORES (COLABORADORES)
+// Vínculo: COLABORADORES.ID_PESSOA -> PESSOAS.NOME
+// ==========================================
+app.get('/api/vendedores', authenticate, async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        col.ID_COLABORADORES,
+        p.NOME,
+        p.APELIDO
+      FROM COLABORADORES col
+      JOIN PESSOAS p ON col.ID_PESSOA = p.ID_PESSOA
+      WHERE (col.DELETED IS NULL OR col.DELETED = 0)
+      ORDER BY p.NOME
+    `;
+    const rows = await executeQuery(query);
+    res.json((rows || []).map(r => ({
+      id: r.ID_COLABORADORES,
+      name: r.NOME || r.APELIDO || '',
+      nickname: r.APELIDO || ''
+    })));
+  } catch (error) {
+    console.error('Erro ao listar vendedores:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
+// LISTAR CLIENTES (opcionalmente filtrados por vendedor)
+// Query params:
+//   - vendedor_id (opcional): ID_COLABORADORES do vendedor
+//   - search (opcional): trecho do nome / apelido / documento
+//   - limit (opcional, default 500)
+// ==========================================
+app.get('/api/clients', authenticate, async (req, res) => {
+  try {
+    const { vendedor_id, search, limit } = req.query;
+    const max = Math.min(parseInt(limit) || 500, 2000);
+
+    const where = ['(cl.DELETED IS NULL OR cl.DELETED = 0)'];
+    const params = [];
+
+    if (vendedor_id) {
+      where.push('cl.ID_VENDEDOR = ?');
+      params.push(parseInt(vendedor_id));
+    }
+    if (search) {
+      where.push('(UPPER(p.NOME) LIKE ? OR UPPER(p.APELIDO) LIKE ? OR p.CPF_CNPJ LIKE ?)');
+      const term = `%${String(search).toUpperCase()}%`;
+      params.push(term, term, `%${search}%`);
+    }
+
+    const query = `
+      SELECT FIRST ${max}
+        cl.ID_CLIENTE,
+        cl.ID_VENDEDOR,
+        p.ID_PESSOA,
+        p.NOME,
+        p.APELIDO,
+        p.CPF_CNPJ,
+        pv.NOME AS VENDEDOR_NOME
+      FROM CLIENTES cl
+      JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
+      LEFT JOIN COLABORADORES col ON cl.ID_VENDEDOR = col.ID_COLABORADORES
+      LEFT JOIN PESSOAS pv ON col.ID_PESSOA = pv.ID_PESSOA
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.NOME
+    `;
+
+    const rows = await executeQuery(query, params);
+    res.json((rows || []).map(r => ({
+      id: r.ID_CLIENTE,
+      name: r.NOME || '',
+      nickname: r.APELIDO || '',
+      document: r.CPF_CNPJ || '',
+      vendedor_id: r.ID_VENDEDOR || null,
+      vendedor_name: r.VENDEDOR_NOME || null
+    })));
+  } catch (error) {
+    console.error('Erro ao listar clientes:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
+// LISTAR PRODUTOS
+// ==========================================
+app.get('/api/products', authenticate, async (req, res) => {
+  try {
+    const { search, limit } = req.query;
+    const max = Math.min(parseInt(limit) || 1000, 5000);
+
+    const where = ['(pr.DELETED IS NULL OR pr.DELETED = 0)'];
+    const params = [];
+    if (search) {
+      where.push('UPPER(pr.DESCRICAO) LIKE ?');
+      params.push(`%${String(search).toUpperCase()}%`);
+    }
+
+    const query = `
+      SELECT FIRST ${max}
+        pr.ID_PRODUTOS,
+        pr.DESCRICAO,
+        pr.PRECO_VENDA
+      FROM PRODUTOS pr
+      WHERE ${where.join(' AND ')}
+      ORDER BY pr.DESCRICAO
+    `;
+    const rows = await executeQuery(query, params);
+    res.json((rows || []).map(r => ({
+      id: r.ID_PRODUTOS,
+      description: r.DESCRICAO || '',
+      price: r.PRECO_VENDA || 0
+    })));
+  } catch (error) {
+    console.error('Erro ao listar produtos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+// ==========================================
+// LISTAR TIPOS DE EQUIPAMENTO
+// ==========================================
+app.get('/api/equipment-types', authenticate, async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        te.ID_TIPO_EQUIPAMENTO,
+        te.DESCRICAO
+      FROM TIPO_EQUIPAMENTO te
+      WHERE (te.DELETED IS NULL OR te.DELETED = 0)
+      ORDER BY te.DESCRICAO
+    `;
+    const rows = await executeQuery(query);
+    res.json((rows || []).map(r => ({
+      id: r.ID_TIPO_EQUIPAMENTO,
+      description: r.DESCRICAO || ''
+    })));
+  } catch (error) {
+    console.error('Erro ao listar tipos de equipamento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
