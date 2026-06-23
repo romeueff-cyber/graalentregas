@@ -922,8 +922,7 @@ app.get('/api/products', authenticate, async (req, res) => {
     const query = `
       SELECT FIRST ${max}
         pr.ID_PRODUTOS,
-        pr.DESCRICAO,
-        pr.PRECO_VENDA
+        pr.DESCRICAO
       FROM PRODUTOS pr
       WHERE ${where.join(' AND ')}
       ORDER BY pr.DESCRICAO
@@ -931,8 +930,7 @@ app.get('/api/products', authenticate, async (req, res) => {
     const rows = await executeQuery(query, params);
     res.json((rows || []).map(r => ({
       id: r.ID_PRODUTOS,
-      description: r.DESCRICAO || '',
-      price: r.PRECO_VENDA || 0
+      description: r.DESCRICAO || ''
     })));
   } catch (error) {
     console.error('Erro ao listar produtos:', error);
