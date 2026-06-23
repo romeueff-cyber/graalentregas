@@ -105,7 +105,7 @@ function PedidoCard({
 
 export default function PedidosVendaPage() {
   const navigate = useNavigate();
-  const { isVendedor, canApprovePedidoVenda } = useAuth();
+  const { user, isVendedor, canApprovePedidoVenda } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
@@ -134,7 +134,7 @@ export default function PedidosVendaPage() {
             </Button>
             <h1 className="font-semibold">Pedidos de Venda</h1>
           </div>
-          {isVendedor && (
+          {user && (
             <Button size="sm" onClick={() => setShowForm(true)}>
               <Plus className="w-4 h-4 mr-1" />Novo
             </Button>
@@ -196,7 +196,7 @@ export default function PedidosVendaPage() {
           )}
 
           <TabsContent value="clientes" className="space-y-3 mt-4">
-            {isVendedor && (
+            {user && (
               <Button variant="outline" className="w-full" onClick={() => setShowCliente(true)}>
                 <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
               </Button>
