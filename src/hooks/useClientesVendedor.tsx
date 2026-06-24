@@ -60,7 +60,7 @@ export function useClientesVendedor() {
   }, [user, isVendedor, queryClient]);
 
   const query = useQuery({
-    queryKey: ['clientes-vendedor', user?.id],
+    queryKey: ['clientes-vendedor', user?.id, canApprovePedidoVenda],
     enabled: !!user,
     queryFn: async (): Promise<ClienteVendedor[]> => {
       let q = supabase.from('clientes_vendedor').select('*').order('nome');
