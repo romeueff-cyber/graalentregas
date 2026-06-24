@@ -1,7 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+
+export type ClienteVendedorOrigem = 'erp' | 'app' | 'app_sincronizado';
 
 export interface ClienteVendedor {
   id: string;
@@ -16,6 +19,7 @@ export interface ClienteVendedor {
   longitude: number | null;
   observacoes: string | null;
   id_cliente_erp: string | null;
+  origem: ClienteVendedorOrigem;
   created_at: string;
 }
 
@@ -32,8 +36,28 @@ export interface NovoClienteInput {
 }
 
 export function useClientesVendedor() {
-  const { user, canApprovePedidoVenda } = useAuth();
+  const { user, canApprovePedidoVenda, isVendedor } = useAuth();
   const queryClient = useQueryClient();
+  const syncedRef = useRef(false);
+
+  // Dispara a sincronização ERP → app uma vez por sessão (apenas vendedores).
+  useEffect(() => {
+    if (!user || !isVendedor || syncedRef.current) return;
+    syncedRef.current = true;
+    supabase.functions
+      .invoke('sync-vendedor-clients', { body: {} })
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn('[sync-vendedor-clients] falhou', error);
+          return;
+        }
+        if (data?.synced > 0) {
+          queryClient.invalidateQueries({ queryKey: ['clientes-vendedor'] });
+          toast.success(`${data.synced} cliente(s) do ERP sincronizado(s)`);
+        }
+      })
+      .catch((e) => console.warn('[sync-vendedor-clients] erro', e));
+  }, [user, isVendedor, queryClient]);
 
   const query = useQuery({
     queryKey: ['clientes-vendedor', user?.id],
@@ -55,7 +79,7 @@ export function useClientesVendedor() {
       if (!user) throw new Error('Não autenticado');
       const { data, error } = await supabase
         .from('clientes_vendedor')
-        .insert({ ...input, vendedor_id: user.id })
+        .insert({ ...input, vendedor_id: user.id, origem: 'app' })
         .select()
         .single();
       if (error) throw error;
