@@ -25,7 +25,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
 
-  const [clienteSel, setClienteSel] = useState<string>('');
+  const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
   const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
@@ -37,7 +37,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [loadingLast, setLoadingLast] = useState(false);
 
   const resetForm = () => {
-    setClienteSel('');
+    setClienteSel(null);
     setDataEntrega('');
     setHorario('');
     setEnderecoEntrega('');
@@ -46,10 +46,11 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setEquipamentos([]);
   };
 
-  const handleClienteChange = (v: string) => {
+  const handleClienteChange = (v: ClienteSelecionado | null) => {
     setClienteSel(v);
-    const c = clientes.find((c) => c.id === v);
-    if (c && !enderecoEntrega) setEnderecoEntrega(c.endereco);
+    if (v?.tipo === 'app' && !enderecoEntrega) {
+      setEnderecoEntrega(v.cliente.endereco);
+    }
   };
 
   const handleAdd = (item: AddedItem) => {
@@ -57,13 +58,19 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     else setEquipamentos((a) => [...a, item]);
   };
 
+  const getIdClienteErp = (): string | null => {
+    if (!clienteSel) return null;
+    if (clienteSel.tipo === 'erp') return clienteSel.id;
+    return clienteSel.cliente.id_cliente_erp || null;
+  };
+
   const handleRepetirUltimo = async () => {
-    const cliente = clientes.find((c) => c.id === clienteSel);
-    if (!cliente) return toast.error('Selecione um cliente primeiro');
-    if (!cliente.id_cliente_erp) return toast.error('Este cliente ainda não tem vínculo com o ERP');
+    const idErp = getIdClienteErp();
+    if (!clienteSel) return toast.error('Selecione um cliente primeiro');
+    if (!idErp) return toast.error('Este cliente ainda não tem vínculo com o ERP');
     setLoadingLast(true);
     try {
-      const last = await fetchERPClientLastOrder(cliente.id_cliente_erp);
+      const last = await fetchERPClientLastOrder(idErp);
       if (!last) {
         toast.info('Cliente não tem pedidos anteriores no ERP');
         return;
@@ -91,8 +98,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   };
 
   const handleSubmit = async () => {
-    const cliente = clientes.find((c) => c.id === clienteSel);
-    if (!cliente) return toast.error('Selecione um cliente');
+    if (!clienteSel) return toast.error('Selecione um cliente');
     if (!dataEntrega) return toast.error('Informe a data de entrega');
     if (!enderecoEntrega.trim()) return toast.error('Informe o endereço');
     if (!produtos.length && !equipamentos.length)
@@ -107,14 +113,20 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       id_tipo_equipamento_erp: i.tipo === 'equipamento' ? i.id_erp || null : null,
     }));
 
+    const isApp = clienteSel.tipo === 'app';
+    const nomeCliente = isApp
+      ? clienteSel.cliente.nome_fantasia || clienteSel.cliente.nome
+      : clienteSel.apelido || clienteSel.nome;
+
     const input: NovoPedidoVendaInput = {
-      cliente_vendedor_id: cliente.id,
-      nome_cliente: cliente.nome_fantasia || cliente.nome,
+      cliente_vendedor_id: isApp ? clienteSel.cliente.id : null,
+      id_cliente_erp: isApp ? clienteSel.cliente.id_cliente_erp || null : clienteSel.id,
+      nome_cliente: nomeCliente,
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
       endereco_entrega: enderecoEntrega,
-      latitude: cliente.latitude ?? undefined,
-      longitude: cliente.longitude ?? undefined,
+      latitude: isApp ? clienteSel.cliente.latitude ?? undefined : undefined,
+      longitude: isApp ? clienteSel.cliente.longitude ?? undefined : undefined,
       observacoes: observacoes || undefined,
       itens,
     };
@@ -139,22 +151,12 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                   + Novo cliente
                 </Button>
               </div>
-              <Select value={clienteSel} onValueChange={handleClienteChange}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {clientes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-2">
-                        {c.nome_fantasia || c.nome}
-                        <span className="text-[10px] uppercase text-muted-foreground">
-                          {c.origem === 'erp' ? 'ERP' : c.origem === 'app_sincronizado' ? 'ERP ✓' : 'Novo'}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {clienteSel && (
+              <ClienteCombobox
+                clientesLocal={clientes}
+                value={clienteSel}
+                onChange={handleClienteChange}
+              />
+              {clienteSel && getIdClienteErp() && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -167,6 +169,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                 </Button>
               )}
             </div>
+
 
             <div className="grid grid-cols-2 gap-2">
               <div>
