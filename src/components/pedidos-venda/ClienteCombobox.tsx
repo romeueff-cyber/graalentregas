@@ -29,6 +29,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   const [search, setSearch] = useState('');
   const [erpResults, setErpResults] = useState<ERPClient[]>([]);
   const [loadingErp, setLoadingErp] = useState(false);
+  const [erpError, setErpError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -37,10 +38,12 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     const term = search.trim();
     if (term.length < 2) {
       setErpResults([]);
+      setErpError(null);
       return;
     }
     debounceRef.current = window.setTimeout(async () => {
       setLoadingErp(true);
+      setErpError(null);
       try {
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=30`;
         const { data: sess } = await supabase.auth.getSession();
@@ -50,10 +53,23 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
         });
-        const j = await r.json();
+        const text = await r.text();
+        let j: any = null;
+        try { j = JSON.parse(text); } catch { /* ignore */ }
+        if (!r.ok) {
+          const msg = String(j?.error || text || `HTTP ${r.status}`);
+          if (msg.includes('No route to host') || msg.includes('EHOSTUNREACH') || msg.includes('ECONNREFUSED') || msg.includes('timeout')) {
+            setErpError('Servidor ERP offline ou inacessível. Avise o administrador.');
+          } else {
+            setErpError(`Erro ao buscar no ERP: ${msg.slice(0, 120)}`);
+          }
+          setErpResults([]);
+          return;
+        }
         setErpResults(Array.isArray(j) ? j : []);
-      } catch (e) {
+      } catch (e: any) {
         console.warn('[erp clients search] erro', e);
+        setErpError('Falha de rede ao consultar o ERP.');
         setErpResults([]);
       } finally {
         setLoadingErp(false);
@@ -149,7 +165,12 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                   Digite ao menos 2 letras para buscar no ERP
                 </div>
               )}
-              {search.trim().length >= 2 && !loadingErp && filteredErp.length === 0 && (
+              {search.trim().length >= 2 && !loadingErp && erpError && (
+                <div className="px-2 py-1.5 text-xs text-destructive">
+                  ⚠️ {erpError}
+                </div>
+              )}
+              {search.trim().length >= 2 && !loadingErp && !erpError && filteredErp.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   Nenhum resultado no ERP
                 </div>
