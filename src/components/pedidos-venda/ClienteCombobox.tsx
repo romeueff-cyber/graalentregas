@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown, Check, Loader2 } from 'lucide-react';
@@ -18,6 +17,19 @@ interface ERPClient {
   document?: string;
 }
 
+const normalizeSearch = (value?: string | number | null) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase();
+
+const matchesTerm = (values: Array<string | number | null | undefined>, term: string) => {
+  const normalizedTerm = normalizeSearch(term);
+  if (!normalizedTerm) return true;
+  return values.some((value) => normalizeSearch(value).includes(normalizedTerm));
+};
+
 interface Props {
   clientesLocal: ClienteVendedor[];
   value: ClienteSelecionado | null;
@@ -31,11 +43,11 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   const [loadingErp, setLoadingErp] = useState(false);
   const [erpError, setErpError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const term = search.trim();
 
   useEffect(() => {
     if (!open) return;
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    const term = search.trim();
     if (term.length < 2) {
       setErpResults([]);
       setErpError(null);
@@ -45,7 +57,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
       setLoadingErp(true);
       setErpError(null);
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=30`;
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=2000`;
         const { data: sess } = await supabase.auth.getSession();
         const r = await fetch(url, {
           headers: {
@@ -66,7 +78,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           setErpResults([]);
           return;
         }
-        setErpResults(Array.isArray(j) ? j : []);
+        setErpResults(Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : []);
       } catch (e: any) {
         console.warn('[erp clients search] erro', e);
         setErpError('Falha de rede ao consultar o ERP.');
@@ -78,13 +90,18 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [search, open]);
+  }, [term, open]);
 
   const localErpIds = useMemo(
     () => new Set(clientesLocal.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
     [clientesLocal],
   );
-  const filteredErp = erpResults.filter((e) => !localErpIds.has(String(e.id)));
+  const filteredLocal = clientesLocal.filter((c) => (
+    !term || matchesTerm([c.nome, c.nome_fantasia, c.cpf_cnpj, c.id_cliente_erp], term)
+  ));
+  const filteredErp = erpResults.filter((e) => (
+    !localErpIds.has(String(e.id)) && matchesTerm([e.name, e.nickname, e.document, e.id], term)
+  ));
 
   const label = (() => {
     if (!value) return 'Selecione um cliente';
@@ -93,23 +110,21 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   })();
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal"
-        >
-          <span className="truncate text-left">{label}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        className="w-full justify-between font-normal"
+        onClick={() => setOpen((current) => !current)}
       >
+        <span className="truncate text-left">{label}</span>
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+
+      {open && (
+        <div className="w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-sm">
         <Command shouldFilter={false}>
           <CommandInput
             value={search}
@@ -117,17 +132,17 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
             placeholder="Buscar cliente (app ou ERP)..."
           />
           <CommandList
-            className="max-h-[60vh] overscroll-contain"
-            style={{ WebkitOverflowScrolling: 'touch' }}
+            className="max-h-[min(280px,34vh)] overflow-y-scroll overscroll-contain touch-pan-y"
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
           >
-            <CommandGroup heading="Cadastrados no app">
-              {clientesLocal.length === 0 && (
+            <CommandGroup heading={filteredLocal.length > 0 || !term ? 'Cadastrados no app' : undefined}>
+              {!term && clientesLocal.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum</div>
               )}
-              {clientesLocal.map((c) => {
+              {filteredLocal.map((c) => {
                 const selected = value?.tipo === 'app' && value.cliente.id === c.id;
-                const haystack = `${c.nome} ${c.nome_fantasia ?? ''} ${c.cpf_cnpj}`.toLowerCase();
-                if (search.trim() && !haystack.includes(search.trim().toLowerCase())) return null;
                 return (
                   <CommandItem
                     key={c.id}
@@ -160,17 +175,17 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                 </span>
               }
             >
-              {search.trim().length < 2 && (
+              {term.length < 2 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   Digite ao menos 2 letras para buscar no ERP
                 </div>
               )}
-              {search.trim().length >= 2 && !loadingErp && erpError && (
+              {term.length >= 2 && !loadingErp && erpError && (
                 <div className="px-2 py-1.5 text-xs text-destructive">
                   ⚠️ {erpError}
                 </div>
               )}
-              {search.trim().length >= 2 && !loadingErp && !erpError && filteredErp.length === 0 && (
+              {term.length >= 2 && !loadingErp && !erpError && filteredErp.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   Nenhum resultado no ERP
                 </div>
@@ -208,7 +223,8 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
             <CommandEmpty />
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+        </div>
+      )}
+    </div>
   );
 }
