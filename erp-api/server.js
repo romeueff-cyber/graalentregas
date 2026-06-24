@@ -962,6 +962,57 @@ app.get('/api/equipment-types', authenticate, async (req, res) => {
   }
 });
 
+// ==========================================
+// ÚLTIMO PEDIDO DE UM CLIENTE (para "repetir pedido")
+// ==========================================
+app.get('/api/clients/:clientId/last-order', authenticate, async (req, res) => {
+  try {
+    const clientId = parseInt(req.params.clientId);
+    if (!clientId) return res.status(400).json({ error: 'clientId inválido' });
+
+    const headerQuery = `
+      SELECT FIRST 1
+        ov.N_PEDIDO, ov.ID_ORDENS_VENDA, ov.DATA_PREV_ENTREGA
+      FROM ORDENS_VENDA ov
+      WHERE ov.ID_CLIENTE = ?
+        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+      ORDER BY ov.DATE_CAD DESC
+    `;
+    const headers = await executeQuery(headerQuery, [clientId]);
+    if (!headers || headers.length === 0) return res.json(null);
+    const order = headers[0];
+    const orderId = order.ID_ORDENS_VENDA;
+
+    const itemsQuery = `
+      SELECT pr.DESCRICAO AS PRODUTO, iov.QTDE_PEDIDA AS QUANTIDADE
+      FROM ITENS_ORDENS_VENDA iov
+      JOIN PRODUTOS pr ON iov.ID_PRODUTO = pr.ID_PRODUTOS
+      WHERE iov.ID_ORDENS_VENDA = ?
+        AND (iov.DELETED IS NULL OR iov.DELETED = 0)
+    `;
+    const items = await executeQuery(itemsQuery, [orderId]);
+
+    const equipQuery = `
+      SELECT te.DESCRICAO AS TIPO, eov.QTDE AS QUANTIDADE
+      FROM EQUIP_ORDENS_VENDA eov
+      JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
+      WHERE eov.ID_ORDENS_VENDA = ?
+        AND (eov.DELETED IS NULL OR eov.DELETED = 0)
+    `;
+    const equipments = await executeQuery(equipQuery, [orderId]);
+
+    res.json({
+      order_number: order.N_PEDIDO?.toString() || '',
+      delivery_date: order.DATA_PREV_ENTREGA || null,
+      items: (items || []).map(i => ({ product: i.PRODUTO || '', quantity: i.QUANTIDADE || 0 })),
+      equipments: (equipments || []).map(e => ({ type: e.TIPO || '', quantity: e.QUANTIDADE || 0 })),
+    });
+  } catch (error) {
+    console.error('Erro ao buscar último pedido do cliente:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
