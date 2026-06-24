@@ -79,7 +79,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           setErpResults([]);
           return;
         }
-        setErpResults(Array.isArray(j) ? j : []);
+        setErpResults(Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : []);
       } catch (e: any) {
         console.warn('[erp clients search] erro', e);
         setErpError('Falha de rede ao consultar o ERP.');
