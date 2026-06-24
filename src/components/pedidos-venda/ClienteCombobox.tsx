@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown, Check, Loader2 } from 'lucide-react';
@@ -111,23 +110,21 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   })();
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal"
-        >
-          <span className="truncate text-left">{label}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] max-h-[min(340px,45vh)] overflow-hidden p-0"
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        className="w-full justify-between font-normal"
+        onClick={() => setOpen((current) => !current)}
       >
+        <span className="truncate text-left">{label}</span>
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+
+      {open && (
+        <div className="w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-sm">
         <Command shouldFilter={false}>
           <CommandInput
             value={search}
@@ -226,7 +223,8 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
             <CommandEmpty />
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+        </div>
+      )}
+    </div>
   );
 }
