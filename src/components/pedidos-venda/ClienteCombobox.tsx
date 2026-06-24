@@ -58,7 +58,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
       setLoadingErp(true);
       setErpError(null);
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=30`;
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=2000`;
         const { data: sess } = await supabase.auth.getSession();
         const r = await fetch(url, {
           headers: {
