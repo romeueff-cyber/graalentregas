@@ -165,7 +165,12 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                   Digite ao menos 2 letras para buscar no ERP
                 </div>
               )}
-              {search.trim().length >= 2 && !loadingErp && filteredErp.length === 0 && (
+              {search.trim().length >= 2 && !loadingErp && erpError && (
+                <div className="px-2 py-1.5 text-xs text-destructive">
+                  ⚠️ {erpError}
+                </div>
+              )}
+              {search.trim().length >= 2 && !loadingErp && !erpError && filteredErp.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   Nenhum resultado no ERP
                 </div>
