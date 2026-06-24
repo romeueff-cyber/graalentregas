@@ -257,6 +257,58 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         onOpenChange={(o) => !o && setSheetMode(null)}
         onAdd={handleAdd}
       />
+
+      <Dialog open={!!lastOrderPreview} onOpenChange={(o) => !o && setLastOrderPreview(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Último pedido nº {lastOrderPreview?.order_number}</DialogTitle>
+          </DialogHeader>
+          {lastOrderPreview && (
+            <div className="space-y-3 text-sm">
+              {lastOrderPreview.delivery_date && (
+                <div className="text-xs text-muted-foreground">
+                  Entrega: {new Date(lastOrderPreview.delivery_date).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1"><Beer className="w-4 h-4" /> Produtos</div>
+                {lastOrderPreview.produtos.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">Nenhum</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {lastOrderPreview.produtos.map((p, i) => (
+                      <li key={i} className="flex justify-between bg-muted/40 px-2 py-1 rounded">
+                        <span className="truncate">{p.descricao}</span>
+                        <span className="ml-2 text-muted-foreground">x{p.quantidade}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1"><Package className="w-4 h-4" /> Equipamentos</div>
+                {lastOrderPreview.equipamentos.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">Nenhum</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {lastOrderPreview.equipamentos.map((e, i) => (
+                      <li key={i} className="flex justify-between bg-muted/40 px-2 py-1 rounded">
+                        <span className="truncate">{e.descricao}</span>
+                        <span className="ml-2 text-muted-foreground">x{e.quantidade}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLastOrderPreview(null)}>Cancelar</Button>
+            <Button onClick={confirmUsarUltimoPedido}>Usar este pedido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 }
