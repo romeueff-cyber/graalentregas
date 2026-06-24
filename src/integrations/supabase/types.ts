@@ -129,6 +129,7 @@ export type Database = {
           nome: string
           nome_fantasia: string | null
           observacoes: string | null
+          origem: Database["public"]["Enums"]["cliente_vendedor_origem"]
           telefone: string | null
           updated_at: string
           vendedor_id: string | null
@@ -145,6 +146,7 @@ export type Database = {
           nome: string
           nome_fantasia?: string | null
           observacoes?: string | null
+          origem?: Database["public"]["Enums"]["cliente_vendedor_origem"]
           telefone?: string | null
           updated_at?: string
           vendedor_id?: string | null
@@ -161,6 +163,7 @@ export type Database = {
           nome?: string
           nome_fantasia?: string | null
           observacoes?: string | null
+          origem?: Database["public"]["Enums"]["cliente_vendedor_origem"]
           telefone?: string | null
           updated_at?: string
           vendedor_id?: string | null
@@ -981,6 +984,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "entregador" | "vendedor" | "financeiro"
+      cliente_vendedor_origem: "erp" | "app" | "app_sincronizado"
       collection_period:
         | "DIA_TODO"
         | "MANHA"
@@ -1125,6 +1129,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "entregador", "vendedor", "financeiro"],
+      cliente_vendedor_origem: ["erp", "app", "app_sincronizado"],
       collection_period: [
         "DIA_TODO",
         "MANHA",
