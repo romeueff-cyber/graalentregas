@@ -5,10 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, History, Beer, Package } from 'lucide-react';
 import { usePedidosVenda, NovoPedidoVendaInput } from '@/hooks/usePedidosVenda';
 import { useClientesVendedor } from '@/hooks/useClientesVendedor';
 import { ClienteVendedorForm } from './ClienteVendedorForm';
+import { AddItemSheet, AddedItem } from './AddItemSheet';
+import { fetchERPClientLastOrder } from '@/hooks/useERPCatalog';
 import { toast } from 'sonner';
 
 interface Props {
@@ -16,7 +18,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-type Item = { produto: string; quantidade: number; observacao?: string };
+type Item = AddedItem & { observacao?: string };
 
 export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const { createPedido } = usePedidosVenda();
@@ -27,8 +29,11 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [horario, setHorario] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
   const [observacoes, setObservacoes] = useState('');
-  const [itens, setItens] = useState<Item[]>([{ produto: '', quantidade: 1 }]);
+  const [produtos, setProdutos] = useState<Item[]>([]);
+  const [equipamentos, setEquipamentos] = useState<Item[]>([]);
   const [showNovoCliente, setShowNovoCliente] = useState(false);
+  const [sheetMode, setSheetMode] = useState<'produto' | 'equipamento' | null>(null);
+  const [loadingLast, setLoadingLast] = useState(false);
 
   const resetForm = () => {
     setClienteSel('');
@@ -36,7 +41,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setHorario('');
     setEnderecoEntrega('');
     setObservacoes('');
-    setItens([{ produto: '', quantidade: 1 }]);
+    setProdutos([]);
+    setEquipamentos([]);
   };
 
   const handleClienteChange = (v: string) => {
@@ -45,13 +51,60 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     if (c && !enderecoEntrega) setEnderecoEntrega(c.endereco);
   };
 
+  const handleAdd = (item: AddedItem) => {
+    if (item.tipo === 'produto') setProdutos((a) => [...a, item]);
+    else setEquipamentos((a) => [...a, item]);
+  };
+
+  const handleRepetirUltimo = async () => {
+    const cliente = clientes.find((c) => c.id === clienteSel);
+    if (!cliente) return toast.error('Selecione um cliente primeiro');
+    if (!cliente.id_cliente_erp) return toast.error('Este cliente ainda não tem vínculo com o ERP');
+    setLoadingLast(true);
+    try {
+      const last = await fetchERPClientLastOrder(cliente.id_cliente_erp);
+      if (!last) {
+        toast.info('Cliente não tem pedidos anteriores no ERP');
+        return;
+      }
+      const novosProds: Item[] = (last.items || []).map((i) => ({
+        tipo: 'produto',
+        id_erp: '',
+        descricao: i.product,
+        quantidade: i.quantity || 1,
+      }));
+      const novosEqs: Item[] = (last.equipments || []).map((e) => ({
+        tipo: 'equipamento',
+        id_erp: '',
+        descricao: e.type,
+        quantidade: e.quantity || 1,
+      }));
+      setProdutos((p) => [...p, ...novosProds]);
+      setEquipamentos((eq) => [...eq, ...novosEqs]);
+      toast.success(`Importado do pedido nº ${last.order_number}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao buscar último pedido');
+    } finally {
+      setLoadingLast(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const cliente = clientes.find((c) => c.id === clienteSel);
     if (!cliente) return toast.error('Selecione um cliente');
     if (!dataEntrega) return toast.error('Informe a data de entrega');
     if (!enderecoEntrega.trim()) return toast.error('Informe o endereço');
-    const itensValidos = itens.filter((i) => i.produto.trim() && i.quantidade > 0);
-    if (!itensValidos.length) return toast.error('Adicione pelo menos um item');
+    if (!produtos.length && !equipamentos.length)
+      return toast.error('Adicione ao menos um produto ou equipamento');
+
+    const itens = [...produtos, ...equipamentos].map((i) => ({
+      tipo: i.tipo,
+      produto: i.descricao,
+      quantidade: i.quantidade,
+      observacao: i.observacao,
+      id_produto_erp: i.tipo === 'produto' ? i.id_erp || null : null,
+      id_tipo_equipamento_erp: i.tipo === 'equipamento' ? i.id_erp || null : null,
+    }));
 
     const input: NovoPedidoVendaInput = {
       cliente_vendedor_id: cliente.id,
@@ -62,16 +115,13 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       latitude: cliente.latitude ?? undefined,
       longitude: cliente.longitude ?? undefined,
       observacoes: observacoes || undefined,
-      itens: itensValidos,
+      itens,
     };
 
     await createPedido.mutateAsync(input);
     resetForm();
     onOpenChange(false);
   };
-
-  const updateItem = (idx: number, patch: Partial<Item>) =>
-    setItens((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
   return (
     <>
@@ -98,6 +148,18 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+              {clienteSel && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={handleRepetirUltimo}
+                  disabled={loadingLast}
+                >
+                  <History className="w-4 h-4 mr-1" />
+                  {loadingLast ? 'Buscando...' : 'Repetir itens do último pedido'}
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -116,44 +178,26 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
               <Textarea rows={2} value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>Itens *</Label>
-                <Button variant="outline" size="sm" onClick={() => setItens((a) => [...a, { produto: '', quantidade: 1 }])}>
-                  <Plus className="w-4 h-4 mr-1" />Adicionar
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {itens.map((it, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    <Input
-                      className="flex-1"
-                      placeholder="Produto"
-                      value={it.produto}
-                      onChange={(e) => updateItem(idx, { produto: e.target.value })}
-                    />
-                    <Input
-                      className="w-20"
-                      type="number"
-                      min={1}
-                      value={it.quantidade}
-                      onChange={(e) => updateItem(idx, { quantidade: Number(e.target.value) })}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setItens((a) => a.filter((_, i) => i !== idx))}
-                      disabled={itens.length === 1}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ItemsSection
+              title="Produtos"
+              icon={<Beer className="w-4 h-4" />}
+              items={produtos}
+              onAdd={() => setSheetMode('produto')}
+              onRemove={(idx) => setProdutos((a) => a.filter((_, i) => i !== idx))}
+              emptyLabel="Nenhum produto adicionado"
+            />
+
+            <ItemsSection
+              title="Equipamentos"
+              icon={<Package className="w-4 h-4" />}
+              items={equipamentos}
+              onAdd={() => setSheetMode('equipamento')}
+              onRemove={(idx) => setEquipamentos((a) => a.filter((_, i) => i !== idx))}
+              emptyLabel="Nenhum equipamento adicionado"
+            />
 
             <div>
-              <Label>Observações (equipamentos, instruções etc.)</Label>
+              <Label>Observações (instruções etc.)</Label>
               <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
             </div>
           </div>
@@ -171,6 +215,54 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         onOpenChange={setShowNovoCliente}
         onCreated={(id) => setClienteSel(id)}
       />
+
+      <AddItemSheet
+        open={sheetMode !== null}
+        mode={sheetMode ?? 'produto'}
+        onOpenChange={(o) => !o && setSheetMode(null)}
+        onAdd={handleAdd}
+      />
     </>
+  );
+}
+
+function ItemsSection({
+  title, icon, items, onAdd, onRemove, emptyLabel,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: Item[];
+  onAdd: () => void;
+  onRemove: (idx: number) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <Label className="flex items-center gap-2">{icon}{title}</Label>
+        <Button variant="outline" size="sm" onClick={onAdd}>
+          <Plus className="w-4 h-4 mr-1" />Adicionar
+        </Button>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-2 px-3 border border-dashed rounded-md text-center">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((it, idx) => (
+            <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 rounded-md">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{it.descricao}</div>
+                <div className="text-xs text-muted-foreground">Qtd: {it.quantidade}</div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

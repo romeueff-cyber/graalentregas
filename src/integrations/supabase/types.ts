@@ -629,27 +629,42 @@ export type Database = {
       pedidos_venda_itens: {
         Row: {
           created_at: string
+          desconto: number | null
           id: string
+          id_produto_erp: string | null
+          id_tipo_equipamento_erp: string | null
           observacao: string | null
           pedido_id: string
+          preco_unitario: number | null
           produto: string
           quantidade: number
+          tipo: string
         }
         Insert: {
           created_at?: string
+          desconto?: number | null
           id?: string
+          id_produto_erp?: string | null
+          id_tipo_equipamento_erp?: string | null
           observacao?: string | null
           pedido_id: string
+          preco_unitario?: number | null
           produto: string
           quantidade?: number
+          tipo?: string
         }
         Update: {
           created_at?: string
+          desconto?: number | null
           id?: string
+          id_produto_erp?: string | null
+          id_tipo_equipamento_erp?: string | null
           observacao?: string | null
           pedido_id?: string
+          preco_unitario?: number | null
           produto?: string
           quantidade?: number
+          tipo?: string
         }
         Relationships: [
           {

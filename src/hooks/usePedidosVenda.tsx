@@ -50,7 +50,16 @@ export interface NovoPedidoVendaInput {
   latitude?: number;
   longitude?: number;
   observacoes?: string;
-  itens: Array<{ produto: string; quantidade: number; observacao?: string }>;
+  itens: Array<{
+    tipo?: 'produto' | 'equipamento';
+    produto: string;
+    quantidade: number;
+    observacao?: string;
+    id_produto_erp?: string | null;
+    id_tipo_equipamento_erp?: string | null;
+    preco_unitario?: number | null;
+    desconto?: number | null;
+  }>;
 }
 
 interface UsePedidosVendaOptions {
