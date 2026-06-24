@@ -35,8 +35,10 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd }: Props) {
   const [selected, setSelected] = useState<{ id: string; descricao: string } | null>(null);
   const [qty, setQty] = useState<number | ''>('');
 
-  const list = mode === 'produto' ? products.data || [] : equipTypes.data || [];
-  const isLoading = mode === 'produto' ? products.isLoading : equipTypes.isLoading;
+  const source = mode === 'produto' ? products : equipTypes;
+  const list = source.data || [];
+  const isLoading = source.isLoading;
+  const isError = source.isError && list.length === 0;
 
   useEffect(() => {
     if (open) {
@@ -89,6 +91,14 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd }: Props) {
             <ScrollArea className="h-[55vh]">
               {isLoading ? (
                 <div className="flex justify-center py-10"><LoadingSpinner /></div>
+              ) : isError ? (
+                <div className="py-10 text-center text-sm text-muted-foreground space-y-3 px-4">
+                  <p>Não foi possível conectar ao ERP.</p>
+                  <p className="text-xs">Verifique se o servidor está online ou tente novamente.</p>
+                  <Button size="sm" variant="outline" onClick={() => source.refetch()}>
+                    Tentar novamente
+                  </Button>
+                </div>
               ) : filtered.length === 0 ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">Nada encontrado</div>
               ) : (
