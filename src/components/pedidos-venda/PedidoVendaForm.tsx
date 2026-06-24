@@ -35,6 +35,13 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [showNovoCliente, setShowNovoCliente] = useState(false);
   const [sheetMode, setSheetMode] = useState<'produto' | 'equipamento' | null>(null);
   const [loadingLast, setLoadingLast] = useState(false);
+  const [lastOrderPreview, setLastOrderPreview] = useState<{
+    order_number: string;
+    delivery_date: string | null;
+    produtos: Item[];
+    equipamentos: Item[];
+  } | null>(null);
+
 
   const resetForm = () => {
     setClienteSel(null);
