@@ -35,6 +35,13 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [showNovoCliente, setShowNovoCliente] = useState(false);
   const [sheetMode, setSheetMode] = useState<'produto' | 'equipamento' | null>(null);
   const [loadingLast, setLoadingLast] = useState(false);
+  const [lastOrderPreview, setLastOrderPreview] = useState<{
+    order_number: string;
+    delivery_date: string | null;
+    produtos: Item[];
+    equipamentos: Item[];
+  } | null>(null);
+
 
   const resetForm = () => {
     setClienteSel(null);
@@ -75,27 +82,42 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         toast.info('Cliente não tem pedidos anteriores no ERP');
         return;
       }
-      const novosProds: Item[] = (last.items || []).map((i) => ({
-        tipo: 'produto',
-        id_erp: '',
-        descricao: i.product,
-        quantidade: i.quantity || 1,
-      }));
-      const novosEqs: Item[] = (last.equipments || []).map((e) => ({
-        tipo: 'equipamento',
-        id_erp: '',
-        descricao: e.type,
-        quantidade: e.quantity || 1,
-      }));
-      setProdutos((p) => [...p, ...novosProds]);
-      setEquipamentos((eq) => [...eq, ...novosEqs]);
-      toast.success(`Importado do pedido nº ${last.order_number}`);
+      setLastOrderPreview({
+        order_number: last.order_number,
+        delivery_date: last.delivery_date,
+        produtos: (last.items || []).map((i) => ({
+          tipo: 'produto',
+          id_erp: '',
+          descricao: i.product,
+          quantidade: i.quantity || 1,
+        })),
+        equipamentos: (last.equipments || []).map((e) => ({
+          tipo: 'equipamento',
+          id_erp: '',
+          descricao: e.type,
+          quantidade: e.quantity || 1,
+        })),
+      });
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao buscar último pedido');
+      const msg = String(e?.message || e);
+      if (msg.includes('non-2xx') || msg.includes('404')) {
+        toast.error('Endpoint de "último pedido" ainda não está disponível no servidor ERP. Avise o administrador para atualizar a API.');
+      } else {
+        toast.error(msg || 'Erro ao buscar último pedido');
+      }
     } finally {
       setLoadingLast(false);
     }
   };
+
+  const confirmUsarUltimoPedido = () => {
+    if (!lastOrderPreview) return;
+    setProdutos((p) => [...p, ...lastOrderPreview.produtos]);
+    setEquipamentos((eq) => [...eq, ...lastOrderPreview.equipamentos]);
+    toast.success(`Importado do pedido nº ${lastOrderPreview.order_number}`);
+    setLastOrderPreview(null);
+  };
+
 
   const handleSubmit = async () => {
     if (!clienteSel) return toast.error('Selecione um cliente');
@@ -235,6 +257,58 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         onOpenChange={(o) => !o && setSheetMode(null)}
         onAdd={handleAdd}
       />
+
+      <Dialog open={!!lastOrderPreview} onOpenChange={(o) => !o && setLastOrderPreview(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Último pedido nº {lastOrderPreview?.order_number}</DialogTitle>
+          </DialogHeader>
+          {lastOrderPreview && (
+            <div className="space-y-3 text-sm">
+              {lastOrderPreview.delivery_date && (
+                <div className="text-xs text-muted-foreground">
+                  Entrega: {new Date(lastOrderPreview.delivery_date).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1"><Beer className="w-4 h-4" /> Produtos</div>
+                {lastOrderPreview.produtos.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">Nenhum</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {lastOrderPreview.produtos.map((p, i) => (
+                      <li key={i} className="flex justify-between bg-muted/40 px-2 py-1 rounded">
+                        <span className="truncate">{p.descricao}</span>
+                        <span className="ml-2 text-muted-foreground">x{p.quantidade}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1"><Package className="w-4 h-4" /> Equipamentos</div>
+                {lastOrderPreview.equipamentos.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">Nenhum</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {lastOrderPreview.equipamentos.map((e, i) => (
+                      <li key={i} className="flex justify-between bg-muted/40 px-2 py-1 rounded">
+                        <span className="truncate">{e.descricao}</span>
+                        <span className="ml-2 text-muted-foreground">x{e.quantidade}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLastOrderPreview(null)}>Cancelar</Button>
+            <Button onClick={confirmUsarUltimoPedido}>Usar este pedido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 }
