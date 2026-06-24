@@ -82,27 +82,42 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         toast.info('Cliente não tem pedidos anteriores no ERP');
         return;
       }
-      const novosProds: Item[] = (last.items || []).map((i) => ({
-        tipo: 'produto',
-        id_erp: '',
-        descricao: i.product,
-        quantidade: i.quantity || 1,
-      }));
-      const novosEqs: Item[] = (last.equipments || []).map((e) => ({
-        tipo: 'equipamento',
-        id_erp: '',
-        descricao: e.type,
-        quantidade: e.quantity || 1,
-      }));
-      setProdutos((p) => [...p, ...novosProds]);
-      setEquipamentos((eq) => [...eq, ...novosEqs]);
-      toast.success(`Importado do pedido nº ${last.order_number}`);
+      setLastOrderPreview({
+        order_number: last.order_number,
+        delivery_date: last.delivery_date,
+        produtos: (last.items || []).map((i) => ({
+          tipo: 'produto',
+          id_erp: '',
+          descricao: i.product,
+          quantidade: i.quantity || 1,
+        })),
+        equipamentos: (last.equipments || []).map((e) => ({
+          tipo: 'equipamento',
+          id_erp: '',
+          descricao: e.type,
+          quantidade: e.quantity || 1,
+        })),
+      });
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao buscar último pedido');
+      const msg = String(e?.message || e);
+      if (msg.includes('non-2xx') || msg.includes('404')) {
+        toast.error('Endpoint de "último pedido" ainda não está disponível no servidor ERP. Avise o administrador para atualizar a API.');
+      } else {
+        toast.error(msg || 'Erro ao buscar último pedido');
+      }
     } finally {
       setLoadingLast(false);
     }
   };
+
+  const confirmUsarUltimoPedido = () => {
+    if (!lastOrderPreview) return;
+    setProdutos((p) => [...p, ...lastOrderPreview.produtos]);
+    setEquipamentos((eq) => [...eq, ...lastOrderPreview.equipamentos]);
+    toast.success(`Importado do pedido nº ${lastOrderPreview.order_number}`);
+    setLastOrderPreview(null);
+  };
+
 
   const handleSubmit = async () => {
     if (!clienteSel) return toast.error('Selecione um cliente');
