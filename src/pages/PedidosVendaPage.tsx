@@ -135,7 +135,7 @@ export default function PedidosVendaPage() {
             <h1 className="font-semibold">Pedidos de Venda</h1>
           </div>
           <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-1" />Novo
+            <Plus className="w-4 h-4 mr-1" />Criar pedido
           </Button>
         </div>
       </header>

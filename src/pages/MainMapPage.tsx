@@ -442,6 +442,16 @@ export default function MainMapPage() {
               </Button>
             </div>
 
+            {/* Pedidos de Venda */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/pedidos-venda')}
+              title="Pedidos de Venda"
+            >
+              <ClipboardCheck className="w-5 h-5" />
+            </Button>
+
             {/* Pedidos do Dia */}
             <Button
               variant="ghost"
