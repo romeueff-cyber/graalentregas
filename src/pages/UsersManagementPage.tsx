@@ -616,68 +616,79 @@ export default function UsersManagementPage() {
                     </div>
                   ) : (
                     // View Mode
-                    <div className="flex items-center justify-between">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isBanned ? 'bg-destructive/10' : 'bg-secondary'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isBanned ? 'bg-destructive/10' : 'bg-secondary'}`}>
                           <User className={`w-5 h-5 ${isBanned ? 'text-destructive' : 'text-muted-foreground'}`} />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{userData.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium truncate">{userData.name}</p>
                             {isBanned && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
                                 Inativo
                               </span>
                             )}
+                            {userData.id === user?.id && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
+                                Você
+                              </span>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground">{userData.email}</p>
+                          <p className="text-sm text-muted-foreground truncate">{userData.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {userData.id === user?.id ? (
-                          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-                            {roleLabel(userData.role)}
-                          </span>
-                        ) : (
-                          <Select
-                            value={userData.role || 'entregador'}
-                            onValueChange={(newRole) => {
-                              if (newRole === userData.role) return;
-                              changeRoleMutation.mutate({ userId: userData.id, role: newRole });
-                            }}
-                          >
-                            <SelectTrigger className="h-8 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLE_OPTIONS.map(o => (
-                                <SelectItem key={o.value} value={o.value} className="text-xs">
-                                  {o.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <div className="flex-1 min-w-0">
+                          <Label className="text-[10px] uppercase text-muted-foreground">Perfil</Label>
+                          {userData.id === user?.id ? (
+                            <div className="h-9 flex items-center px-3 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                              {roleLabel(userData.role)}
+                            </div>
+                          ) : (
+                            <Select
+                              value={userData.role || 'entregador'}
+                              onValueChange={(newRole) => {
+                                if (newRole === userData.role) return;
+                                changeRoleMutation.mutate({ userId: userData.id, role: newRole });
+                              }}
+                            >
+                              <SelectTrigger className="h-9 w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ROLE_OPTIONS.map(o => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+
                         {userData.id !== user?.id && (
-                          <>
+                          <div className="flex items-end gap-1 self-end">
                             <Button
-                              size="icon"
-                              variant="ghost"
+                              size="sm"
+                              variant="outline"
                               onClick={() => handleStartEdit(userData)}
-                              title="Editar"
+                              className="h-9 px-3 gap-1"
                             >
                               <Pencil className="w-4 h-4" />
+                              <span className="hidden xs:inline">Editar</span>
                             </Button>
                             <Button
                               size="icon"
-                              variant="ghost"
+                              variant="outline"
                               onClick={() => handleToggleStatus(userData)}
                               title={isBanned ? 'Ativar' : 'Inativar'}
-                              className={isBanned ? 'text-green-600 hover:text-green-700' : 'text-destructive hover:text-destructive'}
+                              className={`h-9 w-9 ${isBanned ? 'text-green-600 hover:text-green-700' : 'text-destructive hover:text-destructive'}`}
                             >
                               {isBanned ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
                             </Button>
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
