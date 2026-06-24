@@ -136,6 +136,8 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           />
           <CommandList
             className="max-h-[min(280px,34vh)] overflow-y-scroll overscroll-contain touch-pan-y"
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
             style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
           >
             <CommandGroup heading={filteredLocal.length > 0 || !term ? 'Cadastrados no app' : undefined}>
