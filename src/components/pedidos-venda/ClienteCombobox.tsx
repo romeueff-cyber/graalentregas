@@ -91,7 +91,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [search, open]);
+  }, [term, open]);
 
   const localErpIds = useMemo(
     () => new Set(clientesLocal.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
