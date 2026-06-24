@@ -175,21 +175,12 @@ serve(async (req) => {
       )
     }
 
-    // Prevent modifying admin users (except for role changes by admin)
-    if (action !== 'change_role') {
-      const { data: targetRoleData } = await supabaseAdmin
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .single()
-
-      if (targetRoleData) {
-        return new Response(
-          JSON.stringify({ error: 'Cannot modify admin users' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    // Prevent admin from modifying themselves through this endpoint
+    if (action !== 'change_role' && userId === callerUser.id) {
+      return new Response(
+        JSON.stringify({ error: 'Use as configurações da conta para editar seu próprio usuário' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     switch (action) {
