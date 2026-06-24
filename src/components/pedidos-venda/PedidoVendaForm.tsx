@@ -143,7 +143,12 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                 <SelectContent>
                   {clientes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.nome_fantasia || c.nome}
+                      <span className="flex items-center gap-2">
+                        {c.nome_fantasia || c.nome}
+                        <span className="text-[10px] uppercase text-muted-foreground">
+                          {c.origem === 'erp' ? 'ERP' : c.origem === 'app_sincronizado' ? 'ERP ✓' : 'Novo'}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
