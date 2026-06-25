@@ -8,14 +8,30 @@ import type { ClienteVendedor } from '@/hooks/useClientesVendedor';
 
 export type ClienteSelecionado =
   | { tipo: 'app'; cliente: ClienteVendedor }
-  | { tipo: 'erp'; id: string; nome: string; apelido?: string; documento?: string };
+  | {
+      tipo: 'erp';
+      id: string;
+      nome: string;
+      apelido?: string;
+      documento?: string;
+      endereco?: string;
+      bairro?: string;
+      numero?: string;
+      cidade?: string;
+      uf?: string;
+      cep?: string;
+      lat?: number;
+      lng?: number;
+    };
 
 interface ERPClient {
   id: number | string;
   name: string;
   nickname?: string;
   document?: string;
+  [k: string]: any;
 }
+
 
 const normalizeSearch = (value?: string | number | null) =>
   String(value ?? '')
