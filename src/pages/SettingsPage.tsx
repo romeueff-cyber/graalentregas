@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { getAppVersion } from '@/components/PWAUpdateBanner';
+import { refreshAppToLatestVersion } from '@/lib/pwaUpdate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,103 +33,12 @@ export default function SettingsPage() {
 
   const handleCheckUpdate = useCallback(async () => {
     setIsCheckingUpdate(true);
-
-    const reload = () => {
-      // Avoid double reload via controllerchange
-      window.removeEventListener('beforeunload', () => {});
-      window.location.reload();
-    };
-
     try {
-      if (!('serviceWorker' in navigator)) {
-        if ('caches' in window) {
-          const names = await caches.keys();
-          await Promise.all(names.map((n) => caches.delete(n)));
-        }
-        reload();
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) {
-        if ('caches' in window) {
-          const names = await caches.keys();
-          await Promise.all(names.map((n) => caches.delete(n)));
-        }
-        reload();
-        return;
-      }
-
-      // Reload once the new SW takes control
-      let reloaded = false;
-      const onControllerChange = () => {
-        if (reloaded) return;
-        reloaded = true;
-        reload();
-      };
-      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-
-      const activateWaiting = (sw: ServiceWorker) => {
-        sw.postMessage({ type: 'SKIP_WAITING' });
-      };
-
-      // Already waiting -> activate immediately
-      if (registration.waiting) {
-        toast.success('Atualizando para a nova versão...');
-        activateWaiting(registration.waiting);
-        // Fallback in case controllerchange doesn't fire
-        setTimeout(reload, 4000);
-        return;
-      }
-
-      // Wait for any new SW to be discovered and installed
-      const installedPromise = new Promise<ServiceWorker | null>((resolve) => {
-        const onUpdateFound = () => {
-          const sw = registration.installing;
-          if (!sw) return resolve(null);
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'installed') resolve(sw);
-            if (sw.state === 'redundant') resolve(null);
-          });
-        };
-        registration.addEventListener('updatefound', onUpdateFound);
-
-        // Also handle case where update() finds one immediately
-        if (registration.installing) onUpdateFound();
-      });
-
-      toast.info('Procurando nova versão...');
-      await registration.update();
-
-      // Race: installed within 20s OR no update
-      const result = await Promise.race<ServiceWorker | null | 'timeout'>([
-        installedPromise,
-        new Promise((r) => setTimeout(() => r('timeout'), 20000)),
-      ]);
-
-      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-
-      if (result && result !== 'timeout') {
-        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-        toast.success('Nova versão pronta! Recarregando...');
-        activateWaiting(result);
-        setTimeout(reload, 3000);
-        return;
-      }
-
-      if (registration.waiting) {
-        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-        toast.success('Nova versão pronta! Recarregando...');
-        activateWaiting(registration.waiting);
-        setTimeout(reload, 3000);
-        return;
-      }
-
-      toast.info('Você já está na versão mais recente!');
+      toast.info('Buscando a versão mais recente...');
+      await refreshAppToLatestVersion();
     } catch (error) {
       console.error('Update check error:', error);
       toast.error('Erro ao verificar atualização');
-    } finally {
       setIsCheckingUpdate(false);
     }
   }, []);

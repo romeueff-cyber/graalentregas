@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, X } from 'lucide-react';
+import {
+  APP_UPDATE_AVAILABLE_EVENT,
+  APP_UPDATE_REFRESH_START_EVENT,
+  canUseAppServiceWorker,
+  checkForAppUpdate,
+  getAppVersion,
+  isAppRefreshInProgress,
+  markAppRefreshComplete,
+  refreshAppToLatestVersion,
+} from '@/lib/pwaUpdate';
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - injected by Vite define
-const APP_BUILD_ID: string = __APP_BUILD_ID__;
-
-export function getAppVersion() {
-  return APP_BUILD_ID;
-}
+export { getAppVersion };
 
 export function PWAUpdateBanner() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -17,16 +21,10 @@ export function PWAUpdateBanner() {
 
   const checkForUpdate = useCallback(async () => {
     try {
-      const registration = await navigator.serviceWorker?.getRegistration();
-      if (registration?.waiting) {
+      if (isAppRefreshInProgress()) return;
+      const hasUpdate = await checkForAppUpdate();
+      if (hasUpdate && !isAppRefreshInProgress()) {
         setUpdateAvailable(true);
-        return;
-      }
-      if (registration) {
-        await registration.update();
-        if (registration.waiting) {
-          setUpdateAvailable(true);
-        }
       }
     } catch (error) {
       console.log('[PWAUpdate] Check failed:', error);
@@ -34,52 +32,47 @@ export function PWAUpdateBanner() {
   }, []);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((registration) => {
-        if (registration.waiting) {
-          setUpdateAvailable(true);
-        }
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                setUpdateAvailable(true);
-              }
-            });
-          }
-        });
-      });
+    markAppRefreshComplete();
+    if (!canUseAppServiceWorker()) return;
 
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (isUpdating) {
-          window.location.reload();
-        }
-      });
-    }
+    const showUpdate = () => {
+      if (!isAppRefreshInProgress()) {
+        setDismissed(false);
+        setUpdateAvailable(true);
+      }
+    };
+
+    const hideDuringManualRefresh = () => {
+      setUpdateAvailable(false);
+      setDismissed(true);
+    };
+
+    window.addEventListener(APP_UPDATE_AVAILABLE_EVENT, showUpdate);
+    window.addEventListener(APP_UPDATE_REFRESH_START_EVENT, hideDuringManualRefresh);
 
     const interval = setInterval(checkForUpdate, 2 * 60 * 1000);
     const onFocus = () => checkForUpdate();
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') checkForUpdate();
-    });
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    void checkForUpdate();
 
     return () => {
       clearInterval(interval);
+      window.removeEventListener(APP_UPDATE_AVAILABLE_EVENT, showUpdate);
+      window.removeEventListener(APP_UPDATE_REFRESH_START_EVENT, hideDuringManualRefresh);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [checkForUpdate, isUpdating]);
+  }, [checkForUpdate]);
 
   const handleUpdate = async () => {
     setIsUpdating(true);
     try {
-      const registration = await navigator.serviceWorker?.getRegistration();
-      if (registration?.waiting) {
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      } else {
-        window.location.reload();
-      }
+      await refreshAppToLatestVersion();
     } catch {
       window.location.reload();
     }
