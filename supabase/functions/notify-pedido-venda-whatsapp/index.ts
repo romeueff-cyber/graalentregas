@@ -85,6 +85,21 @@ function buildMessage(
     lines.push(`*Total: ${fmtMoney(totalPedido)}*`);
   }
 
+  if (boletosPend.length) {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const totalDevido = boletosPend.reduce((s, b) => s + (b.total_amount || 0) / 100, 0);
+    const vencidos = boletosPend.filter((b) => new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE');
+    lines.push('');
+    lines.push(`⚠️ *Boletos em aberto:* ${boletosPend.length} • ${fmtMoney(totalDevido)}`);
+    if (vencidos.length) lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0))}`);
+    for (const b of boletosPend.slice(0, 5)) {
+      const venc = fmtDate(b.due_date);
+      const atrasado = new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
+      lines.push(`• Pedido ${b.order_number} — ${fmtMoney((b.total_amount || 0) / 100)} • venc. ${venc}${atrasado ? ' 🔴' : ''}`);
+    }
+    if (boletosPend.length > 5) lines.push(`… e mais ${boletosPend.length - 5}`);
+  }
+
   if (pedido.observacoes) {
     lines.push('');
     lines.push(`📝 *Observações:* ${pedido.observacoes}`);
