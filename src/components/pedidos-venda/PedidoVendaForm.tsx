@@ -448,10 +448,10 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                 <Input type="date" value={dataEntrega} onChange={(e) => setDataEntrega(e.target.value)} />
               </div>
               <div>
-                <Label>Horário / período</Label>
-                <Input placeholder="ex: MANHA, 14:00" value={horario} onChange={(e) => setHorario(e.target.value)} />
+                <Label>Horário de entrega</Label>
+                <Input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
               </div>
-            </div>
+
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
