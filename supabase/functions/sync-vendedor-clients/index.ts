@@ -3,6 +3,33 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+function getField(client: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!client) return undefined;
+  const rootEntries = Object.entries(client);
+  const nestedAddress = rootEntries.find(([key, value]) =>
+    key.toLowerCase() === 'address' && value && typeof value === 'object' && !Array.isArray(value),
+  )?.[1] as Record<string, unknown> | undefined;
+  const entries = nestedAddress ? [...rootEntries, ...Object.entries(nestedAddress)] : rootEntries;
+  for (const key of keys) {
+    const found = entries.find(([entryKey, value]) =>
+      entryKey.toLowerCase() === key.toLowerCase() && value != null && String(value).trim() !== '',
+    );
+    if (found) return String(found[1]).trim();
+  }
+  return undefined;
+}
+
+function composeAddress(client: Record<string, unknown> | null | undefined) {
+  const street = getField(client, 'address', 'street', 'endereco', 'logradouro', 'rua');
+  const number = getField(client, 'number', 'numero', 'street_number');
+  const neighborhood = getField(client, 'neighborhood', 'district', 'bairro', 'sublocality');
+  const city = getField(client, 'city', 'cidade', 'municipio');
+  const state = getField(client, 'state', 'uf', 'estado');
+  const addressParts = [street, number && `nº ${number}`, neighborhood && `Bairro ${neighborhood}`].filter(Boolean);
+  const cityState = [city, state].filter(Boolean).join('/');
+  return [addressParts.join(', '), cityState].filter(Boolean).join(' - ');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -62,6 +89,7 @@ Deno.serve(async (req) => {
       let nome = v.nome_cliente || `Cliente ${v.id_cliente_erp}`;
       let nomeFantasia: string | null = null;
       let cpfCnpj = '';
+      let endereco = '(endereço será informado no pedido)';
 
       // Tenta enriquecer com dados do ERP (não bloqueia se ERP estiver fora)
       if (ERP_API_URL && ERP_API_KEY) {
@@ -75,6 +103,7 @@ Deno.serve(async (req) => {
               nome = c.name || nome;
               nomeFantasia = c.nickname || null;
               cpfCnpj = c.document || '';
+              endereco = composeAddress(c) || endereco;
             }
           }
         } catch (e) {
@@ -87,7 +116,7 @@ Deno.serve(async (req) => {
         nome,
         nome_fantasia: nomeFantasia,
         cpf_cnpj: cpfCnpj,
-        endereco: '(endereço será informado no pedido)',
+        endereco,
         id_cliente_erp: v.id_cliente_erp,
         origem: 'erp',
       });

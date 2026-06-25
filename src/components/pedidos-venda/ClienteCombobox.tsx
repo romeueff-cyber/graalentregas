@@ -5,6 +5,7 @@ import { ChevronsUpDown, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { ClienteVendedor } from '@/hooks/useClientesVendedor';
+import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
 
 export type ClienteSelecionado =
   | { tipo: 'app'; cliente: ClienteVendedor }
@@ -29,7 +30,7 @@ interface ERPClient {
   name: string;
   nickname?: string;
   document?: string;
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 
@@ -82,10 +83,13 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           },
         });
         const text = await r.text();
-        let j: any = null;
+        let j: unknown = null;
         try { j = JSON.parse(text); } catch { /* ignore */ }
+        const payloadRecord = j && typeof j === 'object' && !Array.isArray(j)
+          ? j as { error?: unknown; data?: unknown; clients?: unknown }
+          : null;
         if (!r.ok) {
-          const msg = String(j?.error || text || `HTTP ${r.status}`);
+          const msg = String(payloadRecord?.error || text || `HTTP ${r.status}`);
           if (msg.includes('No route to host') || msg.includes('EHOSTUNREACH') || msg.includes('ECONNREFUSED') || msg.includes('timeout')) {
             setErpError('Servidor ERP offline ou inacessível. Avise o administrador.');
           } else {
@@ -94,8 +98,16 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           setErpResults([]);
           return;
         }
-        setErpResults(Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : []);
-      } catch (e: any) {
+        setErpResults(
+          Array.isArray(j)
+            ? j as ERPClient[]
+            : Array.isArray(payloadRecord?.data)
+              ? payloadRecord.data as ERPClient[]
+              : Array.isArray(payloadRecord?.clients)
+                ? payloadRecord.clients as ERPClient[]
+                : [],
+        );
+      } catch (e: unknown) {
         console.warn('[erp clients search] erro', e);
         setErpError('Falha de rede ao consultar o ERP.');
         setErpResults([]);
@@ -213,28 +225,21 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                     key={`erp-${e.id}`}
                     value={`erp-${e.id}`}
                     onSelect={() => {
-                      const get = (...keys: string[]) =>
-                        keys.map((k) => (e as any)[k]).find((v) => v != null && v !== '');
-                      const num = (v: any) => {
-                        const n = Number(v);
-                        return Number.isFinite(n) ? n : undefined;
-                      };
+                      const address = getERPClientAddressParts(e);
                       onChange({
                         tipo: 'erp',
                         id: String(e.id),
                         nome: e.name,
                         apelido: e.nickname,
                         documento: e.document,
-                        endereco: get('address', 'street', 'endereco', 'logradouro'),
-                        bairro: get('neighborhood', 'district', 'bairro'),
-                        numero: get('number', 'numero')
-                          ? String(get('number', 'numero'))
-                          : undefined,
-                        cidade: get('city', 'cidade'),
-                        uf: get('state', 'uf'),
-                        cep: get('postal_code', 'zip', 'cep'),
-                        lat: num(get('latitude', 'lat')),
-                        lng: num(get('longitude', 'lng')),
+                        endereco: address.endereco,
+                        bairro: address.bairro,
+                        numero: address.numero,
+                        cidade: address.cidade,
+                        uf: address.uf,
+                        cep: address.cep,
+                        lat: address.lat,
+                        lng: address.lng,
                       });
                       setOpen(false);
                     }}

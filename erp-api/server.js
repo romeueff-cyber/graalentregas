@@ -880,11 +880,29 @@ app.get('/api/clients', authenticate, async (req, res) => {
         p.NOME,
         p.APELIDO,
         p.CPF_CNPJ,
-        pv.NOME AS VENDEDOR_NOME
+        pv.NOME AS VENDEDOR_NOME,
+        r.NOME AS RUA,
+        ov_addr.NUMERO,
+        ov_addr.COMPLEMENTO,
+        b.NOME AS BAIRRO,
+        ci.NOME AS CIDADE,
+        e.SIGLA AS UF
       FROM CLIENTES cl
       JOIN PESSOAS p ON cl.ID_PESSOA = p.ID_PESSOA
       LEFT JOIN COLABORADORES col ON cl.ID_VENDEDOR = col.ID_COLABORADORES
       LEFT JOIN PESSOAS pv ON col.ID_PESSOA = pv.ID_PESSOA
+      LEFT JOIN ORDENS_VENDA ov_addr ON ov_addr.ID_ORDENS_VENDA = (
+        SELECT FIRST 1 ov2.ID_ORDENS_VENDA
+        FROM ORDENS_VENDA ov2
+        WHERE ov2.ID_CLIENTE = cl.ID_CLIENTE
+          AND (ov2.DELETED IS NULL OR ov2.DELETED = 0)
+          AND ov2.ID_RUA IS NOT NULL
+        ORDER BY ov2.DATE_CAD DESC
+      )
+      LEFT JOIN ESTADO e ON ov_addr.ID_ESTADO = e.ID_ESTADO
+      LEFT JOIN CIDADE ci ON ov_addr.ID_CIDADE = ci.ID_CIDADE
+      LEFT JOIN BAIRRO b ON ov_addr.ID_BAIRRO = b.ID_BAIRRO
+      LEFT JOIN RUA r ON ov_addr.ID_RUA = r.ID_RUA
       WHERE ${where.join(' AND ')}
       ORDER BY p.NOME
     `;
@@ -895,6 +913,13 @@ app.get('/api/clients', authenticate, async (req, res) => {
       name: r.NOME || '',
       nickname: r.APELIDO || '',
       document: r.CPF_CNPJ || '',
+      address: r.RUA || '',
+      street: r.RUA || '',
+      number: r.NUMERO || '',
+      complement: r.COMPLEMENTO || '',
+      neighborhood: r.BAIRRO || '',
+      city: r.CIDADE || '',
+      state: r.UF || '',
       vendedor_id: r.ID_VENDEDOR || null,
       vendedor_name: r.VENDEDOR_NOME || null
     })));
