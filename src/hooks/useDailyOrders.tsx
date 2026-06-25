@@ -45,6 +45,7 @@ export interface DailyOrderData {
 
 export function useDailyOrders() {
   const queryClient = useQueryClient();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const [isOnline, setIsOnline] = useState(checkOnline());
   const [cacheStatus, setCacheStatus] = useState<ERPCacheStatus | null>(null);
   const hasTriedAutoSync = useRef(false);
@@ -52,6 +53,12 @@ export function useDailyOrders() {
   const today = useMemo(() => {
     return getTodaySaoPaulo();
   }, []);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
 
   // Update cache status
   const updateCacheStatus = useCallback(async () => {
