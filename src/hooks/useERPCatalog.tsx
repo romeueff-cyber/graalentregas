@@ -196,3 +196,23 @@ export async function fetchERPClientLastOrder(clientId: string): Promise<ERPLast
   if (error) throw error;
   return (data as ERPLastOrder) || null;
 }
+
+export interface ERPProductPrice {
+  valor: number | null;
+  fonte: 'cliente' | 'tabela' | null;
+}
+
+export async function fetchERPProductPrice(
+  productId: string,
+  clientId?: string | null,
+): Promise<ERPProductPrice> {
+  const { data, error } = await supabase.functions.invoke('get-erp-product-price', {
+    body: { productId, clientId: clientId || null },
+  });
+  if (error) throw error;
+  const d = (data || {}) as Partial<ERPProductPrice>;
+  return {
+    valor: d.valor != null ? Number(d.valor) : null,
+    fonte: (d.fonte as ERPProductPrice['fonte']) || null,
+  };
+}
