@@ -264,8 +264,14 @@ export default function PedidosVendaPage() {
     [clientes],
   );
   const erpResultsFiltrados = useMemo(
-    () => erpResults.filter((e) => !localErpIds.has(String(e.id))),
-    [erpResults, localErpIds],
+    () => {
+      const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
+      return erpResults.filter((e) => (
+        !localErpIds.has(String(e.id))
+        && (!empresasFiltro.length || (e.id_empresa != null && empresasFiltro.includes(Number(e.id_empresa) as any)))
+      ));
+    },
+    [erpResults, localErpIds, selectedEmpresa, allowedEmpresas],
   );
 
 
