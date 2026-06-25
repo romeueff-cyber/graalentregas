@@ -119,11 +119,29 @@ export default function PedidosVendaPage() {
     usePedidosVenda({ scope: 'pendentes' });
   const { clientes, isLoading: loadingClientes } = useClientesVendedor();
 
+  const pedidoIdFromUrl = searchParams.get('pedido');
+  const pedidoFromUrl = useMemo(() => {
+    if (!pedidoIdFromUrl) return null;
+    return [...meus, ...pendentes].find((p) => p.id === pedidoIdFromUrl) ?? null;
+  }, [pedidoIdFromUrl, meus, pendentes]);
+
+  useEffect(() => {
+    if (pedidoFromUrl) setDetailPedido(pedidoFromUrl);
+  }, [pedidoFromUrl]);
+
   const handleRefuse = async () => {
     if (!refuseTarget || !motivo.trim()) return;
     await refusePedido.mutateAsync({ pedidoId: refuseTarget.id, motivo });
     setRefuseTarget(null);
     setMotivo('');
+  };
+
+  const closeDetail = () => {
+    setDetailPedido(null);
+    if (searchParams.get('pedido')) {
+      searchParams.delete('pedido');
+      setSearchParams(searchParams, { replace: true });
+    }
   };
 
   return (
