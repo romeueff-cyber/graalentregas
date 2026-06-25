@@ -167,8 +167,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
       endereco_entrega: enderecoEntrega,
-      latitude: isApp ? clienteSel.cliente.latitude ?? undefined : undefined,
-      longitude: isApp ? clienteSel.cliente.longitude ?? undefined : undefined,
+      latitude: latLng.lat ?? (isApp ? clienteSel.cliente.latitude ?? undefined : undefined),
+      longitude: latLng.lng ?? (isApp ? clienteSel.cliente.longitude ?? undefined : undefined),
       observacoes: observacoes || undefined,
       itens,
     };
