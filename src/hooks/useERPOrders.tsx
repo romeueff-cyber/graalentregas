@@ -17,9 +17,16 @@ interface UseERPOrdersOptions {
 
 export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {}) {
   const queryClient = useQueryClient();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const [isOnline, setIsOnline] = useState(checkOnline());
   const [cacheStatus, setCacheStatus] = useState<ERPCacheStatus | null>(null);
   const hasTriedAutoSync = useRef(false);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
 
   const targetDate = useMemo(() => {
     return date || getTodaySaoPaulo();
