@@ -39,6 +39,7 @@ export interface NovoClienteInput {
 
 export function useClientesVendedor() {
   const { user, canApprovePedidoVenda, isVendedor } = useAuth();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const queryClient = useQueryClient();
   const syncedRef = useRef(false);
 
