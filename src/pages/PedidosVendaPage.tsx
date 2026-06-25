@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -105,13 +105,13 @@ function PedidoCard({
 
 export default function PedidosVendaPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { isVendedor, canApprovePedidoVenda } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
   const [motivo, setMotivo] = useState('');
-  const [detailPedido, setDetailPedido] = useState<PedidoVenda | null>(null);
+  
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
@@ -125,10 +125,6 @@ export default function PedidosVendaPage() {
     return [...meus, ...pendentes].find((p) => p.id === pedidoIdFromUrl) ?? null;
   }, [pedidoIdFromUrl, meus, pendentes]);
 
-  useEffect(() => {
-    if (pedidoFromUrl) setDetailPedido(pedidoFromUrl);
-  }, [pedidoFromUrl]);
-
   const handleRefuse = async () => {
     if (!refuseTarget || !motivo.trim()) return;
     await refusePedido.mutateAsync({ pedidoId: refuseTarget.id, motivo });
@@ -136,13 +132,68 @@ export default function PedidosVendaPage() {
     setMotivo('');
   };
 
-  const closeDetail = () => {
-    setDetailPedido(null);
-    if (searchParams.get('pedido')) {
-      searchParams.delete('pedido');
-      setSearchParams(searchParams, { replace: true });
-    }
-  };
+  // Modo focado: link direto para um pedido específico
+  if (pedidoIdFromUrl) {
+    const loading = loadingMeus || loadingPend;
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background border-b">
+          <div className="container max-w-3xl py-3 flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/pedidos-venda', { replace: true })}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="font-semibold">Detalhes do pedido</h1>
+          </div>
+        </header>
+        <div className="container max-w-3xl py-4">
+          {pedidoFromUrl ? (
+            <PedidoCard
+              pedido={pedidoFromUrl}
+              showVendedor
+              showActions={
+                canApprovePedidoVenda && pedidoFromUrl.status === 'pendente_aprovacao'
+                  ? 'aprovacao'
+                  : isVendedor && pedidoFromUrl.status === 'pendente_aprovacao'
+                  ? 'vendedor'
+                  : null
+              }
+              onApprove={(id) => approvePedido.mutate(id)}
+              onRefuse={(p) => setRefuseTarget(p)}
+              onCancel={(id) => cancelPedido.mutate(id)}
+            />
+          ) : loading ? (
+            <div className="flex justify-center py-10"><LoadingSpinner /></div>
+          ) : (
+            <Card className="p-8 text-center text-muted-foreground">
+              Pedido não encontrado ou você não tem permissão para visualizá-lo.
+            </Card>
+          )}
+        </div>
+
+        <Dialog open={!!refuseTarget} onOpenChange={(o) => !o && setRefuseTarget(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Recusar pedido</DialogTitle>
+            </DialogHeader>
+            <div>
+              <Textarea
+                placeholder="Motivo da recusa"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRefuseTarget(null)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleRefuse} disabled={!motivo.trim()}>
+                Confirmar recusa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -161,6 +212,7 @@ export default function PedidosVendaPage() {
       </header>
 
       <div className="container max-w-3xl py-4">
+
         <Tabs defaultValue={canApprovePedidoVenda ? 'pendentes' : 'meus'}>
           <TabsList className="w-full">
             <TabsTrigger value="meus" className="flex-1">
@@ -265,34 +317,6 @@ export default function PedidosVendaPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!detailPedido} onOpenChange={(o) => !o && closeDetail()}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalhes do pedido</DialogTitle>
-          </DialogHeader>
-          {detailPedido && (
-            <PedidoCard
-              pedido={detailPedido}
-              showVendedor
-              showActions={
-                canApprovePedidoVenda && detailPedido.status === 'pendente_aprovacao'
-                  ? 'aprovacao'
-                  : isVendedor && detailPedido.status === 'pendente_aprovacao'
-                  ? 'vendedor'
-                  : null
-              }
-              onApprove={(id) => { approvePedido.mutate(id); closeDetail(); }}
-              onRefuse={(p) => { setRefuseTarget(p); closeDetail(); }}
-              onCancel={(id) => { cancelPedido.mutate(id); closeDetail(); }}
-            />
-          )}
-          {pedidoIdFromUrl && !detailPedido && (
-            <div className="py-8 text-center text-muted-foreground text-sm">
-              Carregando pedido…
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
