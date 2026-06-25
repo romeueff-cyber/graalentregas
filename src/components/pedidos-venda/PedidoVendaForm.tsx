@@ -54,6 +54,39 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     return parts.join(', ');
   };
 
+  const normalizeText = (value?: string | null) =>
+    String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase();
+
+  const cleanDoc = (value?: string | null) => String(value ?? '').replace(/\D/g, '');
+
+  const isEnderecoValido = (value?: string | null) => {
+    const normalized = normalizeText(value);
+    return Boolean(normalized && !normalized.includes('enderecoserainformadonopedido'));
+  };
+
+  const findClienteLocalCorrespondente = (v: ClienteSelecionado | null) => {
+    if (!v || v.tipo !== 'erp') return null;
+    const erpDoc = cleanDoc(v.documento);
+    const erpNome = normalizeText(v.nome);
+    const erpApelido = normalizeText(v.apelido);
+
+    return clientes.find((c) => {
+      if (c.id_cliente_erp && c.id_cliente_erp === v.id) return true;
+      const localDoc = cleanDoc(c.cpf_cnpj);
+      if (erpDoc && localDoc && erpDoc === localDoc) return true;
+      const localNome = normalizeText(c.nome);
+      const localFantasia = normalizeText(c.nome_fantasia);
+      return Boolean(
+        (erpNome && (erpNome === localNome || erpNome === localFantasia)) ||
+        (erpApelido && (erpApelido === localNome || erpApelido === localFantasia))
+      );
+    }) ?? null;
+  };
+
   const resetForm = () => {
     setClienteSel(null);
     setDataEntrega('');
@@ -73,7 +106,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setClienteSel(v);
     setOverrideEndereco(false);
     if (v?.tipo === 'app') {
-      const addr = v.cliente.endereco || '';
+      const addr = isEnderecoValido(v.cliente.endereco) ? v.cliente.endereco : '';
       setEnderecoCadastrado(addr);
       setEnderecoEntrega(addr);
       setNumero('');
@@ -87,12 +120,18 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       const num = v.numero || '';
       const bai = v.bairro || '';
       const cid = [v.cidade, v.uf].filter(Boolean).join('/');
-      const cadastrado = [composeEndereco(rua, num, bai), cid].filter(Boolean).join(' - ');
+      const cadastradoErp = [composeEndereco(rua, num, bai), cid].filter(Boolean).join(' - ');
+      const clienteLocal = findClienteLocalCorrespondente(v);
+      const enderecoLocal = isEnderecoValido(clienteLocal?.endereco) ? clienteLocal!.endereco : '';
+      const cadastrado = cadastradoErp || enderecoLocal;
       setEnderecoCadastrado(cadastrado);
-      setEnderecoEntrega(rua);
+      setEnderecoEntrega(rua || enderecoLocal);
       setNumero(num);
       setBairro(bai);
-      setLatLng({ lat: v.lat, lng: v.lng });
+      setLatLng({
+        lat: v.lat ?? clienteLocal?.latitude ?? undefined,
+        lng: v.lng ?? clienteLocal?.longitude ?? undefined,
+      });
       if (!cadastrado) setOverrideEndereco(true);
     } else {
       setEnderecoCadastrado('');
@@ -355,9 +394,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       <ClienteVendedorForm
         open={showNovoCliente}
         onOpenChange={setShowNovoCliente}
-        onCreated={(id) => {
-          const c = clientes.find((x) => x.id === id);
-          if (c) setClienteSel({ tipo: 'app', cliente: c });
+        onCreated={(cliente) => {
+          handleClienteChange({ tipo: 'app', cliente });
         }}
 
       />

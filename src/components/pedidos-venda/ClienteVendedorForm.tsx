@@ -4,12 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { useClientesVendedor, NovoClienteInput } from '@/hooks/useClientesVendedor';
+import { useClientesVendedor, NovoClienteInput, ClienteVendedor } from '@/hooks/useClientesVendedor';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated?: (clienteId: string, nome: string) => void;
+  onCreated?: (cliente: ClienteVendedor) => void;
 }
 
 export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
@@ -29,7 +29,7 @@ export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
   const handleSubmit = async () => {
     if (!form.nome.trim() || !form.cpf_cnpj.trim() || !form.endereco.trim()) return;
     const cliente = await createCliente.mutateAsync(form);
-    onCreated?.(cliente.id, cliente.nome);
+    onCreated?.(cliente);
     setForm({ nome: '', nome_fantasia: '', cpf_cnpj: '', endereco: '', telefone: '', email: '' });
     onOpenChange(false);
   };
