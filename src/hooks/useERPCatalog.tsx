@@ -160,11 +160,33 @@ export function useERPEquipmentTypes() {
 
 export interface ERPLastOrderItem { product: string; quantity: number }
 export interface ERPLastOrderEquipment { type: string; quantity: number }
+export interface ERPLastOrderAddressDetails {
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
 export interface ERPLastOrder {
   order_number: string;
   delivery_date: string | null;
   items: ERPLastOrderItem[];
   equipments: ERPLastOrderEquipment[];
+  address?: string | null;
+  address_details?: ERPLastOrderAddressDetails | null;
+}
+
+export function lastOrderToAddressParts(order: ERPLastOrder | null | undefined): ERPClientAddressParts {
+  const d = order?.address_details;
+  if (!d) return {};
+  return {
+    endereco: toText(d.street),
+    numero: toText(d.number),
+    bairro: toText(d.neighborhood),
+    cidade: toText(d.city),
+    uf: toText(d.state),
+  };
 }
 
 export async function fetchERPClientLastOrder(clientId: string): Promise<ERPLastOrder | null> {
