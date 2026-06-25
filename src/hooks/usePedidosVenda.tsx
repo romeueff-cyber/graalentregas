@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { toast } from 'sonner';
 
 export type PedidoVendaStatus =
@@ -38,6 +39,7 @@ export interface PedidoVenda {
   updated_at: string;
   itens?: PedidoVendaItem[];
   vendedor_nome?: string;
+  id_empresa: number;
 }
 
 export interface NovoPedidoVendaInput {
@@ -49,6 +51,7 @@ export interface NovoPedidoVendaInput {
   endereco_entrega: string;
   latitude?: number;
   longitude?: number;
+  id_empresa?: number | null;
   observacoes?: string;
   itens: Array<{
     tipo?: 'produto' | 'equipamento';
@@ -68,10 +71,11 @@ interface UsePedidosVendaOptions {
 
 export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {}) {
   const { user, canApprovePedidoVenda } = useAuth();
+  const { selectedEmpresa } = useEmpresa();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['pedidos-venda', scope, user?.id],
+    queryKey: ['pedidos-venda', scope, user?.id, selectedEmpresa],
     enabled: !!user,
     queryFn: async (): Promise<PedidoVenda[]> => {
       let q = supabase
@@ -81,6 +85,7 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
 
       if (scope === 'meus' && user) q = q.eq('vendedor_id', user.id);
       if (scope === 'pendentes') q = q.eq('status', 'pendente_aprovacao');
+      if (selectedEmpresa) q = q.eq('id_empresa', selectedEmpresa);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -106,7 +111,7 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
       const { itens, ...pedidoData } = input;
       const { data: pedido, error } = await supabase
         .from('pedidos_venda')
-        .insert({ ...pedidoData, vendedor_id: user.id })
+        .insert({ ...pedidoData, id_empresa: pedidoData.id_empresa ?? selectedEmpresa ?? 1, vendedor_id: user.id })
         .select()
         .single();
       if (error) throw error;

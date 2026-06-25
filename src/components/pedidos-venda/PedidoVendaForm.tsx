@@ -28,7 +28,7 @@ type Item = AddedItem & { observacao?: string };
 export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
-  const { selectedEmpresa } = useEmpresa();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
 
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
 
@@ -103,7 +103,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
       // 1) Tenta pelo cadastro do cliente (depende de API atualizada no PM2)
       let parts: ERPClientAddressParts = {};
       try {
-        const erpClient = await fetchERPClientDetails(idClienteErp);
+        const erpClient = await fetchERPClientDetails(idClienteErp, selectedEmpresa ? [selectedEmpresa] : allowedEmpresas);
         if (requestId !== enderecoRequestRef.current) return;
         parts = getERPClientAddressParts(erpClient ?? undefined);
       } catch (e) {
@@ -158,6 +158,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
     const erpApelido = normalizeText(v.apelido);
 
     return lista.find((c) => {
+      if (selectedEmpresa && c.id_empresa !== selectedEmpresa) return false;
       if (c.id_cliente_erp && c.id_cliente_erp === v.id) return true;
       const localDoc = cleanDoc(c.cpf_cnpj);
       if (erpDoc && localDoc && erpDoc === localDoc) return true;
@@ -403,6 +404,9 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
     }));
 
     const isApp = clienteSel.tipo === 'app';
+    const idEmpresaPedido = isApp
+      ? clienteSel.cliente.id_empresa ?? selectedEmpresa ?? allowedEmpresas[0]
+      : clienteSel.id_empresa ?? selectedEmpresa ?? allowedEmpresas[0];
     const nomeCliente = isApp
       ? clienteSel.cliente.nome_fantasia || clienteSel.cliente.nome
       : clienteSel.apelido || clienteSel.nome;
@@ -416,6 +420,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
       endereco_entrega: enderecoFinal,
       latitude: latLng.lat ?? (isApp ? clienteSel.cliente.latitude ?? undefined : undefined),
       longitude: latLng.lng ?? (isApp ? clienteSel.cliente.longitude ?? undefined : undefined),
+      id_empresa: idEmpresaPedido,
       observacoes: observacoes || undefined,
       itens,
     };
