@@ -587,9 +587,18 @@ export function ClientHealthDashboard({
           </div>
 
           {filteredRows.length > visibleRows.length && (
-            <p className="text-xs text-muted-foreground text-center">
-              Refine os filtros para ver os {filteredRows.length - visibleRows.length} clientes restantes.
-            </p>
+            <div className="flex flex-col items-center gap-1 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setShowAll(true)}>
+                Mostrar todos ({filteredRows.length - visibleRows.length} restantes)
+              </Button>
+            </div>
+          )}
+          {showAll && filteredRows.length > 100 && (
+            <div className="flex justify-center pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowAll(false)}>
+                Mostrar menos
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
