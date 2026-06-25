@@ -25,6 +25,11 @@ function fmtMoney(v?: number | null) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function num(v: unknown): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? 0));
+  return Number.isFinite(n) ? n : 0;
+}
+
 function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<string, unknown>>, vendedorNome?: string) {
   const produtos = itens.filter((i) => (i.tipo ?? 'produto') === 'produto');
   const equipamentos = itens.filter((i) => i.tipo === 'equipamento');
@@ -37,13 +42,24 @@ function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<strin
   lines.push(`📅 *Entrega:* ${fmtDate(pedido.data_entrega as string)}${pedido.horario_entrega ? ` • ${pedido.horario_entrega}` : ''}`);
   lines.push(`📍 *Endereço:* ${pedido.endereco_entrega ?? '-'}`);
 
+  let subtotal = 0;
+  let descontoTotal = 0;
+
   if (produtos.length) {
     lines.push('');
     lines.push('🍺 *Produtos:*');
     for (const i of produtos) {
-      const preco = fmtMoney(i.preco_unitario as number | undefined);
+      const qtd = num(i.quantidade);
+      const preco = num(i.preco_unitario);
+      const desc = num(i.desconto);
+      const totalItem = qtd * preco - desc;
+      subtotal += qtd * preco;
+      descontoTotal += desc;
+      const precoStr = preco > 0 ? ` — ${fmtMoney(preco)}` : '';
+      const totalStr = preco > 0 ? ` = *${fmtMoney(totalItem)}*` : '';
+      const descStr = desc > 0 ? ` (desc. ${fmtMoney(desc)})` : '';
       const obs = i.observacao ? ` _(${i.observacao})_` : '';
-      lines.push(`• ${i.quantidade}x ${i.produto}${preco ? ` — ${preco}` : ''}${obs}`);
+      lines.push(`• ${qtd}x ${i.produto}${precoStr}${descStr}${totalStr}${obs}`);
     }
   }
   if (equipamentos.length) {
@@ -54,6 +70,16 @@ function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<strin
       lines.push(`• ${i.quantidade}x ${i.produto}${obs}`);
     }
   }
+
+  const totalPedido = subtotal - descontoTotal;
+  if (subtotal > 0) {
+    lines.push('');
+    lines.push('💰 *Financeiro*');
+    lines.push(`Subtotal: ${fmtMoney(subtotal)}`);
+    if (descontoTotal > 0) lines.push(`Desconto: -${fmtMoney(descontoTotal)}`);
+    lines.push(`*Total: ${fmtMoney(totalPedido)}*`);
+  }
+
   if (pedido.observacoes) {
     lines.push('');
     lines.push(`📝 *Observações:* ${pedido.observacoes}`);
