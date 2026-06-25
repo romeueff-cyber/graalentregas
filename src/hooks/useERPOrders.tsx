@@ -63,14 +63,15 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
   }, [updateCacheStatus]);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
-    queryKey: ['erp-orders', targetDate],
+    queryKey: ['erp-orders', targetDate, empresasFilter.join(',')],
     queryFn: async () => {
       // Try to fetch from network first
       if (isOnline) {
         try {
           const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-            body: { date: targetDate },
+            body: { date: targetDate, empresas: empresasFilter },
           });
+
           
           if (error) throw error;
           
