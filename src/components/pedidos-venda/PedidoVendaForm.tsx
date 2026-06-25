@@ -11,7 +11,7 @@ import { ClienteVendedorForm } from './ClienteVendedorForm';
 import { AddItemSheet, AddedItem } from './AddItemSheet';
 import { ClienteCombobox, ClienteSelecionado } from './ClienteCombobox';
 import { AddressAutocomplete } from './AddressAutocomplete';
-import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, lastOrderToAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -96,10 +96,28 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   ) => {
     setLoadingEnderecoCliente(true);
     try {
-      const erpClient = await fetchERPClientDetails(idClienteErp);
-      if (requestId !== enderecoRequestRef.current) return;
+      // 1) Tenta pelo cadastro do cliente (depende de API atualizada no PM2)
+      let parts: ERPClientAddressParts = {};
+      try {
+        const erpClient = await fetchERPClientDetails(idClienteErp);
+        if (requestId !== enderecoRequestRef.current) return;
+        parts = getERPClientAddressParts(erpClient ?? undefined);
+      } catch (e) {
+        console.warn('[pedido venda] cadastro ERP falhou, tentando último pedido', e);
+      }
 
-      const parts = getERPClientAddressParts(erpClient ?? undefined);
+      // 2) Fallback: pega endereço do ÚLTIMO PEDIDO do cliente (sempre funciona)
+      if (!parts.endereco) {
+        try {
+          const last = await fetchERPClientLastOrder(idClienteErp);
+          if (requestId !== enderecoRequestRef.current) return;
+          const fromOrder = lastOrderToAddressParts(last);
+          if (fromOrder.endereco) parts = { ...fromOrder, ...parts, endereco: fromOrder.endereco };
+        } catch (e) {
+          console.warn('[pedido venda] último pedido ERP falhou', e);
+        }
+      }
+
       const cadastrado = applyEnderecoParts(parts);
       if (cadastrado) {
         setOverrideEndereco(false);
@@ -117,7 +135,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       }
 
       setOverrideEndereco(true);
-      toast.warning('Endereço não encontrado no cadastro do cliente. Informe o endereço de entrega.');
+      toast.warning('Endereço não encontrado. Informe o endereço de entrega manualmente.');
     } catch (error) {
       if (requestId !== enderecoRequestRef.current) return;
       console.warn('[pedido venda] erro ao buscar endereço do cliente', error);
@@ -127,6 +145,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       if (requestId === enderecoRequestRef.current) setLoadingEnderecoCliente(false);
     }
   };
+
 
   const findClienteLocalCorrespondente = (v: ClienteSelecionado | null, lista = clientes) => {
     if (!v || v.tipo !== 'erp') return null;
