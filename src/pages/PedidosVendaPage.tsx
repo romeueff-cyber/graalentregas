@@ -25,6 +25,7 @@ interface ERPClientLite {
   name: string;
   nickname?: string;
   document?: string;
+  id_empresa?: number | null;
   [k: string]: unknown;
 }
 
@@ -158,6 +159,7 @@ export default function PedidosVendaPage() {
       cep: parts.cep,
       lat: parts.lat,
       lng: parts.lng,
+      id_empresa: e.id_empresa ?? null,
     });
     setShowForm(true);
   };
@@ -210,7 +212,8 @@ export default function PedidosVendaPage() {
   useEffect(() => {
     if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
     const term = erpSearch.trim();
-    if (term.length < 2) {
+    const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
+    if (term.length < 2 || empresasFiltro.length === 0) {
       setErpResults([]);
       setErpError(null);
       setErpLoading(false);
@@ -220,7 +223,7 @@ export default function PedidosVendaPage() {
       setErpLoading(true);
       setErpError(null);
       try {
-        const empresasQuery = (selectedEmpresa ? [selectedEmpresa] : allowedEmpresas).join(',');
+        const empresasQuery = empresasFiltro.join(',');
         const empParam = empresasQuery ? `&empresas=${encodeURIComponent(empresasQuery)}` : '';
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200${empParam}`;
 
@@ -240,7 +243,10 @@ export default function PedidosVendaPage() {
           return;
         }
         const arr: ERPClientLite[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : [];
-        setErpResults(arr);
+        setErpResults(arr.filter((client) => {
+          if (!empresasFiltro.length) return false;
+          return client.id_empresa != null && empresasFiltro.includes(Number(client.id_empresa) as any);
+        }));
       } catch (e: any) {
         setErpError(e?.message || 'Falha de rede');
         setErpResults([]);
@@ -258,8 +264,16 @@ export default function PedidosVendaPage() {
     [clientes],
   );
   const erpResultsFiltrados = useMemo(
-    () => erpResults.filter((e) => !localErpIds.has(String(e.id))),
-    [erpResults, localErpIds],
+    () => {
+      const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
+      return erpResults.filter((e) => (
+        !localErpIds.has(String(e.id))
+        && empresasFiltro.length > 0
+        && e.id_empresa != null
+        && empresasFiltro.includes(Number(e.id_empresa) as any)
+      ));
+    },
+    [erpResults, localErpIds, selectedEmpresa, allowedEmpresas],
   );
 
 

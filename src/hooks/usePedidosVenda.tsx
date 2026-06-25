@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { toast } from 'sonner';
 
 export type PedidoVendaStatus =
@@ -38,6 +39,7 @@ export interface PedidoVenda {
   updated_at: string;
   itens?: PedidoVendaItem[];
   vendedor_nome?: string;
+  id_empresa: number;
 }
 
 export interface NovoPedidoVendaInput {
@@ -49,6 +51,7 @@ export interface NovoPedidoVendaInput {
   endereco_entrega: string;
   latitude?: number;
   longitude?: number;
+  id_empresa?: number | null;
   observacoes?: string;
   itens: Array<{
     tipo?: 'produto' | 'equipamento';
@@ -68,11 +71,12 @@ interface UsePedidosVendaOptions {
 
 export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {}) {
   const { user, canApprovePedidoVenda } = useAuth();
+  const { selectedEmpresa } = useEmpresa();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['pedidos-venda', scope, user?.id],
-    enabled: !!user,
+    queryKey: ['pedidos-venda', scope, user?.id, selectedEmpresa],
+    enabled: !!user && selectedEmpresa != null,
     queryFn: async (): Promise<PedidoVenda[]> => {
       let q = supabase
         .from('pedidos_venda')
@@ -81,6 +85,7 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
 
       if (scope === 'meus' && user) q = q.eq('vendedor_id', user.id);
       if (scope === 'pendentes') q = q.eq('status', 'pendente_aprovacao');
+      if (selectedEmpresa) q = q.eq('id_empresa', selectedEmpresa);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -104,9 +109,11 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
     mutationFn: async (input: NovoPedidoVendaInput) => {
       if (!user) throw new Error('Não autenticado');
       const { itens, ...pedidoData } = input;
+      const idEmpresa = pedidoData.id_empresa ?? selectedEmpresa;
+      if (!idEmpresa) throw new Error('Empresa não carregada. Atualize a página e tente novamente.');
       const { data: pedido, error } = await supabase
         .from('pedidos_venda')
-        .insert({ ...pedidoData, vendedor_id: user.id })
+        .insert({ ...pedidoData, id_empresa: idEmpresa, vendedor_id: user.id })
         .select()
         .single();
       if (error) throw error;

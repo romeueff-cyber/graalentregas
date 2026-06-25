@@ -63,8 +63,8 @@ export function useClientesVendedor() {
   }, [user, isVendedor, queryClient]);
 
   const query = useQuery({
-    queryKey: ['clientes-vendedor', user?.id, canApprovePedidoVenda],
-    enabled: !!user,
+    queryKey: ['clientes-vendedor', user?.id, canApprovePedidoVenda, selectedEmpresa, allowedEmpresas.join(',')],
+    enabled: !!user && (selectedEmpresa != null || allowedEmpresas.length > 0),
     queryFn: async (): Promise<ClienteVendedor[]> => {
       let q = supabase.from('clientes_vendedor').select('*').order('nome');
       if (!canApprovePedidoVenda && user) {
@@ -98,9 +98,11 @@ export function useClientesVendedor() {
   const createCliente = useMutation({
     mutationFn: async (input: NovoClienteInput) => {
       if (!user) throw new Error('Não autenticado');
+      const idEmpresa = selectedEmpresa ?? allowedEmpresas[0];
+      if (!idEmpresa) throw new Error('Empresa não carregada. Atualize a página e tente novamente.');
       const { data, error } = await supabase
         .from('clientes_vendedor')
-        .insert({ ...input, vendedor_id: user.id, origem: 'app' })
+        .insert({ ...input, vendedor_id: user.id, origem: 'app', id_empresa: idEmpresa })
         .select()
         .single();
       if (error) throw error;
@@ -116,9 +118,10 @@ export function useClientesVendedor() {
   // Filtra clientes pela empresa ativa. Se houver empresa selecionada, mostra apenas os dessa empresa.
   const clientesFiltrados = useMemo(() => {
     const all = query.data || [];
-    if (!selectedEmpresa) return all;
-    return all.filter(c => c.id_empresa === selectedEmpresa);
-  }, [query.data, selectedEmpresa]);
+    if (selectedEmpresa) return all.filter(c => c.id_empresa === selectedEmpresa);
+    if (allowedEmpresas.length) return all.filter(c => c.id_empresa != null && allowedEmpresas.includes(c.id_empresa as any));
+    return [];
+  }, [query.data, selectedEmpresa, allowedEmpresas]);
 
 
   return {

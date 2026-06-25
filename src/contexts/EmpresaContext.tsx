@@ -25,16 +25,19 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useQuery({
     queryKey: ['user-empresas', user?.id],
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     queryFn: async (): Promise<EmpresaId[]> => {
-      if (isAdmin) return [EMPRESAS.GRAAL, EMPRESAS.GROTT];
       const { data, error } = await supabase
         .from('user_companies')
         .select('empresa_id')
         .eq('user_id', user!.id);
       if (error) throw error;
       const ids = (data ?? []).map((r: any) => r.empresa_id as EmpresaId);
-      return ids.length > 0 ? ids : [EMPRESAS.GRAAL];
+      // Admin também respeita as empresas marcadas no cadastro do usuário.
+      // Se um admin antigo ainda não tiver configuração, mantém acesso total para não bloquear o sistema.
+      if (ids.length > 0) return ids;
+      if (isAdmin) return [EMPRESAS.GRAAL, EMPRESAS.GROTT];
+      return [];
     },
   });
 
@@ -43,7 +46,14 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const [selectedEmpresa, setSelectedEmpresaState] = useState<EmpresaId | null>(null);
 
   useEffect(() => {
-    if (!allowedEmpresas.length) return;
+    setSelectedEmpresaState(null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!allowedEmpresas.length) {
+      setSelectedEmpresaState(null);
+      return;
+    }
     const stored = Number(localStorage.getItem(STORAGE_KEY)) as EmpresaId;
     if (stored && allowedEmpresas.includes(stored)) {
       setSelectedEmpresaState(stored);

@@ -91,9 +91,10 @@ export function getERPClientAddressParts(client: object | null | undefined): ERP
   };
 }
 
-export async function fetchERPClientDetails(clientId: string): Promise<ERPClientDetails | null> {
+export async function fetchERPClientDetails(clientId: string, empresas?: Array<number | string>): Promise<ERPClientDetails | null> {
   const { data: sess } = await supabase.auth.getSession();
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?client_id=${encodeURIComponent(clientId)}&limit=1`;
+  const empresasParam = empresas?.length ? `&empresas=${encodeURIComponent(empresas.join(','))}` : '';
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?client_id=${encodeURIComponent(clientId)}&limit=1${empresasParam}`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${sess.session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
