@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
 import { ArrowLeft, Settings as SettingsIcon, Calendar, MapPin, Locate, DollarSign, RefreshCw, FileText, MessageCircle } from 'lucide-react';
 import { EMPRESA_OPTIONS } from '@/lib/empresas';
+import { WhatsAppEmpresaSettingsCard } from '@/components/empresa/WhatsAppEmpresaSettingsCard';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGeoSettings } from '@/hooks/useGeoSettings';
