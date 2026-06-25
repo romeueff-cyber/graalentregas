@@ -19,15 +19,17 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialCliente?: ClienteSelecionado | null;
 }
 
 type Item = AddedItem & { observacao?: string };
 
-export function PedidoVendaForm({ open, onOpenChange }: Props) {
+export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
 
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
+
   const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
