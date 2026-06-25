@@ -547,16 +547,23 @@ export default function PedidosVendaPage() {
 
 function ClienteCard({
   cliente,
+  badge,
   onCreatePedido,
 }: {
   cliente: ClienteVendedor;
+  badge?: string;
   onCreatePedido: (c: ClienteVendedor) => void;
 }) {
   return (
     <Card className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+            {badge && (
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">{badge}</Badge>
+            )}
+          </div>
           {cliente.nome_fantasia && (
             <div className="text-xs text-muted-foreground truncate">{cliente.nome}</div>
           )}
@@ -577,4 +584,67 @@ function ClienteCard({
     </Card>
   );
 }
+
+function ErpClienteCard({
+  cliente,
+  onCreatePedido,
+}: {
+  cliente: ERPClientLite;
+  onCreatePedido: (c: ERPClientLite) => void;
+}) {
+  const parts = getERPClientAddressParts(cliente);
+  const endereco = [parts.endereco, parts.numero && `nº ${parts.numero}`, parts.bairro, parts.cidade]
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{cliente.nickname || cliente.name}</div>
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">ERP</Badge>
+          </div>
+          {cliente.nickname && cliente.name !== cliente.nickname && (
+            <div className="text-xs text-muted-foreground truncate">{cliente.name}</div>
+          )}
+          {cliente.document && (
+            <div className="text-sm text-muted-foreground">CPF/CNPJ: {cliente.document}</div>
+          )}
+          {endereco && <div className="text-sm text-muted-foreground line-clamp-2">{endereco}</div>}
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => onCreatePedido(cliente)}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ErpOnlyCard({
+  idErp,
+  nome,
+  onCreatePedido,
+}: {
+  idErp: string;
+  nome: string;
+  onCreatePedido: () => void;
+}) {
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{nome}</div>
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">ERP</Badge>
+          </div>
+          <div className="text-xs text-muted-foreground">ID ERP: {idErp}</div>
+        </div>
+        <Button size="sm" className="shrink-0" onClick={onCreatePedido}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 
