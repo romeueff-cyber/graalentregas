@@ -17,6 +17,8 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+
 
 interface ERPClientLite {
   id: string | number;
@@ -121,6 +123,8 @@ export default function PedidosVendaPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isVendedor, canApprovePedidoVenda } = useAuth();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
@@ -216,7 +220,10 @@ export default function PedidosVendaPage() {
       setErpLoading(true);
       setErpError(null);
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200`;
+        const empresasQuery = (selectedEmpresa ? [selectedEmpresa] : allowedEmpresas).join(',');
+        const empParam = empresasQuery ? `&empresas=${encodeURIComponent(empresasQuery)}` : '';
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200${empParam}`;
+
         const { data: sess } = await supabase.auth.getSession();
         const r = await fetch(url, {
           headers: {
@@ -244,7 +251,7 @@ export default function PedidosVendaPage() {
     return () => {
       if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
     };
-  }, [erpSearch]);
+  }, [erpSearch, selectedEmpresa, allowedEmpresas]);
 
   const localErpIds = useMemo(
     () => new Set(clientes.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),

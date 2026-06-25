@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
 import { erpOrdersCache, type ERPCacheStatus } from '@/lib/erp-cache';
 import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+
 
 interface OrderItem {
   product: string;
@@ -23,7 +25,9 @@ interface OrderEquipment {
 export interface DailyOrderData {
   order_number: string;
   client_id?: string | number;
+  id_empresa?: number | null;
   client_name: string;
+
   phone: string | null;
   expected_delivery: string | null;
   expected_return: string | null;
@@ -43,6 +47,7 @@ export interface DailyOrderData {
 
 export function useDailyOrders() {
   const queryClient = useQueryClient();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const [isOnline, setIsOnline] = useState(checkOnline());
   const [cacheStatus, setCacheStatus] = useState<ERPCacheStatus | null>(null);
   const hasTriedAutoSync = useRef(false);
@@ -50,6 +55,12 @@ export function useDailyOrders() {
   const today = useMemo(() => {
     return getTodaySaoPaulo();
   }, []);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
 
   // Update cache status
   const updateCacheStatus = useCallback(async () => {
@@ -79,14 +90,15 @@ export function useDailyOrders() {
   }, [updateCacheStatus]);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
-    queryKey: ['daily-orders-hook', today],
+    queryKey: ['daily-orders-hook', today, empresasFilter.join(',')],
     queryFn: async () => {
       // Try to fetch from network first
       if (isOnline) {
         try {
           const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-            body: { date: today },
+            body: { date: today, empresas: empresasFilter },
           });
+
           
           if (error) throw error;
           
@@ -178,9 +190,17 @@ export function useDailyOrders() {
     return !hasChopeira(order);
   };
 
+  const filteredOrders = useMemo(() => {
+    const all = orders || [];
+    if (!empresasFilter.length) return all;
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(o.id_empresa as any));
+  }, [orders, empresasFilter]);
+
+
   return {
-    orders: orders || [],
+    orders: filteredOrders,
     isLoading,
+
     isFetching,
     refetch,
     forceRefresh,

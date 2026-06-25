@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
 import { erpOrdersCache, type ERPCacheStatus } from '@/lib/erp-cache';
 import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import type { DailyOrderData } from '@/hooks/useDailyOrders';
 
 export { type DailyOrderData } from '@/hooks/useDailyOrders';
+
 
 interface UseERPOrdersOptions {
   date?: string;
@@ -15,9 +17,16 @@ interface UseERPOrdersOptions {
 
 export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {}) {
   const queryClient = useQueryClient();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const [isOnline, setIsOnline] = useState(checkOnline());
   const [cacheStatus, setCacheStatus] = useState<ERPCacheStatus | null>(null);
   const hasTriedAutoSync = useRef(false);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
 
   const targetDate = useMemo(() => {
     return date || getTodaySaoPaulo();
@@ -54,14 +63,15 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
   }, [updateCacheStatus]);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
-    queryKey: ['erp-orders', targetDate],
+    queryKey: ['erp-orders', targetDate, empresasFilter.join(',')],
     queryFn: async () => {
       // Try to fetch from network first
       if (isOnline) {
         try {
           const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-            body: { date: targetDate },
+            body: { date: targetDate, empresas: empresasFilter },
           });
+
           
           if (error) throw error;
           
@@ -125,8 +135,15 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
     await refetch();
   }, [isOnline, queryClient, targetDate, refetch]);
 
+  const filteredOrders = useMemo(() => {
+    const all = orders || [];
+    if (!empresasFilter.length) return all;
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(o.id_empresa as any));
+  }, [orders, empresasFilter]);
+
   return {
-    orders: orders || [],
+    orders: filteredOrders,
+
     isLoading,
     isFetching,
     refetch,

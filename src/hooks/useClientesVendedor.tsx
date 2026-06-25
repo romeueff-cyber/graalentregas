@@ -113,12 +113,13 @@ export function useClientesVendedor() {
     onError: (e: any) => toast.error(e.message || 'Erro ao cadastrar cliente'),
   });
 
-  // Filtra clientes pela empresa ativa (se houver). Mantém clientes sem empresa definida.
+  // Filtra clientes pela empresa ativa. Se houver empresa selecionada, mostra apenas os dessa empresa.
   const clientesFiltrados = useMemo(() => {
     const all = query.data || [];
     if (!selectedEmpresa) return all;
-    return all.filter(c => !c.id_empresa || c.id_empresa === selectedEmpresa);
+    return all.filter(c => c.id_empresa === selectedEmpresa);
   }, [query.data, selectedEmpresa]);
+
 
   return {
     clientes: clientesFiltrados,
