@@ -40,8 +40,6 @@ export default function SettingsPage() {
       console.error('Update check error:', error);
       toast.error('Erro ao verificar atualização');
       setIsCheckingUpdate(false);
-    } finally {
-      // O estado só volta ao normal se o recarregamento for bloqueado por algum erro.
     }
   }, []);
 
