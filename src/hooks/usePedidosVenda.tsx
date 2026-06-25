@@ -109,9 +109,11 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
     mutationFn: async (input: NovoPedidoVendaInput) => {
       if (!user) throw new Error('Não autenticado');
       const { itens, ...pedidoData } = input;
+      const idEmpresa = pedidoData.id_empresa ?? selectedEmpresa;
+      if (!idEmpresa) throw new Error('Empresa não carregada. Atualize a página e tente novamente.');
       const { data: pedido, error } = await supabase
         .from('pedidos_venda')
-        .insert({ ...pedidoData, id_empresa: pedidoData.id_empresa ?? selectedEmpresa ?? 1, vendedor_id: user.id })
+        .insert({ ...pedidoData, id_empresa: idEmpresa, vendedor_id: user.id })
         .select()
         .single();
       if (error) throw error;

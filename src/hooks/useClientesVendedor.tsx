@@ -98,9 +98,11 @@ export function useClientesVendedor() {
   const createCliente = useMutation({
     mutationFn: async (input: NovoClienteInput) => {
       if (!user) throw new Error('Não autenticado');
+      const idEmpresa = selectedEmpresa ?? allowedEmpresas[0];
+      if (!idEmpresa) throw new Error('Empresa não carregada. Atualize a página e tente novamente.');
       const { data, error } = await supabase
         .from('clientes_vendedor')
-        .insert({ ...input, vendedor_id: user.id, origem: 'app' })
+        .insert({ ...input, vendedor_id: user.id, origem: 'app', id_empresa: idEmpresa })
         .select()
         .single();
       if (error) throw error;
