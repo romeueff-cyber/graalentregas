@@ -32,44 +32,99 @@ export default function SettingsPage() {
 
   const handleCheckUpdate = useCallback(async () => {
     setIsCheckingUpdate(true);
+
+    const reload = () => {
+      // Avoid double reload via controllerchange
+      window.removeEventListener('beforeunload', () => {});
+      window.location.reload();
+    };
+
     try {
-      const registration = await navigator.serviceWorker?.getRegistration();
-      if (registration) {
-        // Force the SW to check the server for a new version
-        await registration.update();
-
-        // Give the browser a moment to evaluate the new SW
-        await new Promise((r) => setTimeout(r, 1000));
-
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          toast.success('Nova versão encontrada! Atualizando...');
-          setTimeout(() => window.location.reload(), 1500);
-        } else if (registration.installing) {
-          toast.success('Nova versão sendo instalada... Aguarde.');
-          registration.installing.addEventListener('statechange', (e) => {
-            if ((e.target as ServiceWorker).state === 'installed') {
-              toast.success('Atualização pronta! Recarregando...');
-              setTimeout(() => window.location.reload(), 1000);
-            }
-          });
-        } else {
-          // Also try clearing caches and doing a hard reload as fallback
-          if ('caches' in window) {
-            const cacheNames = await caches.keys();
-            await Promise.all(cacheNames.map((name) => caches.delete(name)));
-          }
-          toast.info('Você já está na versão mais recente!');
-        }
-      } else {
-        // No SW registered - just clear caches and reload
+      if (!('serviceWorker' in navigator)) {
         if ('caches' in window) {
-          const cacheNames = await caches.keys();
-          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
         }
-        toast.info('Recarregando aplicação...');
-        window.location.reload();
+        reload();
+        return;
       }
+
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
+        }
+        reload();
+        return;
+      }
+
+      // Reload once the new SW takes control
+      let reloaded = false;
+      const onControllerChange = () => {
+        if (reloaded) return;
+        reloaded = true;
+        reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+      const activateWaiting = (sw: ServiceWorker) => {
+        sw.postMessage({ type: 'SKIP_WAITING' });
+      };
+
+      // Already waiting -> activate immediately
+      if (registration.waiting) {
+        toast.success('Atualizando para a nova versão...');
+        activateWaiting(registration.waiting);
+        // Fallback in case controllerchange doesn't fire
+        setTimeout(reload, 4000);
+        return;
+      }
+
+      // Wait for any new SW to be discovered and installed
+      const installedPromise = new Promise<ServiceWorker | null>((resolve) => {
+        const onUpdateFound = () => {
+          const sw = registration.installing;
+          if (!sw) return resolve(null);
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed') resolve(sw);
+            if (sw.state === 'redundant') resolve(null);
+          });
+        };
+        registration.addEventListener('updatefound', onUpdateFound);
+
+        // Also handle case where update() finds one immediately
+        if (registration.installing) onUpdateFound();
+      });
+
+      toast.info('Procurando nova versão...');
+      await registration.update();
+
+      // Race: installed within 20s OR no update
+      const result = await Promise.race<ServiceWorker | null | 'timeout'>([
+        installedPromise,
+        new Promise((r) => setTimeout(() => r('timeout'), 20000)),
+      ]);
+
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+
+      if (result && result !== 'timeout') {
+        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+        toast.success('Nova versão pronta! Recarregando...');
+        activateWaiting(result);
+        setTimeout(reload, 3000);
+        return;
+      }
+
+      if (registration.waiting) {
+        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+        toast.success('Nova versão pronta! Recarregando...');
+        activateWaiting(registration.waiting);
+        setTimeout(reload, 3000);
+        return;
+      }
+
+      toast.info('Você já está na versão mais recente!');
     } catch (error) {
       console.error('Update check error:', error);
       toast.error('Erro ao verificar atualização');
@@ -77,6 +132,7 @@ export default function SettingsPage() {
       setIsCheckingUpdate(false);
     }
   }, []);
+
   
   // Geo settings local state
   const [geoAtivo, setGeoAtivo] = useState(false);
