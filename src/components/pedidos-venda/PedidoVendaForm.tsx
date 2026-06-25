@@ -450,7 +450,10 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               <div>
                 <Label>Horário de entrega</Label>
                 <Input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
+              </div>
             </div>
+
+
 
 
 
