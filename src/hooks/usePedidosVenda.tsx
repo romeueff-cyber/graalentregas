@@ -117,6 +117,17 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
           .insert(itens.map((i) => ({ ...i, pedido_id: pedido.id })));
         if (itensErr) throw itensErr;
       }
+
+      // Notifica grupo do WhatsApp via Zapster (não bloqueia em caso de falha)
+      try {
+        const { error: notifyErr } = await supabase.functions.invoke('notify-pedido-venda-whatsapp', {
+          body: { pedidoId: pedido.id },
+        });
+        if (notifyErr) console.warn('[pedido venda] notificação WhatsApp falhou', notifyErr);
+      } catch (e) {
+        console.warn('[pedido venda] notificação WhatsApp erro', e);
+      }
+
       return pedido;
     },
     onSuccess: () => {
