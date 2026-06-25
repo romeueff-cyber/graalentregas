@@ -31,6 +31,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [horario, setHorario] = useState('');
   const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
+  const [numero, setNumero] = useState('');
+  const [bairro, setBairro] = useState('');
   const [latLng, setLatLng] = useState<{ lat?: number; lng?: number }>({});
   const [overrideEndereco, setOverrideEndereco] = useState(false);
   const [observacoes, setObservacoes] = useState('');
@@ -46,6 +48,11 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     equipamentos: Item[];
   } | null>(null);
 
+  const composeEndereco = (rua: string, num: string, bai: string) => {
+    const parts = [rua.trim(), num.trim() && `nº ${num.trim()}`, bai.trim() && `Bairro ${bai.trim()}`]
+      .filter(Boolean);
+    return parts.join(', ');
+  };
 
   const resetForm = () => {
     setClienteSel(null);
@@ -53,6 +60,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setHorario('');
     setEnderecoCadastrado('');
     setEnderecoEntrega('');
+    setNumero('');
+    setBairro('');
     setLatLng({});
     setOverrideEndereco(false);
     setObservacoes('');
@@ -67,18 +76,33 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       const addr = v.cliente.endereco || '';
       setEnderecoCadastrado(addr);
       setEnderecoEntrega(addr);
+      setNumero('');
+      setBairro('');
       setLatLng({
         lat: v.cliente.latitude ?? undefined,
         lng: v.cliente.longitude ?? undefined,
       });
+    } else if (v?.tipo === 'erp') {
+      const rua = v.endereco || '';
+      const num = v.numero || '';
+      const bai = v.bairro || '';
+      const cid = [v.cidade, v.uf].filter(Boolean).join('/');
+      const cadastrado = [composeEndereco(rua, num, bai), cid].filter(Boolean).join(' - ');
+      setEnderecoCadastrado(cadastrado);
+      setEnderecoEntrega(rua);
+      setNumero(num);
+      setBairro(bai);
+      setLatLng({ lat: v.lat, lng: v.lng });
+      if (!cadastrado) setOverrideEndereco(true);
     } else {
-      // ERP-only client: no address available locally
       setEnderecoCadastrado('');
       setEnderecoEntrega('');
+      setNumero('');
+      setBairro('');
       setLatLng({});
-      if (v) setOverrideEndereco(true);
     }
   };
+
 
   const handleAdd = (item: AddedItem) => {
     if (item.tipo === 'produto') setProdutos((a) => [...a, item]);
