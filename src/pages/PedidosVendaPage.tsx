@@ -420,10 +420,44 @@ export default function PedidosVendaPage() {
               </Button>
             </div>
 
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={erpSearch}
+                onChange={(e) => setErpSearch(e.target.value)}
+                placeholder="Buscar cliente no ERP (nome, CNPJ)..."
+                className="pl-8"
+              />
+              {erpLoading && (
+                <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            {erpSearch.trim().length >= 2 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1 flex items-center gap-1">
+                  <Database className="w-3 h-3" /> Resultados do ERP
+                </div>
+                {erpError ? (
+                  <Card className="p-3 text-sm text-destructive">{erpError}</Card>
+                ) : erpResultsFiltrados.length === 0 && !erpLoading ? (
+                  <Card className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum cliente encontrado no ERP.
+                  </Card>
+                ) : (
+                  erpResultsFiltrados.map((e) => (
+                    <ErpClienteCard key={String(e.id)} cliente={e} onCreatePedido={openCreateForErpCliente} />
+                  ))
+                )}
+              </div>
+            )}
+
             {loadingClientes ? (
               <div className="flex justify-center py-10"><LoadingSpinner /></div>
-            ) : clientes.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground">Nenhum cliente cadastrado.</Card>
+            ) : clientes.length === 0 && clientesRecentes.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                Nenhum cliente cadastrado. Use a busca acima para encontrar clientes do ERP.
+              </Card>
             ) : (
               <>
                 {clientesRecentes.length > 0 && (
@@ -431,9 +465,28 @@ export default function PedidosVendaPage() {
                     <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1">
                       Pedidos recentes
                     </div>
-                    {clientesRecentes.map((c) => (
-                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
-                    ))}
+                    {clientesRecentes.map((r, idx) => {
+                      if (r.kind === 'erp-only') {
+                        return (
+                          <ErpOnlyCard
+                            key={`erp-only-${r.idErp}`}
+                            idErp={r.idErp}
+                            nome={r.nome}
+                            onCreatePedido={() =>
+                              openCreateForErpCliente({ id: r.idErp, name: r.nome })
+                            }
+                          />
+                        );
+                      }
+                      return (
+                        <ClienteCard
+                          key={r.cliente.id}
+                          cliente={r.cliente}
+                          badge={r.kind === 'erp-local' ? 'ERP' : undefined}
+                          onCreatePedido={openCreateForCliente}
+                        />
+                      );
+                    })}
                   </div>
                 )}
                 {outrosClientes.length > 0 && (
@@ -451,6 +504,7 @@ export default function PedidosVendaPage() {
               </>
             )}
           </TabsContent>
+
         </Tabs>
       </div>
 
