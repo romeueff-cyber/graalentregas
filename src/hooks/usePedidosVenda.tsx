@@ -76,7 +76,7 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
 
   const query = useQuery({
     queryKey: ['pedidos-venda', scope, user?.id, selectedEmpresa],
-    enabled: !!user,
+    enabled: !!user && selectedEmpresa != null,
     queryFn: async (): Promise<PedidoVenda[]> => {
       let q = supabase
         .from('pedidos_venda')
