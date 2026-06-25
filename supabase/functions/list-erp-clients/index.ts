@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const qs = new URLSearchParams();
-    for (const k of ['vendedor_id', 'client_id', 'search', 'limit']) {
+    for (const k of ['vendedor_id', 'client_id', 'search', 'limit', 'empresas']) {
       const v = url.searchParams.get(k);
       if (v) qs.set(k, v);
     }
