@@ -65,7 +65,6 @@ export function useClientesVendedor() {
     queryFn: async (): Promise<ClienteVendedor[]> => {
       let q = supabase.from('clientes_vendedor').select('*').order('nome');
       if (!canApprovePedidoVenda && user) {
-        // Vendedor vê: seus clientes + clientes sem vendedor atribuído
         q = q.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
       }
       const { data, error } = await q;
