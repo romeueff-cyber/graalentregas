@@ -209,6 +209,27 @@ export type Database = {
         }
         Relationships: []
       }
+      empresa_settings: {
+        Row: {
+          created_at: string
+          empresa_id: number
+          updated_at: string
+          whatsapp_recipient: string | null
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: number
+          updated_at?: string
+          whatsapp_recipient?: string | null
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: number
+          updated_at?: string
+          whatsapp_recipient?: string | null
+        }
+        Relationships: []
+      }
       equipment_history: {
         Row: {
           action_type: string
