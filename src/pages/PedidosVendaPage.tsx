@@ -125,23 +125,11 @@ export default function PedidosVendaPage() {
     return [...meus, ...pendentes].find((p) => p.id === pedidoIdFromUrl) ?? null;
   }, [pedidoIdFromUrl, meus, pendentes]);
 
-  useEffect(() => {
-    if (pedidoFromUrl) setDetailPedido(pedidoFromUrl);
-  }, [pedidoFromUrl]);
-
   const handleRefuse = async () => {
     if (!refuseTarget || !motivo.trim()) return;
     await refusePedido.mutateAsync({ pedidoId: refuseTarget.id, motivo });
     setRefuseTarget(null);
     setMotivo('');
-  };
-
-  const closeDetail = () => {
-    setDetailPedido(null);
-    if (searchParams.get('pedido')) {
-      searchParams.delete('pedido');
-      setSearchParams(searchParams, { replace: true });
-    }
   };
 
   // Modo focado: link direto para um pedido específico
