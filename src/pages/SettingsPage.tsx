@@ -220,7 +220,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background pb-safe-area-bottom">
       {/* Header */}
       <div className="sticky top-0 z-10 glass border-b px-4 py-3 safe-area-top">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -228,7 +228,17 @@ export default function SettingsPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Configurações</h1>
+          <h1 className="text-lg font-semibold flex-1">Configurações</h1>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleCheckUpdate}
+            disabled={isCheckingUpdate}
+          >
+            {isCheckingUpdate ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-4 h-4" />}
+            Atualizar
+          </Button>
         </div>
       </div>
 
