@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { authStorage, isOnline } from '@/lib/offline-storage';
 import { isAbortErrorLike, toFriendlyAuthError } from '@/lib/abort-error';
 import type { AppRole, Profile } from '@/types/database';
+import { queryClient } from '@/App';
 
 interface AuthContextType {
   user: User | null;
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const lastUserRef = useRef<string | null>(null);
 
   // Listen for online/offline changes
   useEffect(() => {
@@ -87,6 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Set up auth state listener
       const { data } = supabase.auth.onAuthStateChange(
         (event, session) => {
+          const nextUserId = session?.user?.id ?? null;
+          if (lastUserRef.current !== nextUserId) {
+            queryClient.clear();
+            lastUserRef.current = nextUserId;
+          }
           setSession(session);
           setUser(session?.user ?? null);
 
@@ -115,6 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+        const nextUserId = session?.user?.id ?? null;
+        if (lastUserRef.current !== nextUserId) {
+          queryClient.clear();
+          lastUserRef.current = nextUserId;
+        }
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -124,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // No valid online session - clear stale cache if session is null (expired)
           if (!cachedAuth || !isValid) {
             await authStorage.clear();
+      queryClient.clear();
+      lastUserRef.current = null;
           }
           clearTimeout(timeoutId);
           setIsLoading(false);
@@ -254,6 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     await authStorage.clear();
+    queryClient.clear();
+    lastUserRef.current = null;
     setUser(null);
     setSession(null);
     setProfile(null);
