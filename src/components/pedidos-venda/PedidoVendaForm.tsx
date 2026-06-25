@@ -19,15 +19,17 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialCliente?: ClienteSelecionado | null;
 }
 
 type Item = AddedItem & { observacao?: string };
 
-export function PedidoVendaForm({ open, onOpenChange }: Props) {
+export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
 
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
+
   const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
@@ -300,6 +302,16 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clienteSel, clientes, overrideEndereco, enderecoCadastrado]);
 
+  // Pré-seleciona cliente quando a janela abre via "Criar pedido" no card do cliente
+  useEffect(() => {
+    if (!open) return;
+    if (initialCliente && !clienteSel) {
+      handleClienteChange(initialCliente);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialCliente]);
+
+
 
   const handleAdd = (item: AddedItem) => {
     if (item.tipo === 'produto') setProdutos((a) => [...a, item]);
@@ -446,10 +458,15 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                 <Input type="date" value={dataEntrega} onChange={(e) => setDataEntrega(e.target.value)} />
               </div>
               <div>
-                <Label>Horário / período</Label>
-                <Input placeholder="ex: MANHA, 14:00" value={horario} onChange={(e) => setHorario(e.target.value)} />
+                <Label>Horário de entrega</Label>
+                <Input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
               </div>
             </div>
+
+
+
+
+
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">

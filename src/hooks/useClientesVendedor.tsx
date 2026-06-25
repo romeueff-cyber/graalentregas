@@ -74,6 +74,25 @@ export function useClientesVendedor() {
     },
   });
 
+  const syncFromErp = async () => {
+    if (!isVendedor) {
+      await query.refetch();
+      return { synced: 0 };
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-vendedor-clients', { body: {} });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['clientes-vendedor'] });
+      const synced = data?.synced ?? 0;
+      if (synced > 0) toast.success(`${synced} cliente(s) do ERP sincronizado(s)`);
+      else toast.success('Lista atualizada');
+      return { synced };
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao atualizar clientes');
+      throw e;
+    }
+  };
+
   const createCliente = useMutation({
     mutationFn: async (input: NovoClienteInput) => {
       if (!user) throw new Error('Não autenticado');
@@ -95,6 +114,10 @@ export function useClientesVendedor() {
   return {
     clientes: query.data || [],
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
+    syncFromErp,
     createCliente,
   };
 }
+

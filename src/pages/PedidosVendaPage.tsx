@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { usePedidosVenda, PedidoVenda, PedidoVendaStatus } from '@/hooks/usePedidosVenda';
-import { useClientesVendedor } from '@/hooks/useClientesVendedor';
+import { useClientesVendedor, ClienteVendedor } from '@/hooks/useClientesVendedor';
 import { PedidoVendaForm } from '@/components/pedidos-venda/PedidoVendaForm';
 import { ClienteVendedorForm } from '@/components/pedidos-venda/ClienteVendedorForm';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
+
 
 const statusMeta: Record<PedidoVendaStatus, { label: string; icon: any; className: string }> = {
   pendente_aprovacao: { label: 'Pendente', icon: Clock, className: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30' },
@@ -111,13 +113,41 @@ export default function PedidosVendaPage() {
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
   const [motivo, setMotivo] = useState('');
-  
+  const [initialCliente, setInitialCliente] = useState<ClienteSelecionado | null>(null);
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
   const { pedidos: pendentes, isLoading: loadingPend, approvePedido, refusePedido } =
     usePedidosVenda({ scope: 'pendentes' });
-  const { clientes, isLoading: loadingClientes } = useClientesVendedor();
+  const { clientes, isLoading: loadingClientes, isFetching: fetchingClientes, syncFromErp } = useClientesVendedor();
+
+  const openCreateForCliente = (c: ClienteVendedor) => {
+    setInitialCliente({ tipo: 'app', cliente: c });
+    setShowForm(true);
+  };
+
+  // 7 clientes mais recentes com pedidos (dedupe por cliente_vendedor_id)
+  const clientesRecentes = useMemo(() => {
+    const seen = new Set<string>();
+    const recent: ClienteVendedor[] = [];
+    for (const p of meus) {
+      const cid = p.cliente_vendedor_id;
+      if (!cid || seen.has(cid)) continue;
+      const cli = clientes.find((c) => c.id === cid);
+      if (!cli) continue;
+      seen.add(cid);
+      recent.push(cli);
+      if (recent.length >= 7) break;
+    }
+    return recent;
+  }, [meus, clientes]);
+
+  const recentesIds = useMemo(() => new Set(clientesRecentes.map((c) => c.id)), [clientesRecentes]);
+  const outrosClientes = useMemo(
+    () => clientes.filter((c) => !recentesIds.has(c.id)),
+    [clientes, recentesIds],
+  );
+
 
   const pedidoIdFromUrl = searchParams.get('pedido');
   const pedidoFromUrl = useMemo(() => {
@@ -266,34 +296,65 @@ export default function PedidosVendaPage() {
           )}
 
           <TabsContent value="clientes" className="space-y-3 mt-4">
-            <Button variant="outline" className="w-full" onClick={() => setShowCliente(true)}>
-              <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCliente(true)}>
+                <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => syncFromErp()}
+                disabled={fetchingClientes}
+                title="Atualizar lista"
+              >
+                <RefreshCw className={`w-4 h-4 ${fetchingClientes ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+
             {loadingClientes ? (
               <div className="flex justify-center py-10"><LoadingSpinner /></div>
             ) : clientes.length === 0 ? (
               <Card className="p-8 text-center text-muted-foreground">Nenhum cliente cadastrado.</Card>
             ) : (
-              clientes.map((c) => (
-                <Card key={c.id} className="p-3">
-                  <div className="font-medium">{c.nome_fantasia || c.nome}</div>
-                  {c.nome_fantasia && <div className="text-xs text-muted-foreground">{c.nome}</div>}
-                  <div className="text-sm text-muted-foreground">CPF/CNPJ: {c.cpf_cnpj}</div>
-                  <div className="text-sm text-muted-foreground">{c.endereco}</div>
-                  {(c.telefone || c.email) && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {c.telefone}{c.telefone && c.email && ' • '}{c.email}
+              <>
+                {clientesRecentes.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1">
+                      Pedidos recentes
                     </div>
-                  )}
-                </Card>
-              ))
+                    {clientesRecentes.map((c) => (
+                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
+                    ))}
+                  </div>
+                )}
+                {outrosClientes.length > 0 && (
+                  <div className="space-y-2">
+                    {clientesRecentes.length > 0 && (
+                      <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1 pt-2">
+                        Todos os clientes
+                      </div>
+                    )}
+                    {outrosClientes.map((c) => (
+                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      <PedidoVendaForm open={showForm} onOpenChange={setShowForm} />
+      <PedidoVendaForm
+        open={showForm}
+        onOpenChange={(o) => {
+          setShowForm(o);
+          if (!o) setInitialCliente(null);
+        }}
+        initialCliente={initialCliente}
+      />
       <ClienteVendedorForm open={showCliente} onOpenChange={setShowCliente} />
+
 
       <Dialog open={!!refuseTarget} onOpenChange={(o) => !o && setRefuseTarget(null)}>
         <DialogContent>
@@ -320,3 +381,37 @@ export default function PedidosVendaPage() {
     </div>
   );
 }
+
+function ClienteCard({
+  cliente,
+  onCreatePedido,
+}: {
+  cliente: ClienteVendedor;
+  onCreatePedido: (c: ClienteVendedor) => void;
+}) {
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+          {cliente.nome_fantasia && (
+            <div className="text-xs text-muted-foreground truncate">{cliente.nome}</div>
+          )}
+          <div className="text-sm text-muted-foreground">CPF/CNPJ: {cliente.cpf_cnpj}</div>
+          <div className="text-sm text-muted-foreground line-clamp-2">{cliente.endereco}</div>
+          {(cliente.telefone || cliente.email) && (
+            <div className="text-xs text-muted-foreground mt-1 truncate">
+              {cliente.telefone}
+              {cliente.telefone && cliente.email && ' • '}
+              {cliente.email}
+            </div>
+          )}
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => onCreatePedido(cliente)}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
