@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { usePedidosVenda, PedidoVenda, PedidoVendaStatus } from '@/hooks/usePedidosVenda';
-import { useClientesVendedor } from '@/hooks/useClientesVendedor';
+import { useClientesVendedor, ClienteVendedor } from '@/hooks/useClientesVendedor';
 import { PedidoVendaForm } from '@/components/pedidos-venda/PedidoVendaForm';
 import { ClienteVendedorForm } from '@/components/pedidos-venda/ClienteVendedorForm';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
+
 
 const statusMeta: Record<PedidoVendaStatus, { label: string; icon: any; className: string }> = {
   pendente_aprovacao: { label: 'Pendente', icon: Clock, className: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30' },
