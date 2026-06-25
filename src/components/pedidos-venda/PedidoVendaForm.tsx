@@ -391,6 +391,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
       observacao: i.observacao,
       id_produto_erp: i.tipo === 'produto' ? i.id_erp || null : null,
       id_tipo_equipamento_erp: i.tipo === 'equipamento' ? i.id_erp || null : null,
+      preco_unitario: i.valor_unitario ?? null,
     }));
 
     const isApp = clienteSel.tipo === 'app';
@@ -588,6 +589,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
         mode={sheetMode ?? 'produto'}
         onOpenChange={(o) => !o && setSheetMode(null)}
         onAdd={handleAdd}
+        clientErpId={getIdClienteErp()}
       />
 
       <Dialog open={!!lastOrderPreview} onOpenChange={(o) => !o && setLastOrderPreview(null)}>
@@ -669,17 +671,25 @@ function ItemsSection({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {items.map((it, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 rounded-md">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{it.descricao}</div>
-                <div className="text-xs text-muted-foreground">Qtd: {it.quantidade}</div>
+          {items.map((it, idx) => {
+            const v = it.valor_unitario ?? null;
+            const sub = v != null ? v * it.quantidade : null;
+            return (
+              <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 rounded-md">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{it.descricao}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Qtd: {it.quantidade}
+                    {v != null && ` · ${v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
+                    {sub != null && ` · Subtotal: ${sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
