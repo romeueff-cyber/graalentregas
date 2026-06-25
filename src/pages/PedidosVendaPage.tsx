@@ -251,7 +251,7 @@ export default function PedidosVendaPage() {
     return () => {
       if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
     };
-  }, [erpSearch]);
+  }, [erpSearch, selectedEmpresa, allowedEmpresas]);
 
   const localErpIds = useMemo(
     () => new Set(clientes.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
