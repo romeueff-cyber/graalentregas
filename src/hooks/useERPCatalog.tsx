@@ -51,7 +51,13 @@ async function cachedFetch<T>(key: string, fetcher: () => Promise<T>): Promise<T
 
 const getERPField = (client: object | null | undefined, ...keys: string[]) => {
   if (!client) return undefined;
-  const entries = Object.entries(client);
+  const rootEntries = Object.entries(client);
+  const nestedAddress = rootEntries.find(([entryKey, value]) =>
+    entryKey.toLowerCase() === 'address' && value && typeof value === 'object' && !Array.isArray(value),
+  )?.[1] as object | undefined;
+  const entries = nestedAddress
+    ? [...rootEntries, ...Object.entries(nestedAddress)]
+    : rootEntries;
   for (const key of keys) {
     const found = entries.find(([entryKey, value]) =>
       entryKey.toLowerCase() === key.toLowerCase() && value != null && String(value).trim() !== '',
