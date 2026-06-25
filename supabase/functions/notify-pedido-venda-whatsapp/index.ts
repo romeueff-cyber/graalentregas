@@ -171,9 +171,9 @@ Deno.serve(async (req) => {
     const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const ZAPSTER_API_TOKEN = Deno.env.get('ZAPSTER_API_TOKEN');
     const ZAPSTER_INSTANCE_ID = Deno.env.get('ZAPSTER_INSTANCE_ID');
-    const ZAPSTER_GROUP_RECIPIENT = Deno.env.get('ZAPSTER_GROUP_RECIPIENT');
+    const ZAPSTER_GROUP_RECIPIENT_DEFAULT = Deno.env.get('ZAPSTER_GROUP_RECIPIENT');
 
-    if (!ZAPSTER_API_TOKEN || !ZAPSTER_INSTANCE_ID || !ZAPSTER_GROUP_RECIPIENT) {
+    if (!ZAPSTER_API_TOKEN || !ZAPSTER_INSTANCE_ID) {
       return new Response(JSON.stringify({ error: 'Zapster não configurado' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -249,8 +249,28 @@ Deno.serve(async (req) => {
     );
     const boletosFinal = [...enriquecidos, ...boletosPend.slice(5)];
 
+    // Recipient por empresa (fallback p/ env padrão)
+    let recipientRaw: string | null = ZAPSTER_GROUP_RECIPIENT_DEFAULT ?? null;
+    const empresaId = (pedido as { id_empresa?: number }).id_empresa;
+    if (empresaId) {
+      const { data: cfg } = await admin
+        .from('empresa_settings')
+        .select('whatsapp_recipient')
+        .eq('empresa_id', empresaId)
+        .maybeSingle();
+      const customRecipient = (cfg as { whatsapp_recipient?: string | null } | null)?.whatsapp_recipient;
+      if (customRecipient && customRecipient.trim()) {
+        recipientRaw = customRecipient.trim();
+      }
+    }
+    if (!recipientRaw) {
+      return new Response(JSON.stringify({ error: 'Destinatário WhatsApp não configurado para esta empresa' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome, boletosFinal);
-    const recipient = normalizeRecipient(ZAPSTER_GROUP_RECIPIENT);
+    const recipient = normalizeRecipient(recipientRaw);
 
     const resp = await fetch(ZAPSTER_URL, {
       method: 'POST',
