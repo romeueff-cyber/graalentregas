@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw, Search, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -14,6 +15,17 @@ import { PedidoVendaForm } from '@/components/pedidos-venda/PedidoVendaForm';
 import { ClienteVendedorForm } from '@/components/pedidos-venda/ClienteVendedorForm';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
+import { supabase } from '@/integrations/supabase/client';
+import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
+
+interface ERPClientLite {
+  id: string | number;
+  name: string;
+  nickname?: string;
+  document?: string;
+  [k: string]: unknown;
+}
+
 
 
 const statusMeta: Record<PedidoVendaStatus, { label: string; icon: any; className: string }> = {
@@ -126,27 +138,124 @@ export default function PedidosVendaPage() {
     setShowForm(true);
   };
 
-  // 7 clientes mais recentes com pedidos (dedupe por cliente_vendedor_id)
+  const openCreateForErpCliente = (e: ERPClientLite) => {
+    const parts = getERPClientAddressParts(e);
+    setInitialCliente({
+      tipo: 'erp',
+      id: String(e.id),
+      nome: e.name,
+      apelido: e.nickname,
+      documento: e.document,
+      endereco: parts.endereco,
+      bairro: parts.bairro,
+      numero: parts.numero,
+      cidade: parts.cidade,
+      uf: parts.uf,
+      cep: parts.cep,
+      lat: parts.lat,
+      lng: parts.lng,
+    });
+    setShowForm(true);
+  };
+
+  // 7 clientes mais recentes com pedidos (dedupe por cliente, app ou ERP)
   const clientesRecentes = useMemo(() => {
     const seen = new Set<string>();
-    const recent: ClienteVendedor[] = [];
+    const recent: Array<
+      | { kind: 'app'; cliente: ClienteVendedor }
+      | { kind: 'erp-local'; cliente: ClienteVendedor }
+      | { kind: 'erp-only'; idErp: string; nome: string }
+    > = [];
     for (const p of meus) {
       const cid = p.cliente_vendedor_id;
-      if (!cid || seen.has(cid)) continue;
-      const cli = clientes.find((c) => c.id === cid);
-      if (!cli) continue;
-      seen.add(cid);
-      recent.push(cli);
+      const eid = p.id_cliente_erp;
+      const key = cid ? `app:${cid}` : eid ? `erp:${eid}` : '';
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      if (cid) {
+        const cli = clientes.find((c) => c.id === cid);
+        if (cli) recent.push({ kind: 'app', cliente: cli });
+        else continue;
+      } else if (eid) {
+        const cliLocal = clientes.find((c) => c.id_cliente_erp === eid);
+        if (cliLocal) recent.push({ kind: 'erp-local', cliente: cliLocal });
+        else recent.push({ kind: 'erp-only', idErp: eid, nome: p.nome_cliente });
+      }
       if (recent.length >= 7) break;
     }
     return recent;
   }, [meus, clientes]);
 
-  const recentesIds = useMemo(() => new Set(clientesRecentes.map((c) => c.id)), [clientesRecentes]);
-  const outrosClientes = useMemo(
-    () => clientes.filter((c) => !recentesIds.has(c.id)),
-    [clientes, recentesIds],
+  const recentesAppIds = useMemo(
+    () => new Set(clientesRecentes.filter((r) => r.kind !== 'erp-only').map((r: any) => r.cliente.id)),
+    [clientesRecentes],
   );
+  const outrosClientes = useMemo(
+    () => clientes.filter((c) => !recentesAppIds.has(c.id)),
+    [clientes, recentesAppIds],
+  );
+
+  // Busca de clientes do ERP
+  const [erpSearch, setErpSearch] = useState('');
+  const [erpResults, setErpResults] = useState<ERPClientLite[]>([]);
+  const [erpLoading, setErpLoading] = useState(false);
+  const [erpError, setErpError] = useState<string | null>(null);
+  const erpDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
+    const term = erpSearch.trim();
+    if (term.length < 2) {
+      setErpResults([]);
+      setErpError(null);
+      setErpLoading(false);
+      return;
+    }
+    erpDebounceRef.current = window.setTimeout(async () => {
+      setErpLoading(true);
+      setErpError(null);
+      try {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200`;
+        const { data: sess } = await supabase.auth.getSession();
+        const r = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${sess.session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
+        const text = await r.text();
+        let j: any = null;
+        try { j = JSON.parse(text); } catch { /* */ }
+        if (!r.ok) {
+          setErpError(String(j?.error || `HTTP ${r.status}`));
+          setErpResults([]);
+          return;
+        }
+        const arr: ERPClientLite[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : [];
+        setErpResults(arr);
+      } catch (e: any) {
+        setErpError(e?.message || 'Falha de rede');
+        setErpResults([]);
+      } finally {
+        setErpLoading(false);
+      }
+    }, 350);
+    return () => {
+      if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
+    };
+  }, [erpSearch]);
+
+  const localErpIds = useMemo(
+    () => new Set(clientes.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
+    [clientes],
+  );
+  const erpResultsFiltrados = useMemo(
+    () => erpResults.filter((e) => !localErpIds.has(String(e.id))),
+    [erpResults, localErpIds],
+  );
+
+
 
 
   const pedidoIdFromUrl = searchParams.get('pedido');
@@ -311,10 +420,44 @@ export default function PedidosVendaPage() {
               </Button>
             </div>
 
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={erpSearch}
+                onChange={(e) => setErpSearch(e.target.value)}
+                placeholder="Buscar cliente no ERP (nome, CNPJ)..."
+                className="pl-8"
+              />
+              {erpLoading && (
+                <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            {erpSearch.trim().length >= 2 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1 flex items-center gap-1">
+                  <Database className="w-3 h-3" /> Resultados do ERP
+                </div>
+                {erpError ? (
+                  <Card className="p-3 text-sm text-destructive">{erpError}</Card>
+                ) : erpResultsFiltrados.length === 0 && !erpLoading ? (
+                  <Card className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum cliente encontrado no ERP.
+                  </Card>
+                ) : (
+                  erpResultsFiltrados.map((e) => (
+                    <ErpClienteCard key={String(e.id)} cliente={e} onCreatePedido={openCreateForErpCliente} />
+                  ))
+                )}
+              </div>
+            )}
+
             {loadingClientes ? (
               <div className="flex justify-center py-10"><LoadingSpinner /></div>
-            ) : clientes.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground">Nenhum cliente cadastrado.</Card>
+            ) : clientes.length === 0 && clientesRecentes.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                Nenhum cliente cadastrado. Use a busca acima para encontrar clientes do ERP.
+              </Card>
             ) : (
               <>
                 {clientesRecentes.length > 0 && (
@@ -322,9 +465,28 @@ export default function PedidosVendaPage() {
                     <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1">
                       Pedidos recentes
                     </div>
-                    {clientesRecentes.map((c) => (
-                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
-                    ))}
+                    {clientesRecentes.map((r, idx) => {
+                      if (r.kind === 'erp-only') {
+                        return (
+                          <ErpOnlyCard
+                            key={`erp-only-${r.idErp}`}
+                            idErp={r.idErp}
+                            nome={r.nome}
+                            onCreatePedido={() =>
+                              openCreateForErpCliente({ id: r.idErp, name: r.nome })
+                            }
+                          />
+                        );
+                      }
+                      return (
+                        <ClienteCard
+                          key={r.cliente.id}
+                          cliente={r.cliente}
+                          badge={r.kind === 'erp-local' ? 'ERP' : undefined}
+                          onCreatePedido={openCreateForCliente}
+                        />
+                      );
+                    })}
                   </div>
                 )}
                 {outrosClientes.length > 0 && (
@@ -342,6 +504,7 @@ export default function PedidosVendaPage() {
               </>
             )}
           </TabsContent>
+
         </Tabs>
       </div>
 
@@ -384,16 +547,23 @@ export default function PedidosVendaPage() {
 
 function ClienteCard({
   cliente,
+  badge,
   onCreatePedido,
 }: {
   cliente: ClienteVendedor;
+  badge?: string;
   onCreatePedido: (c: ClienteVendedor) => void;
 }) {
   return (
     <Card className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+            {badge && (
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">{badge}</Badge>
+            )}
+          </div>
           {cliente.nome_fantasia && (
             <div className="text-xs text-muted-foreground truncate">{cliente.nome}</div>
           )}
@@ -414,4 +584,67 @@ function ClienteCard({
     </Card>
   );
 }
+
+function ErpClienteCard({
+  cliente,
+  onCreatePedido,
+}: {
+  cliente: ERPClientLite;
+  onCreatePedido: (c: ERPClientLite) => void;
+}) {
+  const parts = getERPClientAddressParts(cliente);
+  const endereco = [parts.endereco, parts.numero && `nº ${parts.numero}`, parts.bairro, parts.cidade]
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{cliente.nickname || cliente.name}</div>
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">ERP</Badge>
+          </div>
+          {cliente.nickname && cliente.name !== cliente.nickname && (
+            <div className="text-xs text-muted-foreground truncate">{cliente.name}</div>
+          )}
+          {cliente.document && (
+            <div className="text-sm text-muted-foreground">CPF/CNPJ: {cliente.document}</div>
+          )}
+          {endereco && <div className="text-sm text-muted-foreground line-clamp-2">{endereco}</div>}
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => onCreatePedido(cliente)}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ErpOnlyCard({
+  idErp,
+  nome,
+  onCreatePedido,
+}: {
+  idErp: string;
+  nome: string;
+  onCreatePedido: () => void;
+}) {
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="font-medium truncate">{nome}</div>
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 shrink-0">ERP</Badge>
+          </div>
+          <div className="text-xs text-muted-foreground">ID ERP: {idErp}</div>
+        </div>
+        <Button size="sm" className="shrink-0" onClick={onCreatePedido}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 
