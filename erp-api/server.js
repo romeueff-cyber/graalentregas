@@ -461,6 +461,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
       return {
         order_number: orderNumber,
         client_id: clientId,
+        id_empresa: order.ID_EMPRESA || null,
+
         client_name: order.NOME || order.APELIDO || '',
         phone: phone || null,
         expected_delivery: order.DATA_PREV_ENTREGA || null,
