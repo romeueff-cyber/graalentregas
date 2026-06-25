@@ -213,15 +213,32 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                     key={`erp-${e.id}`}
                     value={`erp-${e.id}`}
                     onSelect={() => {
+                      const get = (...keys: string[]) =>
+                        keys.map((k) => (e as any)[k]).find((v) => v != null && v !== '');
+                      const num = (v: any) => {
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : undefined;
+                      };
                       onChange({
                         tipo: 'erp',
                         id: String(e.id),
                         nome: e.name,
                         apelido: e.nickname,
                         documento: e.document,
+                        endereco: get('address', 'street', 'endereco', 'logradouro'),
+                        bairro: get('neighborhood', 'district', 'bairro'),
+                        numero: get('number', 'numero')
+                          ? String(get('number', 'numero'))
+                          : undefined,
+                        cidade: get('city', 'cidade'),
+                        uf: get('state', 'uf'),
+                        cep: get('postal_code', 'zip', 'cep'),
+                        lat: num(get('latitude', 'lat')),
+                        lng: num(get('longitude', 'lng')),
                       });
                       setOpen(false);
                     }}
+
                     className="flex items-start gap-2"
                   >
                     <Check className={cn('h-4 w-4 mt-0.5', selected ? 'opacity-100' : 'opacity-0')} />
