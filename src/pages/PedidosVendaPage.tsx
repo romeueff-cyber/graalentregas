@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -105,11 +105,13 @@ function PedidoCard({
 
 export default function PedidosVendaPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isVendedor, canApprovePedidoVenda } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
   const [motivo, setMotivo] = useState('');
+  const [detailPedido, setDetailPedido] = useState<PedidoVenda | null>(null);
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
@@ -117,11 +119,29 @@ export default function PedidosVendaPage() {
     usePedidosVenda({ scope: 'pendentes' });
   const { clientes, isLoading: loadingClientes } = useClientesVendedor();
 
+  const pedidoIdFromUrl = searchParams.get('pedido');
+  const pedidoFromUrl = useMemo(() => {
+    if (!pedidoIdFromUrl) return null;
+    return [...meus, ...pendentes].find((p) => p.id === pedidoIdFromUrl) ?? null;
+  }, [pedidoIdFromUrl, meus, pendentes]);
+
+  useEffect(() => {
+    if (pedidoFromUrl) setDetailPedido(pedidoFromUrl);
+  }, [pedidoFromUrl]);
+
   const handleRefuse = async () => {
     if (!refuseTarget || !motivo.trim()) return;
     await refusePedido.mutateAsync({ pedidoId: refuseTarget.id, motivo });
     setRefuseTarget(null);
     setMotivo('');
+  };
+
+  const closeDetail = () => {
+    setDetailPedido(null);
+    if (searchParams.get('pedido')) {
+      searchParams.delete('pedido');
+      setSearchParams(searchParams, { replace: true });
+    }
   };
 
   return (
@@ -242,6 +262,35 @@ export default function PedidosVendaPage() {
               Confirmar recusa
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!detailPedido} onOpenChange={(o) => !o && closeDetail()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do pedido</DialogTitle>
+          </DialogHeader>
+          {detailPedido && (
+            <PedidoCard
+              pedido={detailPedido}
+              showVendedor
+              showActions={
+                canApprovePedidoVenda && detailPedido.status === 'pendente_aprovacao'
+                  ? 'aprovacao'
+                  : isVendedor && detailPedido.status === 'pendente_aprovacao'
+                  ? 'vendedor'
+                  : null
+              }
+              onApprove={(id) => { approvePedido.mutate(id); closeDetail(); }}
+              onRefuse={(p) => { setRefuseTarget(p); closeDetail(); }}
+              onCancel={(id) => { cancelPedido.mutate(id); closeDetail(); }}
+            />
+          )}
+          {pedidoIdFromUrl && !detailPedido && (
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              Carregando pedido…
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
