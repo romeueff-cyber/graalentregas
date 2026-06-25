@@ -146,7 +146,22 @@ Deno.serve(async (req) => {
       vendedorNome = (prof as { name?: string } | null)?.name;
     }
 
-    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome);
+    // Boletos em aberto/atrasados do cliente (match por nome normalizado)
+    const normalize = (s: string) =>
+      (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+    const nomeAlvo = normalize(String(pedido.nome_cliente ?? ''));
+    let boletosPend: Array<{ total_amount: number; due_date: string; status: string; order_number: string }> = [];
+    if (nomeAlvo) {
+      const { data: bols } = await admin
+        .from('boletos')
+        .select('total_amount, due_date, status, order_number, customer_name')
+        .in('status', ['OPEN', 'LATE'])
+        .order('due_date', { ascending: true });
+      boletosPend = ((bols ?? []) as Array<{ customer_name: string; total_amount: number; due_date: string; status: string; order_number: string }>)
+        .filter((b) => normalize(b.customer_name) === nomeAlvo);
+    }
+
+    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome, boletosPend);
     const recipient = normalizeRecipient(ZAPSTER_GROUP_RECIPIENT);
 
     const resp = await fetch(ZAPSTER_URL, {
