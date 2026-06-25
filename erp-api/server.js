@@ -1038,6 +1038,56 @@ app.get('/api/clients/:clientId/last-order', authenticate, async (req, res) => {
   }
 });
 
+// ==========================================
+// LISTAR TODAS AS ALOCAÇÕES ATIVAS
+// Retorna todos os equipamentos atualmente ALOCADOS,
+// com cliente e data prevista de entrega (data de saída)
+// ==========================================
+app.get('/api/allocations', authenticate, async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        cl.ID_CLIENTE,
+        p.NOME AS CLIENTE_NOME,
+        p.APELIDO AS CLIENTE_APELIDO,
+        e.PATRIMONIO,
+        e.MODELO,
+        te.DESCRICAO AS TIPO,
+        ov.N_PEDIDO,
+        ov.DATA_PREV_ENTREGA
+      FROM EQUIPAMENTOS e
+      INNER JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
+      INNER JOIN FATURAMENTO f         ON f.ID_FATURAMENTO  = ef.ID_FATURAMENTO
+      LEFT  JOIN ORDENS_VENDA ov       ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
+      INNER JOIN CLIENTES cl           ON cl.ID_CLIENTE = f.ID_CLIENTE
+      INNER JOIN PESSOAS p             ON p.ID_PESSOA = cl.ID_PESSOA
+      LEFT  JOIN TIPO_EQUIPAMENTO te   ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
+      WHERE e.STATUS = 'ALOCADO'
+        AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
+        AND (e.DELETED IS NULL OR e.DELETED = 0)
+        AND (ef.DELETED IS NULL OR ef.DELETED = 0)
+        AND (f.DELETED IS NULL OR f.DELETED = 0)
+      ORDER BY p.NOME, te.DESCRICAO, e.PATRIMONIO
+    `;
+
+    const rows = await executeQuery(query, []);
+    res.json((rows || []).map(r => ({
+      client_id: r.ID_CLIENTE,
+      client_name: (r.CLIENTE_APELIDO || r.CLIENTE_NOME || '').trim(),
+      client_full_name: (r.CLIENTE_NOME || '').trim(),
+      patrimony: r.PATRIMONIO?.trim() || null,
+      model: r.MODELO?.trim() || null,
+      type: r.TIPO?.trim() || 'Equipamento',
+      order_number: r.N_PEDIDO?.toString() || null,
+      delivery_date: r.DATA_PREV_ENTREGA || null,
+    })));
+  } catch (error) {
+    console.error('Erro ao listar alocações:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
