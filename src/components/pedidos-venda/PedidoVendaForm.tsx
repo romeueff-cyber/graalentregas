@@ -14,6 +14,7 @@ import { AddressAutocomplete } from './AddressAutocomplete';
 import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, lastOrderToAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 
 interface Props {
@@ -27,6 +28,7 @@ type Item = AddedItem & { observacao?: string };
 export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
+  const { selectedEmpresa } = useEmpresa();
 
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
 
@@ -171,10 +173,16 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   const fetchClienteLocalCorrespondente = async (v: ClienteSelecionado) => {
     if (v.tipo !== 'erp') return null;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('clientes_vendedor')
       .select('*')
       .limit(2000);
+
+    if (selectedEmpresa) {
+      query = query.eq('id_empresa', selectedEmpresa);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.warn('[pedido venda] erro ao buscar cliente local correspondente', error);

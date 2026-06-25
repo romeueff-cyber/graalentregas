@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { ClienteVendedor } from '@/hooks/useClientesVendedor';
 import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 export type ClienteSelecionado =
   | { tipo: 'app'; cliente: ClienteVendedor }
@@ -30,6 +31,7 @@ interface ERPClient {
   name: string;
   nickname?: string;
   document?: string;
+  id_empresa?: number | null;
   [k: string]: unknown;
 }
 
@@ -54,6 +56,7 @@ interface Props {
 }
 
 export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [erpResults, setErpResults] = useState<ERPClient[]>([]);
@@ -61,6 +64,10 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   const [erpError, setErpError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const term = search.trim();
+  const empresasFilter = useMemo(
+    () => selectedEmpresa ? [selectedEmpresa] : allowedEmpresas,
+    [selectedEmpresa, allowedEmpresas],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +81,9 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
       setLoadingErp(true);
       setErpError(null);
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=2000`;
+        const empresasQuery = empresasFilter.join(',');
+        const empParam = empresasQuery ? `&empresas=${encodeURIComponent(empresasQuery)}` : '';
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=2000${empParam}`;
         const { data: sess } = await supabase.auth.getSession();
         const r = await fetch(url, {
           headers: {
@@ -98,15 +107,17 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
           setErpResults([]);
           return;
         }
-        setErpResults(
-          Array.isArray(j)
+        const results = Array.isArray(j)
             ? j as ERPClient[]
             : Array.isArray(payloadRecord?.data)
               ? payloadRecord.data as ERPClient[]
               : Array.isArray(payloadRecord?.clients)
                 ? payloadRecord.clients as ERPClient[]
-                : [],
-        );
+                : [];
+        setErpResults(results.filter((client) => {
+          if (!empresasFilter.length) return true;
+          return client.id_empresa != null && empresasFilter.includes(Number(client.id_empresa) as any);
+        }));
       } catch (e: unknown) {
         console.warn('[erp clients search] erro', e);
         setErpError('Falha de rede ao consultar o ERP.');
@@ -118,7 +129,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [term, open]);
+  }, [term, open, empresasFilter]);
 
   const localErpIds = useMemo(
     () => new Set(clientesLocal.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
