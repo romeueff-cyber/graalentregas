@@ -123,6 +123,8 @@ export default function PedidosVendaPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isVendedor, canApprovePedidoVenda } = useAuth();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+
   const [showForm, setShowForm] = useState(false);
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
