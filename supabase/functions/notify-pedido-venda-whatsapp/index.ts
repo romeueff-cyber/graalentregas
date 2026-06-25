@@ -3,6 +3,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const ZAPSTER_URL = 'https://api.zapsterapi.com/v1/wa/messages';
 
+function normalizeRecipient(recipient: string) {
+  const trimmed = recipient.trim();
+  if (trimmed.includes('@')) return trimmed;
+  if (trimmed.startsWith('120363')) return `${trimmed}@g.us`;
+  return trimmed;
+}
+
 function fmtDate(iso?: string | null) {
   if (!iso) return '-';
   try {
@@ -114,6 +121,7 @@ Deno.serve(async (req) => {
     }
 
     const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome);
+    const recipient = normalizeRecipient(ZAPSTER_GROUP_RECIPIENT);
 
     const resp = await fetch(ZAPSTER_URL, {
       method: 'POST',
@@ -123,12 +131,12 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         instance_id: ZAPSTER_INSTANCE_ID,
-        recipient: ZAPSTER_GROUP_RECIPIENT,
+        recipient,
         text,
       }),
     });
     const respText = await resp.text();
-    console.log('[notify-pedido-venda-whatsapp] zapster status', resp.status, respText.slice(0, 300));
+    console.log('[notify-pedido-venda-whatsapp] zapster status', resp.status, 'recipient', recipient, respText.slice(0, 300));
 
     if (!resp.ok) {
       return new Response(JSON.stringify({ error: 'Zapster falhou', status: resp.status, body: respText }), {
