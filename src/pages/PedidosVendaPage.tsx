@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Check, X, Clock, CheckCircle2, XCircle, Ban, RefreshCw, Search, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -14,6 +15,17 @@ import { PedidoVendaForm } from '@/components/pedidos-venda/PedidoVendaForm';
 import { ClienteVendedorForm } from '@/components/pedidos-venda/ClienteVendedorForm';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
+import { supabase } from '@/integrations/supabase/client';
+import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
+
+interface ERPClientLite {
+  id: string | number;
+  name: string;
+  nickname?: string;
+  document?: string;
+  [k: string]: unknown;
+}
+
 
 
 const statusMeta: Record<PedidoVendaStatus, { label: string; icon: any; className: string }> = {
