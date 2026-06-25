@@ -10,6 +10,7 @@ import { HygieneClientCard } from '@/components/hygiene/HygieneClientCard';
 import { HygieneClientDialog } from '@/components/hygiene/HygieneClientDialog';
 import { HygieneServiceDialog } from '@/components/hygiene/HygieneServiceDialog';
 import { AllocationsTab } from '@/components/hygiene/AllocationsTab';
+import { EmpresaSelector } from '@/components/empresa/EmpresaSelector';
 import { SprayCanIcon } from '@/components/icons';
 import {
   Plus,
