@@ -291,13 +291,33 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                   <span className="flex-1">{enderecoCadastrado}</span>
                 </div>
               ) : (
-                <AddressAutocomplete
-                  value={enderecoEntrega}
-                  onChange={setEnderecoEntrega}
-                  onSelect={(r) => setLatLng({ lat: r.lat, lng: r.lng })}
-                  placeholder="Digite e selecione no Google Maps..."
-                />
+                <div className="space-y-2">
+                  <AddressAutocomplete
+                    value={enderecoEntrega}
+                    onChange={setEnderecoEntrega}
+                    onSelect={(r) => {
+                      setLatLng({ lat: r.lat, lng: r.lng });
+                      if (r.numero) setNumero(r.numero);
+                      if (r.bairro) setBairro(r.bairro);
+                    }}
+                    placeholder="Rua / logradouro..."
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Número"
+                      inputMode="numeric"
+                      value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Bairro"
+                      value={bairro}
+                      onChange={(e) => setBairro(e.target.value)}
+                    />
+                  </div>
+                </div>
               )}
+
             </div>
 
             <ItemsSection
