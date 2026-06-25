@@ -40,6 +40,7 @@ export default function HygienePage() {
     getServiceHistory,
   } = useHygieneClients();
 
+  const [activeTab, setActiveTab] = useState<'hygiene' | 'allocations'>('hygiene');
   const [searchQuery, setSearchQuery] = useState('');
   const [showClientDialog, setShowClientDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<HygieneClientWithEquipments | null>(null);
