@@ -73,7 +73,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   useEffect(() => {
     if (!open) return;
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    if (term.length < 2) {
+    if (term.length < 2 || empresasFilter.length === 0) {
       setErpResults([]);
       setErpError(null);
       return;
@@ -116,7 +116,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                 ? payloadRecord.clients as ERPClient[]
                 : [];
         setErpResults(results.filter((client) => {
-          if (!empresasFilter.length) return true;
+          if (!empresasFilter.length) return false;
           return client.id_empresa != null && empresasFilter.includes(Number(client.id_empresa) as any);
         }));
       } catch (e: unknown) {
@@ -137,7 +137,8 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     [clientesLocal],
   );
   const filteredLocal = clientesLocal.filter((c) => (
-    !term || matchesTerm([c.nome, c.nome_fantasia, c.cpf_cnpj, c.id_cliente_erp], term)
+    (!empresasFilter.length || (c.id_empresa != null && empresasFilter.includes(Number(c.id_empresa) as any)))
+    && (!term || matchesTerm([c.nome, c.nome_fantasia, c.cpf_cnpj, c.id_cliente_erp], term))
   ));
   const filteredErp = erpResults.filter((e) => (
     !localErpIds.has(String(e.id))

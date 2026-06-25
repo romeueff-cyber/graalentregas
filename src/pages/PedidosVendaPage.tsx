@@ -212,7 +212,8 @@ export default function PedidosVendaPage() {
   useEffect(() => {
     if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
     const term = erpSearch.trim();
-    if (term.length < 2) {
+    const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
+    if (term.length < 2 || empresasFiltro.length === 0) {
       setErpResults([]);
       setErpError(null);
       setErpLoading(false);
@@ -222,7 +223,7 @@ export default function PedidosVendaPage() {
       setErpLoading(true);
       setErpError(null);
       try {
-        const empresasQuery = (selectedEmpresa ? [selectedEmpresa] : allowedEmpresas).join(',');
+        const empresasQuery = empresasFiltro.join(',');
         const empParam = empresasQuery ? `&empresas=${encodeURIComponent(empresasQuery)}` : '';
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200${empParam}`;
 
@@ -241,10 +242,9 @@ export default function PedidosVendaPage() {
           setErpResults([]);
           return;
         }
-        const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
         const arr: ERPClientLite[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : [];
         setErpResults(arr.filter((client) => {
-          if (!empresasFiltro.length) return true;
+          if (!empresasFiltro.length) return false;
           return client.id_empresa != null && empresasFiltro.includes(Number(client.id_empresa) as any);
         }));
       } catch (e: any) {
