@@ -88,14 +88,15 @@ export function useDailyOrders() {
   }, [updateCacheStatus]);
 
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
-    queryKey: ['daily-orders-hook', today],
+    queryKey: ['daily-orders-hook', today, empresasFilter.join(',')],
     queryFn: async () => {
       // Try to fetch from network first
       if (isOnline) {
         try {
           const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-            body: { date: today },
+            body: { date: today, empresas: empresasFilter },
           });
+
           
           if (error) throw error;
           
