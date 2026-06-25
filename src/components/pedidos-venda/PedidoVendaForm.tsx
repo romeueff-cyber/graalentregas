@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, History, Beer, Package } from 'lucide-react';
+import { Plus, Trash2, History, Beer, Package, MapPin, Pencil } from 'lucide-react';
 import { usePedidosVenda, NovoPedidoVendaInput } from '@/hooks/usePedidosVenda';
 import { useClientesVendedor } from '@/hooks/useClientesVendedor';
 import { ClienteVendedorForm } from './ClienteVendedorForm';
 import { AddItemSheet, AddedItem } from './AddItemSheet';
 import { ClienteCombobox, ClienteSelecionado } from './ClienteCombobox';
+import { AddressAutocomplete } from './AddressAutocomplete';
 import { fetchERPClientLastOrder } from '@/hooks/useERPCatalog';
 import { toast } from 'sonner';
 
@@ -28,7 +29,10 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
   const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
+  const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
+  const [latLng, setLatLng] = useState<{ lat?: number; lng?: number }>({});
+  const [overrideEndereco, setOverrideEndereco] = useState(false);
   const [observacoes, setObservacoes] = useState('');
   const [produtos, setProdutos] = useState<Item[]>([]);
   const [equipamentos, setEquipamentos] = useState<Item[]>([]);
@@ -47,7 +51,10 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setClienteSel(null);
     setDataEntrega('');
     setHorario('');
+    setEnderecoCadastrado('');
     setEnderecoEntrega('');
+    setLatLng({});
+    setOverrideEndereco(false);
     setObservacoes('');
     setProdutos([]);
     setEquipamentos([]);
@@ -55,8 +62,21 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
 
   const handleClienteChange = (v: ClienteSelecionado | null) => {
     setClienteSel(v);
-    if (v?.tipo === 'app' && !enderecoEntrega) {
-      setEnderecoEntrega(v.cliente.endereco);
+    setOverrideEndereco(false);
+    if (v?.tipo === 'app') {
+      const addr = v.cliente.endereco || '';
+      setEnderecoCadastrado(addr);
+      setEnderecoEntrega(addr);
+      setLatLng({
+        lat: v.cliente.latitude ?? undefined,
+        lng: v.cliente.longitude ?? undefined,
+      });
+    } else {
+      // ERP-only client: no address available locally
+      setEnderecoCadastrado('');
+      setEnderecoEntrega('');
+      setLatLng({});
+      if (v) setOverrideEndereco(true);
     }
   };
 
@@ -147,8 +167,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
       endereco_entrega: enderecoEntrega,
-      latitude: isApp ? clienteSel.cliente.latitude ?? undefined : undefined,
-      longitude: isApp ? clienteSel.cliente.longitude ?? undefined : undefined,
+      latitude: latLng.lat ?? (isApp ? clienteSel.cliente.latitude ?? undefined : undefined),
+      longitude: latLng.lng ?? (isApp ? clienteSel.cliente.longitude ?? undefined : undefined),
       observacoes: observacoes || undefined,
       itens,
     };
@@ -204,9 +224,50 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            <div>
-              <Label>Endereço de entrega *</Label>
-              <Textarea rows={2} value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Endereço de entrega *</Label>
+                {clienteSel && enderecoCadastrado && !overrideEndereco && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => setOverrideEndereco(true)}
+                  >
+                    <Pencil className="w-3 h-3 mr-1" />
+                    Informar novo endereço
+                  </Button>
+                )}
+                {overrideEndereco && enderecoCadastrado && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => {
+                      setOverrideEndereco(false);
+                      setEnderecoEntrega(enderecoCadastrado);
+                    }}
+                  >
+                    Usar endereço cadastrado
+                  </Button>
+                )}
+              </div>
+
+              {clienteSel && enderecoCadastrado && !overrideEndereco ? (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-md border bg-muted/40 text-sm">
+                  <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1">{enderecoCadastrado}</span>
+                </div>
+              ) : (
+                <AddressAutocomplete
+                  value={enderecoEntrega}
+                  onChange={setEnderecoEntrega}
+                  onSelect={(r) => setLatLng({ lat: r.lat, lng: r.lng })}
+                  placeholder="Digite e selecione no Google Maps..."
+                />
+              )}
             </div>
 
             <ItemsSection
