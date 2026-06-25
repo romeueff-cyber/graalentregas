@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authStorage, isOnline } from '@/lib/offline-storage';
 import { isAbortErrorLike, toFriendlyAuthError } from '@/lib/abort-error';
 import type { AppRole, Profile } from '@/types/database';
-import { queryClient } from '@/App';
+import { queryClient } from '@/lib/query-client';
 
 interface AuthContextType {
   user: User | null;
