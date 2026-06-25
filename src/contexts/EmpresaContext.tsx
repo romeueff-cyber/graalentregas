@@ -27,14 +27,17 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
     staleTime: 0,
     queryFn: async (): Promise<EmpresaId[]> => {
-      if (isAdmin) return [EMPRESAS.GRAAL, EMPRESAS.GROTT];
       const { data, error } = await supabase
         .from('user_companies')
         .select('empresa_id')
         .eq('user_id', user!.id);
       if (error) throw error;
       const ids = (data ?? []).map((r: any) => r.empresa_id as EmpresaId);
-      return ids;
+      // Admin também respeita as empresas marcadas no cadastro do usuário.
+      // Se um admin antigo ainda não tiver configuração, mantém acesso total para não bloquear o sistema.
+      if (ids.length > 0) return ids;
+      if (isAdmin) return [EMPRESAS.GRAAL, EMPRESAS.GROTT];
+      return [];
     },
   });
 
