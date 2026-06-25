@@ -63,38 +63,40 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <ErrorBoundary>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/new-delivery" element={<NewDeliveryPage />} />
-                <Route path="/edit-delivery/:id" element={<EditDeliveryPage />} />
-                <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
-                <Route
-                  path="/users"
-                  element={
-                    <AdminRoute>
-                      <UsersManagementPage />
-                    </AdminRoute>
-                  }
-                />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/saude-cliente" element={<ClientHealthPage />} />
-                <Route path="/install" element={<InstallPage />} />
-                <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
-                <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
-                <Route path="/higienizacao" element={<HygienePage />} />
-                <Route path="/financeiro" element={<FinanceiroPage />} />
-                <Route path="/rotas" element={<RoutesPage />} />
-                <Route path="/alocacoes" element={<AlocacoesPage />} />
-                <Route path="/etiquetas" element={<EtiquetasPage />} />
-                <Route path="/pedidos-venda" element={<PedidosVendaPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </ErrorBoundary>
-            <PWAInstallBanner />
-            <PWAUpdateBanner />
+            <EmpresaProvider>
+              <ErrorBoundary>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/new-delivery" element={<NewDeliveryPage />} />
+                  <Route path="/edit-delivery/:id" element={<EditDeliveryPage />} />
+                  <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
+                  <Route
+                    path="/users"
+                    element={
+                      <AdminRoute>
+                        <UsersManagementPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/saude-cliente" element={<ClientHealthPage />} />
+                  <Route path="/install" element={<InstallPage />} />
+                  <Route path="/confirmar/:token" element={<ClientConfirmationPage />} />
+                  <Route path="/pedidos-dia" element={<DailyOrdersPage />} />
+                  <Route path="/higienizacao" element={<HygienePage />} />
+                  <Route path="/financeiro" element={<FinanceiroPage />} />
+                  <Route path="/rotas" element={<RoutesPage />} />
+                  <Route path="/alocacoes" element={<AlocacoesPage />} />
+                  <Route path="/etiquetas" element={<EtiquetasPage />} />
+                  <Route path="/pedidos-venda" element={<PedidosVendaPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ErrorBoundary>
+              <PWAInstallBanner />
+              <PWAUpdateBanner />
+            </EmpresaProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
