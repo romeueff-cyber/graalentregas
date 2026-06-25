@@ -30,7 +30,12 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<string, unknown>>, vendedorNome?: string) {
+function buildMessage(
+  pedido: Record<string, unknown>,
+  itens: Array<Record<string, unknown>>,
+  vendedorNome?: string,
+  boletosPend: Array<{ total_amount: number; due_date: string; status: string; order_number: string }> = [],
+) {
   const produtos = itens.filter((i) => (i.tipo ?? 'produto') === 'produto');
   const equipamentos = itens.filter((i) => i.tipo === 'equipamento');
 
@@ -78,6 +83,21 @@ function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<strin
     lines.push(`Subtotal: ${fmtMoney(subtotal)}`);
     if (descontoTotal > 0) lines.push(`Desconto: -${fmtMoney(descontoTotal)}`);
     lines.push(`*Total: ${fmtMoney(totalPedido)}*`);
+  }
+
+  if (boletosPend.length) {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const totalDevido = boletosPend.reduce((s, b) => s + (b.total_amount || 0) / 100, 0);
+    const vencidos = boletosPend.filter((b) => new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE');
+    lines.push('');
+    lines.push(`⚠️ *Boletos em aberto:* ${boletosPend.length} • ${fmtMoney(totalDevido)}`);
+    if (vencidos.length) lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0))}`);
+    for (const b of boletosPend.slice(0, 5)) {
+      const venc = fmtDate(b.due_date);
+      const atrasado = new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
+      lines.push(`• Pedido ${b.order_number} — ${fmtMoney((b.total_amount || 0) / 100)} • venc. ${venc}${atrasado ? ' 🔴' : ''}`);
+    }
+    if (boletosPend.length > 5) lines.push(`… e mais ${boletosPend.length - 5}`);
   }
 
   if (pedido.observacoes) {
@@ -146,7 +166,22 @@ Deno.serve(async (req) => {
       vendedorNome = (prof as { name?: string } | null)?.name;
     }
 
-    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome);
+    // Boletos em aberto/atrasados do cliente (match por nome normalizado)
+    const normalize = (s: string) =>
+      (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+    const nomeAlvo = normalize(String(pedido.nome_cliente ?? ''));
+    let boletosPend: Array<{ total_amount: number; due_date: string; status: string; order_number: string }> = [];
+    if (nomeAlvo) {
+      const { data: bols } = await admin
+        .from('boletos')
+        .select('total_amount, due_date, status, order_number, customer_name')
+        .in('status', ['OPEN', 'LATE'])
+        .order('due_date', { ascending: true });
+      boletosPend = ((bols ?? []) as Array<{ customer_name: string; total_amount: number; due_date: string; status: string; order_number: string }>)
+        .filter((b) => normalize(b.customer_name) === nomeAlvo);
+    }
+
+    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome, boletosPend);
     const recipient = normalizeRecipient(ZAPSTER_GROUP_RECIPIENT);
 
     const resp = await fetch(ZAPSTER_URL, {
