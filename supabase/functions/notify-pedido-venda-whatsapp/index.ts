@@ -171,9 +171,9 @@ Deno.serve(async (req) => {
     const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const ZAPSTER_API_TOKEN = Deno.env.get('ZAPSTER_API_TOKEN');
     const ZAPSTER_INSTANCE_ID = Deno.env.get('ZAPSTER_INSTANCE_ID');
-    const ZAPSTER_GROUP_RECIPIENT = Deno.env.get('ZAPSTER_GROUP_RECIPIENT');
+    const ZAPSTER_GROUP_RECIPIENT_DEFAULT = Deno.env.get('ZAPSTER_GROUP_RECIPIENT');
 
-    if (!ZAPSTER_API_TOKEN || !ZAPSTER_INSTANCE_ID || !ZAPSTER_GROUP_RECIPIENT) {
+    if (!ZAPSTER_API_TOKEN || !ZAPSTER_INSTANCE_ID) {
       return new Response(JSON.stringify({ error: 'Zapster não configurado' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
