@@ -1,63 +1,78 @@
 ## Objetivo
 
-Adicionar na página **Saúde (Higienização)** uma nova aba **"Alocações"** que lista todos os clientes do ERP que têm equipamentos atualmente alocados, mostrando os equipamentos e há quanto tempo cada um está alocado (desde a data de entrega no ERP).
+Suportar duas empresas no ERP (ID_EMPRESA: **1 = Graal Beer**, **3 = Grott Beer**) e filtrar todos os dados exibidos no app conforme as empresas que o usuário tem permissão de acessar.
 
-## Tela
+## 1. Backend ERP (`erp-api/server.js`)
 
-Topo da página Saúde passa a ter um seletor de abas:
+Incluir `ID_EMPRESA` em todas as queries que retornam dados de cliente, pedidos, equipamentos, alocações, boletos e produtos:
 
-- **Higienização** (visão atual — clientes/equipamentos da agenda de limpeza)
-- **Alocações** (nova)
+- `/api/clients` e `/api/clients/search` → adicionar `c.ID_EMPRESA` no SELECT
+- `/api/orders/*` → adicionar `o.ID_EMPRESA`
+- `/api/allocations` → adicionar `ID_EMPRESA` do cliente
+- `/api/equipments`, `/api/financial/*` → idem
+- Aceitar query param opcional `?empresas=1,3` para já filtrar no servidor (otimização)
 
-A aba **Alocações** mostra:
+## 2. Banco (Lovable Cloud)
 
-- Busca por nome do cliente / patrimônio
-- Resumo: total de clientes, total de equipamentos, alocações >60d, >180d
-- Lista de cards por cliente:
-  - Nome do cliente + telefone (se houver)
-  - Lista de equipamentos: tipo, modelo, patrimônio
-  - Para cada equipamento: data de entrega + dias alocados (badge colorido: verde ≤30d, amarelo 31–90d, laranja 91–180d, vermelho >180d)
-- Ordenação padrão: maior tempo alocado primeiro
-
-## Origem dos dados
-
-Novo endpoint no ERP que retorna **todos os equipamentos atualmente alocados**, com cliente e data de entrega:
-
-```text
-GET /api/allocations
-→ [{ client_id, client_name, client_phone, patrimony, type, model,
-     order_number, delivery_date }]
+Nova tabela `user_companies`:
 ```
-
-Query (Firebird):
-
-```sql
-SELECT
-  c.ID_CLIENTE, c.RAZAO_SOCIAL, c.NOME_FANTASIA, c.TELEFONE,
-  e.PATRIMONIO, e.MODELO, te.DESCRICAO AS TIPO,
-  ov.N_PEDIDO, ov.DATA_PREV_ENTREGA
-FROM EQUIPAMENTOS e
-JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
-JOIN FATURAMENTO f         ON f.ID_FATURAMENTO  = ef.ID_FATURAMENTO
-JOIN ORDENS_VENDA ov       ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
-JOIN PESSOAS c             ON c.ID_CLIENTE       = f.ID_CLIENTE
-WHERE e.STATUS = 'ALOCADO'
-  AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
-  AND COALESCE(e.DELETED,0) = 0
-  AND COALESCE(ef.DELETED,0) = 0
-  AND COALESCE(f.DELETED,0)  = 0
+user_id (uuid → auth.users)
+empresa_id (int)  -- 1 ou 3
+PRIMARY KEY (user_id, empresa_id)
 ```
+- GRANT padrão + RLS (admin gerencia, usuário lê o próprio)
+- Função `get_user_empresas(_user_id)` retornando `int[]`
+- Função `user_has_empresa(_user_id, _empresa_id)` → boolean
 
-(Ajustar nomes de colunas em PESSOAS conforme schema existente do projeto.)
+Adicionar coluna `id_empresa INT` em:
+- `clientes_vendedor`
+- `pedidos_venda`
+- `boletos`
+- `equipments` (quando vier do ERP)
 
-## Implementação
+Backfill: default `1` (Graal) para dados existentes.
 
-1. **erp-api/server.js** — novo handler `GET /api/allocations` com a query acima.
-2. **Edge function** `supabase/functions/list-erp-allocations/index.ts` — auth + proxy para o endpoint, retorna `{ allocations: [...] }`.
-3. **Hook** `src/hooks/useERPAllocations.tsx` — react-query, staleTime 5min, agrupamento por cliente, cálculo de dias alocados via `differenceInDays(today, delivery_date)`.
-4. **Componente** `src/components/hygiene/AllocationsTab.tsx` — busca, resumo, lista agrupada com badges de tempo.
-5. **HygienePage** — envolver conteúdo em `Tabs` com as duas abas; manter o FAB visível só na aba Higienização.
+Atualizar políticas RLS dessas tabelas para exigir `user_has_empresa(auth.uid(), id_empresa)`.
 
-## Observação
+## 3. Edge Functions
 
-O endpoint novo precisa do servidor ERP reiniciado (PM2) para entrar em vigor. Avisarei isso ao final.
+Todas as functions que chamam o ERP passam a:
+1. Ler `user_companies` do usuário autenticado
+2. Repassar `?empresas=...` para o ERP
+3. Filtrar resposta por segurança
+
+Functions impactadas: `sync-vendedor-clients`, `get-erp-allocations`, `get-erp-orders`, `get-erp-product-price`, `erp-clients-search`, etc.
+
+## 4. Frontend
+
+**Contexto novo** `useUserCompanies()` — carrega empresas permitidas do usuário logado, cacheia, e expõe seletor quando o usuário tem acesso a mais de uma.
+
+**Header global**: dropdown "Empresa" (só aparece se usuário tem >1). Default = primeira. Persistido em localStorage.
+
+**Hooks impactados** passam a filtrar/incluir a empresa ativa:
+- `useClientesVendedor`, `useERPOrders`, `useERPAllocations`, `useBoletos`, `useERPCatalog`
+
+**Tela Admin → Usuários**: nova seção "Empresas do usuário" com checkboxes (Graal Beer / Grott Beer) salvando em `user_companies`. Só admin acessa.
+
+**Badges visuais**: nos cards de cliente/pedido/alocação, exibir mini-badge com a empresa (cor distinta para cada uma) quando o usuário tem acesso a múltiplas.
+
+## 5. Migração de dados existentes
+
+- `UPDATE clientes_vendedor SET id_empresa = 1` (todos atuais são Graal)
+- Reexecutar `sync-vendedor-clients` para popular `id_empresa` correto vindo do ERP
+- Inserir `user_companies` para todos os usuários atuais com `empresa_id = 1` (mantém acesso atual)
+
+## 6. Ordem de implementação
+
+1. `erp-api/server.js` — expor ID_EMPRESA (requer `pm2 restart`)
+2. Migration: tabela `user_companies`, colunas `id_empresa`, funções, RLS, backfill
+3. Edge functions — propagar filtro
+4. Hooks + contexto + seletor no header
+5. Tela admin para gerenciar empresas por usuário
+6. Badges nos cards
+
+## Observações técnicas
+
+- IDs hardcoded como constantes em `src/lib/empresas.ts`: `{ GRAAL: 1, GROTT: 3 }` com labels e cores.
+- Admin sempre vê tudo (bypass via `has_role(uid,'admin')` nas políticas).
+- Memory nova será criada documentando a regra multi-empresa.
