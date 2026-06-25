@@ -692,6 +692,8 @@ export default function UsersManagementPage() {
                           </div>
                         )}
                       </div>
+
+                      <UserCompaniesEditor userId={userData.id} />
                     </div>
                   )}
                 </CardContent>
