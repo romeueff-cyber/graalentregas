@@ -30,7 +30,12 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildMessage(pedido: Record<string, unknown>, itens: Array<Record<string, unknown>>, vendedorNome?: string) {
+function buildMessage(
+  pedido: Record<string, unknown>,
+  itens: Array<Record<string, unknown>>,
+  vendedorNome?: string,
+  boletosPend: Array<{ total_amount: number; due_date: string; status: string; order_number: string }> = [],
+) {
   const produtos = itens.filter((i) => (i.tipo ?? 'produto') === 'produto');
   const equipamentos = itens.filter((i) => i.tipo === 'equipamento');
 
