@@ -24,6 +24,7 @@ export type ClienteSelecionado =
       cep?: string;
       lat?: number;
       lng?: number;
+      id_empresa?: number | null;
     };
 
 interface ERPClient {
@@ -251,6 +252,7 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
                         cep: address.cep,
                         lat: address.lat,
                         lng: address.lng,
+                        id_empresa: e.id_empresa ?? null,
                       });
                       setOpen(false);
                     }}

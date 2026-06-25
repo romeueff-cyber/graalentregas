@@ -25,6 +25,7 @@ interface ERPClientLite {
   name: string;
   nickname?: string;
   document?: string;
+  id_empresa?: number | null;
   [k: string]: unknown;
 }
 
@@ -158,6 +159,7 @@ export default function PedidosVendaPage() {
       cep: parts.cep,
       lat: parts.lat,
       lng: parts.lng,
+      id_empresa: e.id_empresa ?? null,
     });
     setShowForm(true);
   };
@@ -239,8 +241,12 @@ export default function PedidosVendaPage() {
           setErpResults([]);
           return;
         }
+        const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
         const arr: ERPClientLite[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : [];
-        setErpResults(arr);
+        setErpResults(arr.filter((client) => {
+          if (!empresasFiltro.length) return true;
+          return client.id_empresa != null && empresasFiltro.includes(Number(client.id_empresa) as any);
+        }));
       } catch (e: any) {
         setErpError(e?.message || 'Falha de rede');
         setErpResults([]);
