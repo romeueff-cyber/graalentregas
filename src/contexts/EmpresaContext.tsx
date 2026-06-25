@@ -43,6 +43,10 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const [selectedEmpresa, setSelectedEmpresaState] = useState<EmpresaId | null>(null);
 
   useEffect(() => {
+    setSelectedEmpresaState(null);
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!allowedEmpresas.length) {
       setSelectedEmpresaState(null);
       return;
