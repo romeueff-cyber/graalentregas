@@ -113,13 +113,41 @@ export default function PedidosVendaPage() {
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
   const [motivo, setMotivo] = useState('');
-  
+  const [initialCliente, setInitialCliente] = useState<ClienteSelecionado | null>(null);
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
   const { pedidos: pendentes, isLoading: loadingPend, approvePedido, refusePedido } =
     usePedidosVenda({ scope: 'pendentes' });
-  const { clientes, isLoading: loadingClientes } = useClientesVendedor();
+  const { clientes, isLoading: loadingClientes, isFetching: fetchingClientes, syncFromErp } = useClientesVendedor();
+
+  const openCreateForCliente = (c: ClienteVendedor) => {
+    setInitialCliente({ tipo: 'app', cliente: c });
+    setShowForm(true);
+  };
+
+  // 7 clientes mais recentes com pedidos (dedupe por cliente_vendedor_id)
+  const clientesRecentes = useMemo(() => {
+    const seen = new Set<string>();
+    const recent: ClienteVendedor[] = [];
+    for (const p of meus) {
+      const cid = p.cliente_vendedor_id;
+      if (!cid || seen.has(cid)) continue;
+      const cli = clientes.find((c) => c.id === cid);
+      if (!cli) continue;
+      seen.add(cid);
+      recent.push(cli);
+      if (recent.length >= 7) break;
+    }
+    return recent;
+  }, [meus, clientes]);
+
+  const recentesIds = useMemo(() => new Set(clientesRecentes.map((c) => c.id)), [clientesRecentes]);
+  const outrosClientes = useMemo(
+    () => clientes.filter((c) => !recentesIds.has(c.id)),
+    [clientes, recentesIds],
+  );
+
 
   const pedidoIdFromUrl = searchParams.get('pedido');
   const pedidoFromUrl = useMemo(() => {
