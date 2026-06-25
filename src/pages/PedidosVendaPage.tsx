@@ -296,34 +296,65 @@ export default function PedidosVendaPage() {
           )}
 
           <TabsContent value="clientes" className="space-y-3 mt-4">
-            <Button variant="outline" className="w-full" onClick={() => setShowCliente(true)}>
-              <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCliente(true)}>
+                <Plus className="w-4 h-4 mr-1" />Cadastrar cliente
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => syncFromErp()}
+                disabled={fetchingClientes}
+                title="Atualizar lista"
+              >
+                <RefreshCw className={`w-4 h-4 ${fetchingClientes ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+
             {loadingClientes ? (
               <div className="flex justify-center py-10"><LoadingSpinner /></div>
             ) : clientes.length === 0 ? (
               <Card className="p-8 text-center text-muted-foreground">Nenhum cliente cadastrado.</Card>
             ) : (
-              clientes.map((c) => (
-                <Card key={c.id} className="p-3">
-                  <div className="font-medium">{c.nome_fantasia || c.nome}</div>
-                  {c.nome_fantasia && <div className="text-xs text-muted-foreground">{c.nome}</div>}
-                  <div className="text-sm text-muted-foreground">CPF/CNPJ: {c.cpf_cnpj}</div>
-                  <div className="text-sm text-muted-foreground">{c.endereco}</div>
-                  {(c.telefone || c.email) && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {c.telefone}{c.telefone && c.email && ' • '}{c.email}
+              <>
+                {clientesRecentes.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1">
+                      Pedidos recentes
                     </div>
-                  )}
-                </Card>
-              ))
+                    {clientesRecentes.map((c) => (
+                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
+                    ))}
+                  </div>
+                )}
+                {outrosClientes.length > 0 && (
+                  <div className="space-y-2">
+                    {clientesRecentes.length > 0 && (
+                      <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide px-1 pt-2">
+                        Todos os clientes
+                      </div>
+                    )}
+                    {outrosClientes.map((c) => (
+                      <ClienteCard key={c.id} cliente={c} onCreatePedido={openCreateForCliente} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      <PedidoVendaForm open={showForm} onOpenChange={setShowForm} />
+      <PedidoVendaForm
+        open={showForm}
+        onOpenChange={(o) => {
+          setShowForm(o);
+          if (!o) setInitialCliente(null);
+        }}
+        initialCliente={initialCliente}
+      />
       <ClienteVendedorForm open={showCliente} onOpenChange={setShowCliente} />
+
 
       <Dialog open={!!refuseTarget} onOpenChange={(o) => !o && setRefuseTarget(null)}>
         <DialogContent>
