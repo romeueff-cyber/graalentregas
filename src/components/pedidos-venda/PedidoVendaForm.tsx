@@ -391,6 +391,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
       observacao: i.observacao,
       id_produto_erp: i.tipo === 'produto' ? i.id_erp || null : null,
       id_tipo_equipamento_erp: i.tipo === 'equipamento' ? i.id_erp || null : null,
+      preco_unitario: i.valor_unitario ?? null,
     }));
 
     const isApp = clienteSel.tipo === 'app';
