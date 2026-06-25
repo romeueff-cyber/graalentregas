@@ -193,8 +193,9 @@ export function useDailyOrders() {
   const filteredOrders = useMemo(() => {
     const all = orders || [];
     if (!empresasFilter.length) return all;
-    return all.filter(o => o.id_empresa == null || empresasFilter.includes(o.id_empresa as any));
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(o.id_empresa as any));
   }, [orders, empresasFilter]);
+
 
   return {
     orders: filteredOrders,
