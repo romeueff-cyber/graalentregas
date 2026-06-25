@@ -166,7 +166,12 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const handleSubmit = async () => {
     if (!clienteSel) return toast.error('Selecione um cliente');
     if (!dataEntrega) return toast.error('Informe a data de entrega');
-    if (!enderecoEntrega.trim()) return toast.error('Informe o endereço');
+
+    const enderecoFinal = overrideEndereco || !enderecoCadastrado
+      ? composeEndereco(enderecoEntrega, numero, bairro)
+      : enderecoCadastrado;
+
+    if (!enderecoFinal.trim()) return toast.error('Informe o endereço');
     if (!produtos.length && !equipamentos.length)
       return toast.error('Adicione ao menos um produto ou equipamento');
 
@@ -190,7 +195,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       nome_cliente: nomeCliente,
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
-      endereco_entrega: enderecoEntrega,
+      endereco_entrega: enderecoFinal,
       latitude: latLng.lat ?? (isApp ? clienteSel.cliente.latitude ?? undefined : undefined),
       longitude: latLng.lng ?? (isApp ? clienteSel.cliente.longitude ?? undefined : undefined),
       observacoes: observacoes || undefined,
@@ -201,6 +206,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     resetForm();
     onOpenChange(false);
   };
+
 
   return (
     <>
