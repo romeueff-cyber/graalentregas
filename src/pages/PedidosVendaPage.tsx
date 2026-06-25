@@ -144,6 +144,69 @@ export default function PedidosVendaPage() {
     }
   };
 
+  // Modo focado: link direto para um pedido específico
+  if (pedidoIdFromUrl) {
+    const loading = loadingMeus || loadingPend;
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background border-b">
+          <div className="container max-w-3xl py-3 flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/pedidos-venda', { replace: true })}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="font-semibold">Detalhes do pedido</h1>
+          </div>
+        </header>
+        <div className="container max-w-3xl py-4">
+          {pedidoFromUrl ? (
+            <PedidoCard
+              pedido={pedidoFromUrl}
+              showVendedor
+              showActions={
+                canApprovePedidoVenda && pedidoFromUrl.status === 'pendente_aprovacao'
+                  ? 'aprovacao'
+                  : isVendedor && pedidoFromUrl.status === 'pendente_aprovacao'
+                  ? 'vendedor'
+                  : null
+              }
+              onApprove={(id) => approvePedido.mutate(id)}
+              onRefuse={(p) => setRefuseTarget(p)}
+              onCancel={(id) => cancelPedido.mutate(id)}
+            />
+          ) : loading ? (
+            <div className="flex justify-center py-10"><LoadingSpinner /></div>
+          ) : (
+            <Card className="p-8 text-center text-muted-foreground">
+              Pedido não encontrado ou você não tem permissão para visualizá-lo.
+            </Card>
+          )}
+        </div>
+
+        <Dialog open={!!refuseTarget} onOpenChange={(o) => !o && setRefuseTarget(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Recusar pedido</DialogTitle>
+            </DialogHeader>
+            <div>
+              <Textarea
+                placeholder="Motivo da recusa"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRefuseTarget(null)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleRefuse} disabled={!motivo.trim()}>
+                Confirmar recusa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-background border-b">
@@ -161,6 +224,7 @@ export default function PedidosVendaPage() {
       </header>
 
       <div className="container max-w-3xl py-4">
+
         <Tabs defaultValue={canApprovePedidoVenda ? 'pendentes' : 'meus'}>
           <TabsList className="w-full">
             <TabsTrigger value="meus" className="flex-1">
