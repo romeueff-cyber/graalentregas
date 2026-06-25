@@ -10,14 +10,22 @@ function normalizeRecipient(recipient: string) {
   return trimmed;
 }
 
-function fmtDate(iso?: string | null) {
-  if (!iso) return '-';
-  try {
-    const d = new Date(`${iso}T12:00:00`);
+function fmtDate(input?: string | null) {
+  if (!input) return '-';
+  const s = String(input).trim();
+  if (!s) return '-';
+  // já dd/mm/aaaa
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[1]}/${br[2]}/${br[3]}`;
+  // yyyy-mm-dd (com ou sem hora)
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  // fallback
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return iso;
   }
+  return '-';
 }
 
 function fmtMoney(v?: number | null) {
