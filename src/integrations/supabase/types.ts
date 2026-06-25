@@ -26,6 +26,7 @@ export type Database = {
           digitable_line: string | null
           due_date: string
           id: string
+          id_empresa: number
           order_number: string
           pdf_url: string | null
           pix_emv: string | null
@@ -48,6 +49,7 @@ export type Database = {
           digitable_line?: string | null
           due_date: string
           id?: string
+          id_empresa?: number
           order_number: string
           pdf_url?: string | null
           pix_emv?: string | null
@@ -70,6 +72,7 @@ export type Database = {
           digitable_line?: string | null
           due_date?: string
           id?: string
+          id_empresa?: number
           order_number?: string
           pdf_url?: string | null
           pix_emv?: string | null
@@ -124,6 +127,7 @@ export type Database = {
           endereco: string
           id: string
           id_cliente_erp: string | null
+          id_empresa: number
           latitude: number | null
           longitude: number | null
           nome: string
@@ -141,6 +145,7 @@ export type Database = {
           endereco: string
           id?: string
           id_cliente_erp?: string | null
+          id_empresa?: number
           latitude?: number | null
           longitude?: number | null
           nome: string
@@ -158,6 +163,7 @@ export type Database = {
           endereco?: string
           id?: string
           id_cliente_erp?: string | null
+          id_empresa?: number
           latitude?: number | null
           longitude?: number | null
           nome?: string
@@ -262,6 +268,7 @@ export type Database = {
           foto_local_path: string | null
           foto_url: string | null
           id: string
+          id_empresa: number
           latitude: number
           longitude: number
           nome_cliente: string
@@ -288,6 +295,7 @@ export type Database = {
           foto_local_path?: string | null
           foto_url?: string | null
           id?: string
+          id_empresa?: number
           latitude: number
           longitude: number
           nome_cliente: string
@@ -314,6 +322,7 @@ export type Database = {
           foto_local_path?: string | null
           foto_url?: string | null
           id?: string
+          id_empresa?: number
           latitude?: number
           longitude?: number
           nome_cliente?: string
@@ -572,6 +581,7 @@ export type Database = {
           horario_entrega: string | null
           id: string
           id_cliente_erp: string | null
+          id_empresa: number
           latitude: number | null
           longitude: number | null
           motivo_recusa: string | null
@@ -591,6 +601,7 @@ export type Database = {
           horario_entrega?: string | null
           id?: string
           id_cliente_erp?: string | null
+          id_empresa?: number
           latitude?: number | null
           longitude?: number | null
           motivo_recusa?: string | null
@@ -610,6 +621,7 @@ export type Database = {
           horario_entrega?: string | null
           id?: string
           id_cliente_erp?: string | null
+          id_empresa?: number
           latitude?: number | null
           longitude?: number | null
           motivo_recusa?: string | null
@@ -831,6 +843,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_companies: {
+        Row: {
+          created_at: string
+          empresa_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -947,6 +977,7 @@ export type Database = {
           foto_local_path: string | null
           foto_url: string | null
           id: string
+          id_empresa: number
           latitude: number
           longitude: number
           nome_cliente: string
@@ -973,6 +1004,7 @@ export type Database = {
           pedido_dia: string
         }[]
       }
+      get_user_empresas: { Args: { _user_id: string }; Returns: number[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -981,6 +1013,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_financeiro: { Args: { _user_id: string }; Returns: boolean }
+      user_has_empresa: {
+        Args: { _empresa_id: number; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "entregador" | "vendedor" | "financeiro"

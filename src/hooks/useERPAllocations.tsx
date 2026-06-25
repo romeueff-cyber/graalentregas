@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { differenceInDays, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 export interface ERPAllocation {
   client_id: number;
@@ -11,6 +12,7 @@ export interface ERPAllocation {
   type: string;
   order_number: string | null;
   delivery_date: string | null;
+  id_empresa?: number | null;
 }
 
 export interface AllocationEquipment extends ERPAllocation {
@@ -38,13 +40,21 @@ function computeDays(deliveryDate: string | null): number | null {
 }
 
 export function useERPAllocations() {
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+
   const query = useQuery({
-    queryKey: ['erp-allocations'],
+    queryKey: ['erp-allocations', selectedEmpresa, allowedEmpresas.join(',')],
+    enabled: !!selectedEmpresa,
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('list-erp-allocations', { body: {} });
+      const empresas = selectedEmpresa ? String(selectedEmpresa) : allowedEmpresas.join(',');
+      const { data, error } = await supabase.functions.invoke(
+        `list-erp-allocations${empresas ? `?empresas=${empresas}` : ''}`,
+        { body: {} }
+      );
       if (error) throw error;
       const list: ERPAllocation[] = Array.isArray(data?.allocations) ? data.allocations : [];
-      return list;
+      // Safety net: filtrar no cliente também
+      return list.filter(a => !a.id_empresa || allowedEmpresas.includes(a.id_empresa as any));
     },
     staleTime: 5 * 60 * 1000,
   });

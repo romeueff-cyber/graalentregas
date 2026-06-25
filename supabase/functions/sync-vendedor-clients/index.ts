@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
       let nomeFantasia: string | null = null;
       let cpfCnpj = '';
       let endereco = '(endereço será informado no pedido)';
+      let idEmpresa = 1; // default Graal Beer
 
       // Tenta enriquecer com dados do ERP (não bloqueia se ERP estiver fora)
       if (ERP_API_URL && ERP_API_KEY) {
@@ -104,6 +105,7 @@ Deno.serve(async (req) => {
               nomeFantasia = c.nickname || null;
               cpfCnpj = c.document || '';
               endereco = composeAddress(c) || endereco;
+              if (c.id_empresa) idEmpresa = Number(c.id_empresa) || 1;
             }
           }
         } catch (e) {
@@ -119,6 +121,7 @@ Deno.serve(async (req) => {
         endereco,
         id_cliente_erp: v.id_cliente_erp,
         origem: 'erp',
+        id_empresa: idEmpresa,
       });
     }
 

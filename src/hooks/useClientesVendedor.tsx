@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { toast } from 'sonner';
 
 export type ClienteVendedorOrigem = 'erp' | 'app' | 'app_sincronizado';
@@ -20,6 +21,7 @@ export interface ClienteVendedor {
   observacoes: string | null;
   id_cliente_erp: string | null;
   origem: ClienteVendedorOrigem;
+  id_empresa?: number | null;
   created_at: string;
 }
 
@@ -37,6 +39,7 @@ export interface NovoClienteInput {
 
 export function useClientesVendedor() {
   const { user, canApprovePedidoVenda, isVendedor } = useAuth();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const queryClient = useQueryClient();
   const syncedRef = useRef(false);
 
@@ -65,7 +68,6 @@ export function useClientesVendedor() {
     queryFn: async (): Promise<ClienteVendedor[]> => {
       let q = supabase.from('clientes_vendedor').select('*').order('nome');
       if (!canApprovePedidoVenda && user) {
-        // Vendedor vê: seus clientes + clientes sem vendedor atribuído
         q = q.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
       }
       const { data, error } = await q;
@@ -111,8 +113,15 @@ export function useClientesVendedor() {
     onError: (e: any) => toast.error(e.message || 'Erro ao cadastrar cliente'),
   });
 
+  // Filtra clientes pela empresa ativa (se houver). Mantém clientes sem empresa definida.
+  const clientesFiltrados = useMemo(() => {
+    const all = query.data || [];
+    if (!selectedEmpresa) return all;
+    return all.filter(c => !c.id_empresa || c.id_empresa === selectedEmpresa);
+  }, [query.data, selectedEmpresa]);
+
   return {
-    clientes: query.data || [],
+    clientes: clientesFiltrados,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     refetch: query.refetch,
@@ -120,4 +129,5 @@ export function useClientesVendedor() {
     createCliente,
   };
 }
+
 

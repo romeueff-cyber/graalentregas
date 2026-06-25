@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner, FullPageLoader } from '@/components/ui/loading-spinner';
 import { ArrowLeft, Plus, User, Mail, Lock, Pencil, X, Check, UserX, UserCheck, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UserCompaniesEditor } from '@/components/empresa/UserCompaniesEditor';
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
@@ -691,6 +692,8 @@ export default function UsersManagementPage() {
                           </div>
                         )}
                       </div>
+
+                      <UserCompaniesEditor userId={userData.id} />
                     </div>
                   )}
                 </CardContent>

@@ -36,7 +36,9 @@ serve(async (req) => {
       );
     }
 
-    const proxyUrl = `${erpApiUrl}/api/allocations`;
+    const url = new URL(req.url);
+    const empresas = url.searchParams.get('empresas') ?? '';
+    const proxyUrl = `${erpApiUrl}/api/allocations${empresas ? `?empresas=${encodeURIComponent(empresas)}` : ''}`;
     console.log(`[list-erp-allocations] Calling proxy: ${proxyUrl}`);
 
     const proxyResponse = await fetch(proxyUrl, {
