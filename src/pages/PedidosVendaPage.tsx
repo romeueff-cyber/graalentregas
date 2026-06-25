@@ -220,7 +220,10 @@ export default function PedidosVendaPage() {
       setErpLoading(true);
       setErpError(null);
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200`;
+        const empresasQuery = (selectedEmpresa ? [selectedEmpresa] : allowedEmpresas).join(',');
+        const empParam = empresasQuery ? `&empresas=${encodeURIComponent(empresasQuery)}` : '';
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200${empParam}`;
+
         const { data: sess } = await supabase.auth.getSession();
         const r = await fetch(url, {
           headers: {
