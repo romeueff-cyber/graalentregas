@@ -1088,6 +1088,52 @@ app.get('/api/allocations', authenticate, async (req, res) => {
 });
 
 
+// ==========================================
+// PREÇO DE UM PRODUTO PARA UM CLIENTE
+// Busca PRECO específico do cliente; fallback para tabela geral (sem cliente/grupo).
+// GET /api/products/:productId/price?clientId=123
+// ==========================================
+app.get('/api/products/:productId/price', authenticate, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    const clientId = req.query.clientId ? parseInt(req.query.clientId) : null;
+    if (!productId) return res.status(400).json({ error: 'productId inválido' });
+
+    let row = null;
+
+    if (clientId) {
+      const specific = await executeQuery(
+        `SELECT FIRST 1 VALOR FROM PRECO
+         WHERE ID_PRODUTO = ? AND ID_CLIENTE = ?
+           AND (DELETED IS NULL OR DELETED = 0)
+         ORDER BY DATE_UPDATE DESC`,
+        [productId, clientId]
+      );
+      if (specific && specific.length) row = { valor: specific[0].VALOR, fonte: 'cliente' };
+    }
+
+    if (!row) {
+      const fallback = await executeQuery(
+        `SELECT FIRST 1 VALOR FROM PRECO
+         WHERE ID_PRODUTO = ?
+           AND ID_CLIENTE IS NULL
+           AND ID_GRUPO_CLIENTE IS NULL
+           AND (DELETED IS NULL OR DELETED = 0)
+         ORDER BY DATE_UPDATE DESC`,
+        [productId]
+      );
+      if (fallback && fallback.length) row = { valor: fallback[0].VALOR, fonte: 'tabela' };
+    }
+
+    if (!row) return res.json({ valor: null, fonte: null });
+    res.json({ valor: Number(row.valor) || 0, fonte: row.fonte });
+  } catch (error) {
+    console.error('Erro ao buscar preço do produto:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+  }
+});
+
+
 const PORT = process.env.API_PORT || 3051;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API ERP rodando na porta ${PORT}`);
