@@ -1,98 +1,63 @@
-# Roadmap de Melhorias - Graal Entregas
+## Objetivo
 
-## 🎯 Ideias Salvas
+Adicionar na página **Saúde (Higienização)** uma nova aba **"Alocações"** que lista todos os clientes do ERP que têm equipamentos atualmente alocados, mostrando os equipamentos e há quanto tempo cada um está alocado (desde a data de entrega no ERP).
 
----
+## Tela
 
-### 🔍 **Busca e Filtros Avançados**
-- [ ] Busca global unificada (clientes, equipamentos, pedidos em um só lugar)
-- [ ] Filtros salvos/favoritos para consultas frequentes
-- [ ] Histórico de buscas recentes
+Topo da página Saúde passa a ter um seletor de abas:
 
-### 📸 **Gestão de Mídia**
-- [ ] Galeria de fotos por cliente/equipamento
-- [ ] Comparativo visual antes/depois da higienização
-- [ ] Captura de fotos com marca d'água automática (data/hora/localização)
+- **Higienização** (visão atual — clientes/equipamentos da agenda de limpeza)
+- **Alocações** (nova)
 
-### 📅 **Agenda e Calendário**
-- [ ] Visualização em calendário das entregas e higienizações
-- [ ] Agendamento drag-and-drop
-- [ ] Sincronização com Google Calendar
+A aba **Alocações** mostra:
 
-### 🔔 **Central de Notificações**
-- [ ] Painel de notificações in-app com histórico
-- [ ] Configurações personalizadas por usuário (o que quer receber)
-- [ ] Resumo diário automático por email
+- Busca por nome do cliente / patrimônio
+- Resumo: total de clientes, total de equipamentos, alocações >60d, >180d
+- Lista de cards por cliente:
+  - Nome do cliente + telefone (se houver)
+  - Lista de equipamentos: tipo, modelo, patrimônio
+  - Para cada equipamento: data de entrega + dias alocados (badge colorido: verde ≤30d, amarelo 31–90d, laranja 91–180d, vermelho >180d)
+- Ordenação padrão: maior tempo alocado primeiro
 
-### 📱 **QR Code Avançado**
-- [ ] QR Code único por equipamento para rastreamento
-- [ ] Cliente escaneia para ver status em tempo real
-- [ ] Check-in/check-out automático por QR
+## Origem dos dados
 
-### 💬 **Feedback do Cliente**
-- [ ] Avaliação de satisfação pós-serviço
-- [ ] Comentários e sugestões dos clientes
-- [ ] NPS (Net Promoter Score) automático
+Novo endpoint no ERP que retorna **todos os equipamentos atualmente alocados**, com cliente e data de entrega:
 
-### 🌙 **Modo Escuro**
-- [ ] Tema dark para uso noturno
-- [ ] Alternância automática por horário
+```text
+GET /api/allocations
+→ [{ client_id, client_name, client_phone, patrimony, type, model,
+     order_number, delivery_date }]
+```
 
----
+Query (Firebird):
 
-### 📊 **Analytics & Relatórios**
-- [ ] Dashboards de gestão para performance de entregas
-- [ ] Métricas de ciclos de higienização
-- [ ] Exportação de relatórios PDF/Excel
-- [ ] KPIs: tempo médio de recolha, entregas por dia, etc.
+```sql
+SELECT
+  c.ID_CLIENTE, c.RAZAO_SOCIAL, c.NOME_FANTASIA, c.TELEFONE,
+  e.PATRIMONIO, e.MODELO, te.DESCRICAO AS TIPO,
+  ov.N_PEDIDO, ov.DATA_PREV_ENTREGA
+FROM EQUIPAMENTOS e
+JOIN EQUIP_FATURAMENTOS ef ON ef.ID_EQUIPAMENTO = e.ID_EQUIPAMENTO
+JOIN FATURAMENTO f         ON f.ID_FATURAMENTO  = ef.ID_FATURAMENTO
+JOIN ORDENS_VENDA ov       ON ov.ID_ORDENS_VENDA = f.ID_ORDENS_VENDA
+JOIN PESSOAS c             ON c.ID_CLIENTE       = f.ID_CLIENTE
+WHERE e.STATUS = 'ALOCADO'
+  AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
+  AND COALESCE(e.DELETED,0) = 0
+  AND COALESCE(ef.DELETED,0) = 0
+  AND COALESCE(f.DELETED,0)  = 0
+```
 
-### ⚙️ **Operações**
-- [ ] Otimização de rotas aprimorada para motoristas
-- [ ] Captura de assinatura digital na entrega/recolha
-- [ ] Controle de inventário/estoque de equipamentos
-- [ ] Drag & Drop para realocar paradas entre rotas (mobile)
+(Ajustar nomes de colunas em PESSOAS conforme schema existente do projeto.)
 
-### 🤖 **Automação & IA**
-- [ ] Assistente IA para motoristas (procedimentos e dúvidas)
-- [ ] Consultas em linguagem natural para gestores
-- [ ] Notificações automáticas WhatsApp/Push para alertas de manutenção
-- [ ] Sugestão automática de número ideal de entregadores (IA)
-- [ ] Rotina automática de status via cron job (ENTREGUE → LIBERADO)
+## Implementação
 
-### 🔐 **Segurança**
-- [ ] Logs de auditoria de atividades (quem fez o quê)
-- [ ] Controles de acesso baseados em permissões granulares
+1. **erp-api/server.js** — novo handler `GET /api/allocations` com a query acima.
+2. **Edge function** `supabase/functions/list-erp-allocations/index.ts` — auth + proxy para o endpoint, retorna `{ allocations: [...] }`.
+3. **Hook** `src/hooks/useERPAllocations.tsx` — react-query, staleTime 5min, agrupamento por cliente, cálculo de dias alocados via `differenceInDays(today, delivery_date)`.
+4. **Componente** `src/components/hygiene/AllocationsTab.tsx` — busca, resumo, lista agrupada com badges de tempo.
+5. **HygienePage** — envolver conteúdo em `Tabs` com as duas abas; manter o FAB visível só na aba Higienização.
 
-### 🛡️ **Estabilidade**
-- [ ] Restauração de login offline com cache de sessão localforage
-- [ ] Tratamento de ERP offline com fallback gracioso
-- [ ] Melhorias no cache offline de pedidos do ERP
+## Observação
 
-### 🗺️ **Melhorias no Mapa**
-- [ ] Cluster de marcadores quando há muitos pontos próximos
-- [ ] Filtro por entregador no mapa
-- [ ] Visualização de rotas otimizadas no mapa principal
-
-### 💰 **Financeiro**
-- [ ] Dashboard financeiro com gráficos
-- [ ] Relatório de inadimplência
-- [ ] Alertas de boletos próximos ao vencimento
-
-### 📲 **PWA & Mobile**
-- [ ] Push notifications nativas
-- [ ] Modo offline mais robusto
-- [ ] Geofencing para check-in automático
-
----
-
-## ✅ Implementado
-
-- [x] Correção da data de recolha no balão do mapa (timezone)
-- [x] Auto-transição de status ENTREGUE → LIBERADO_PARA_RECOLHA ao carregar equipamentos
-- [x] Tokens únicos para confirmação de cliente (UUID + expiração)
-- [x] Link WhatsApp para confirmação de recolha
-- [x] Otimização de rotas com IA (Gemini)
-- [x] Geocodificação paralela em lotes
-- [x] Cache offline de pedidos ERP com TTL
-- [x] Módulo de boletos com Cora Bank
-- [x] Módulo de higienização completo
+O endpoint novo precisa do servidor ERP reiniciado (PM2) para entrar em vigor. Avisarei isso ao final.
