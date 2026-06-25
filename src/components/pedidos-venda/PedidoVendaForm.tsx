@@ -11,7 +11,7 @@ import { ClienteVendedorForm } from './ClienteVendedorForm';
 import { AddItemSheet, AddedItem } from './AddItemSheet';
 import { ClienteCombobox, ClienteSelecionado } from './ClienteCombobox';
 import { AddressAutocomplete } from './AddressAutocomplete';
-import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, lastOrderToAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
