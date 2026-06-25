@@ -105,6 +105,7 @@ export async function checkForAppUpdate() {
 
   const updateFound = new Promise<boolean>((resolve) => {
     let resolved = false;
+    const hadController = Boolean(navigator.serviceWorker.controller);
     const finish = (value: boolean) => {
       if (resolved) return;
       resolved = true;
@@ -116,7 +117,7 @@ export async function checkForAppUpdate() {
       if (!worker) return;
       worker.addEventListener('statechange', () => {
         if (worker.state === 'installed' || worker.state === 'activated') {
-          finish(Boolean(navigator.serviceWorker.controller));
+          finish(hadController);
         }
         if (worker.state === 'redundant') finish(false);
       });
@@ -148,12 +149,13 @@ export function registerAppServiceWorker() {
 
   const watchRegistration = (registration: ServiceWorkerRegistration) => {
     if (registration.waiting) notifyUpdateAvailable();
+    const hadController = Boolean(navigator.serviceWorker.controller);
 
     registration.addEventListener('updatefound', () => {
       const worker = registration.installing;
       if (!worker) return;
       worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+        if ((worker.state === 'installed' || worker.state === 'activated') && hadController) {
           notifyUpdateAvailable();
         }
       });
@@ -172,5 +174,4 @@ export function registerAppServiceWorker() {
       });
   });
 
-  navigator.serviceWorker.addEventListener('controllerchange', notifyUpdateAvailable);
 }
