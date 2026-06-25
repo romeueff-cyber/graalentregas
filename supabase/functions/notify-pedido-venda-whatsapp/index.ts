@@ -104,6 +104,11 @@ function buildMessage(
     lines.push('');
     lines.push(`📝 *Observações:* ${pedido.observacoes}`);
   }
+
+  const appUrl = (Deno.env.get('APP_PUBLIC_URL') || 'https://graalentregas.lovable.app').replace(/\/$/, '');
+  lines.push('');
+  lines.push(`🔗 Detalhes: ${appUrl}/pedidos-venda?pedido=${pedido.id}`);
+
   return lines.join('\n');
 }
 
