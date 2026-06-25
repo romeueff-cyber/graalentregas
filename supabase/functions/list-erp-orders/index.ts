@@ -27,11 +27,17 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body for optional date filter
+    // Parse request body for optional date filter and empresas
     let targetDate: string | null = null;
+    let empresas: string | null = null;
     try {
       const body = await req.json();
       targetDate = body.date || null;
+      if (Array.isArray(body.empresas) && body.empresas.length > 0) {
+        empresas = body.empresas.join(',');
+      } else if (typeof body.empresas === 'string' && body.empresas) {
+        empresas = body.empresas;
+      }
     } catch {
       // No body or invalid JSON, use today's date
     }
@@ -42,9 +48,13 @@ serve(async (req) => {
       targetDate = now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     }
 
-    console.log(`Fetching orders for date: ${targetDate}`);
+    console.log(`Fetching orders for date: ${targetDate} empresas: ${empresas ?? 'all'}`);
 
-    const response = await fetch(`${erpApiUrl}/api/orders?date=${encodeURIComponent(targetDate)}`, {
+    const qs = new URLSearchParams({ date: targetDate });
+    if (empresas) qs.set('empresas', empresas);
+
+    const response = await fetch(`${erpApiUrl}/api/orders?${qs.toString()}`, {
+
       method: 'GET',
       headers: {
         'X-API-KEY': erpApiKey,
