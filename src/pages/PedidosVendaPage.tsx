@@ -268,7 +268,9 @@ export default function PedidosVendaPage() {
       const empresasFiltro = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
       return erpResults.filter((e) => (
         !localErpIds.has(String(e.id))
-        && (!empresasFiltro.length || (e.id_empresa != null && empresasFiltro.includes(Number(e.id_empresa) as any)))
+        && empresasFiltro.length > 0
+        && e.id_empresa != null
+        && empresasFiltro.includes(Number(e.id_empresa) as any)
       ));
     },
     [erpResults, localErpIds, selectedEmpresa, allowedEmpresas],

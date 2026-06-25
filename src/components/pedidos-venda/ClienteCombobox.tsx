@@ -142,7 +142,9 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
   ));
   const filteredErp = erpResults.filter((e) => (
     !localErpIds.has(String(e.id))
-    && (!empresasFilter.length || (e.id_empresa != null && empresasFilter.includes(Number(e.id_empresa) as any)))
+    && empresasFilter.length > 0
+    && e.id_empresa != null
+    && empresasFilter.includes(Number(e.id_empresa) as any)
     && matchesTerm([e.name, e.nickname, e.document, e.id], term)
   ));
 
