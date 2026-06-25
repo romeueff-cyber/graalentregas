@@ -224,9 +224,50 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            <div>
-              <Label>Endereço de entrega *</Label>
-              <Textarea rows={2} value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Endereço de entrega *</Label>
+                {clienteSel && enderecoCadastrado && !overrideEndereco && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => setOverrideEndereco(true)}
+                  >
+                    <Pencil className="w-3 h-3 mr-1" />
+                    Informar novo endereço
+                  </Button>
+                )}
+                {overrideEndereco && enderecoCadastrado && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => {
+                      setOverrideEndereco(false);
+                      setEnderecoEntrega(enderecoCadastrado);
+                    }}
+                  >
+                    Usar endereço cadastrado
+                  </Button>
+                )}
+              </div>
+
+              {clienteSel && enderecoCadastrado && !overrideEndereco ? (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-md border bg-muted/40 text-sm">
+                  <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1">{enderecoCadastrado}</span>
+                </div>
+              ) : (
+                <AddressAutocomplete
+                  value={enderecoEntrega}
+                  onChange={setEnderecoEntrega}
+                  onSelect={(r) => setLatLng({ lat: r.lat, lng: r.lng })}
+                  placeholder="Digite e selecione no Google Maps..."
+                />
+              )}
             </div>
 
             <ItemsSection
