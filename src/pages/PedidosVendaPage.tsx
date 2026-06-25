@@ -138,27 +138,124 @@ export default function PedidosVendaPage() {
     setShowForm(true);
   };
 
-  // 7 clientes mais recentes com pedidos (dedupe por cliente_vendedor_id)
+  const openCreateForErpCliente = (e: ERPClientLite) => {
+    const parts = getERPClientAddressParts(e);
+    setInitialCliente({
+      tipo: 'erp',
+      id: String(e.id),
+      nome: e.name,
+      apelido: e.nickname,
+      documento: e.document,
+      endereco: parts.endereco,
+      bairro: parts.bairro,
+      numero: parts.numero,
+      cidade: parts.cidade,
+      uf: parts.uf,
+      cep: parts.cep,
+      lat: parts.lat,
+      lng: parts.lng,
+    });
+    setShowForm(true);
+  };
+
+  // 7 clientes mais recentes com pedidos (dedupe por cliente, app ou ERP)
   const clientesRecentes = useMemo(() => {
     const seen = new Set<string>();
-    const recent: ClienteVendedor[] = [];
+    const recent: Array<
+      | { kind: 'app'; cliente: ClienteVendedor }
+      | { kind: 'erp-local'; cliente: ClienteVendedor }
+      | { kind: 'erp-only'; idErp: string; nome: string }
+    > = [];
     for (const p of meus) {
       const cid = p.cliente_vendedor_id;
-      if (!cid || seen.has(cid)) continue;
-      const cli = clientes.find((c) => c.id === cid);
-      if (!cli) continue;
-      seen.add(cid);
-      recent.push(cli);
+      const eid = p.id_cliente_erp;
+      const key = cid ? `app:${cid}` : eid ? `erp:${eid}` : '';
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      if (cid) {
+        const cli = clientes.find((c) => c.id === cid);
+        if (cli) recent.push({ kind: 'app', cliente: cli });
+        else continue;
+      } else if (eid) {
+        const cliLocal = clientes.find((c) => c.id_cliente_erp === eid);
+        if (cliLocal) recent.push({ kind: 'erp-local', cliente: cliLocal });
+        else recent.push({ kind: 'erp-only', idErp: eid, nome: p.nome_cliente });
+      }
       if (recent.length >= 7) break;
     }
     return recent;
   }, [meus, clientes]);
 
-  const recentesIds = useMemo(() => new Set(clientesRecentes.map((c) => c.id)), [clientesRecentes]);
-  const outrosClientes = useMemo(
-    () => clientes.filter((c) => !recentesIds.has(c.id)),
-    [clientes, recentesIds],
+  const recentesAppIds = useMemo(
+    () => new Set(clientesRecentes.filter((r) => r.kind !== 'erp-only').map((r: any) => r.cliente.id)),
+    [clientesRecentes],
   );
+  const outrosClientes = useMemo(
+    () => clientes.filter((c) => !recentesAppIds.has(c.id)),
+    [clientes, recentesAppIds],
+  );
+
+  // Busca de clientes do ERP
+  const [erpSearch, setErpSearch] = useState('');
+  const [erpResults, setErpResults] = useState<ERPClientLite[]>([]);
+  const [erpLoading, setErpLoading] = useState(false);
+  const [erpError, setErpError] = useState<string | null>(null);
+  const erpDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
+    const term = erpSearch.trim();
+    if (term.length < 2) {
+      setErpResults([]);
+      setErpError(null);
+      setErpLoading(false);
+      return;
+    }
+    erpDebounceRef.current = window.setTimeout(async () => {
+      setErpLoading(true);
+      setErpError(null);
+      try {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?search=${encodeURIComponent(term)}&limit=200`;
+        const { data: sess } = await supabase.auth.getSession();
+        const r = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${sess.session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
+        const text = await r.text();
+        let j: any = null;
+        try { j = JSON.parse(text); } catch { /* */ }
+        if (!r.ok) {
+          setErpError(String(j?.error || `HTTP ${r.status}`));
+          setErpResults([]);
+          return;
+        }
+        const arr: ERPClientLite[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.clients) ? j.clients : [];
+        setErpResults(arr);
+      } catch (e: any) {
+        setErpError(e?.message || 'Falha de rede');
+        setErpResults([]);
+      } finally {
+        setErpLoading(false);
+      }
+    }, 350);
+    return () => {
+      if (erpDebounceRef.current) window.clearTimeout(erpDebounceRef.current);
+    };
+  }, [erpSearch]);
+
+  const localErpIds = useMemo(
+    () => new Set(clientes.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
+    [clientes],
+  );
+  const erpResultsFiltrados = useMemo(
+    () => erpResults.filter((e) => !localErpIds.has(String(e.id))),
+    [erpResults, localErpIds],
+  );
+
+
 
 
   const pedidoIdFromUrl = searchParams.get('pedido');
