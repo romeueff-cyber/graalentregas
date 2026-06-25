@@ -84,7 +84,8 @@ export function ClientHealthDashboard({
     return rows;
   }, [metrics.rows, grupoFilter, statusFilter, search, sortBy]);
 
-  const visibleRows = filteredRows.slice(0, 100);
+  const [showAll, setShowAll] = useState(false);
+  const visibleRows = showAll ? filteredRows : filteredRows.slice(0, 100);
 
   // KPIs respeitam o filtro de grupo (não status/busca, para mostrar a composição do grupo)
   const scopedRows = useMemo(
