@@ -91,11 +91,23 @@ function buildMessage(
     const vencidos = boletosPend.filter((b) => new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE');
     lines.push('');
     lines.push(`⚠️ *Boletos em aberto:* ${boletosPend.length} • ${fmtMoney(totalDevido)}`);
-    if (vencidos.length) lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0))}`);
+    if (vencidos.length) {
+      lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0))}`);
+    }
     for (const b of boletosPend.slice(0, 5)) {
       const venc = fmtDate(b.due_date);
       const atrasado = new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
       lines.push(`• Pedido ${b.order_number} — ${fmtMoney((b.total_amount || 0) / 100)} • venc. ${venc}${atrasado ? ' 🔴' : ''}`);
+      const det = (b as { detail?: ErpOrderDetail }).detail;
+      if (atrasado && det) {
+        if (det.delivery_date) lines.push(`   📅 Entrega: ${fmtDate(det.delivery_date)}`);
+        if (det.items?.length) {
+          lines.push(`   🍺 ${det.items.map((i) => `${i.quantity}x ${i.product}`).join(', ')}`);
+        }
+        if (det.equipments?.length) {
+          lines.push(`   🛠️ ${det.equipments.map((e) => `${e.quantity}x ${e.type}`).join(', ')}`);
+        }
+      }
     }
     if (boletosPend.length > 5) lines.push(`… e mais ${boletosPend.length - 5}`);
   }
@@ -105,11 +117,28 @@ function buildMessage(
     lines.push(`📝 *Observações:* ${pedido.observacoes}`);
   }
 
-  const appUrl = (Deno.env.get('APP_PUBLIC_URL') || 'https://graalentregas.lovable.app').replace(/\/$/, '');
-  lines.push('');
-  lines.push(`🔗 Detalhes: ${appUrl}/pedidos-venda?pedido=${pedido.id}`);
-
   return lines.join('\n');
+}
+
+interface ErpOrderDetail {
+  delivery_date?: string | null;
+  items?: Array<{ product: string; quantity: number }>;
+  equipments?: Array<{ type: string; quantity: number }>;
+}
+
+async function fetchErpOrderDetail(orderNumber: string): Promise<ErpOrderDetail | null> {
+  const ERP_API_URL = Deno.env.get('ERP_API_URL');
+  const ERP_API_KEY = Deno.env.get('ERP_API_KEY');
+  if (!ERP_API_URL || !ERP_API_KEY) return null;
+  try {
+    const url = `${ERP_API_URL.replace(/\/$/, '')}/api/orders/${encodeURIComponent(orderNumber)}`;
+    const resp = await fetch(url, { headers: { 'x-api-key': ERP_API_KEY } });
+    if (!resp.ok) return null;
+    return await resp.json() as ErpOrderDetail;
+  } catch (e) {
+    console.warn('[notify-pedido-venda-whatsapp] ERP detail falhou', orderNumber, String(e));
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
