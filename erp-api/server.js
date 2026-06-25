@@ -852,7 +852,7 @@ app.get('/api/vendedores', authenticate, async (req, res) => {
 // ==========================================
 app.get('/api/clients', authenticate, async (req, res) => {
   try {
-    const { vendedor_id, client_id, search, limit } = req.query;
+    const { vendedor_id, client_id, search, limit, empresas } = req.query;
     const max = Math.min(parseInt(limit) || 500, 2000);
 
     const where = ['(cl.DELETED IS NULL OR cl.DELETED = 0)'];
@@ -871,11 +871,20 @@ app.get('/api/clients', authenticate, async (req, res) => {
       const term = `%${String(search).toUpperCase()}%`;
       params.push(term, term, `%${search}%`);
     }
+    // Filtro multi-empresa: ?empresas=1,3
+    if (empresas) {
+      const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
+      if (ids.length > 0) {
+        where.push(`cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`);
+        params.push(...ids);
+      }
+    }
 
     const query = `
       SELECT FIRST ${max}
         cl.ID_CLIENTE,
         cl.ID_VENDEDOR,
+        cl.ID_EMPRESA,
         p.ID_PESSOA,
         p.NOME,
         p.APELIDO,
@@ -921,7 +930,8 @@ app.get('/api/clients', authenticate, async (req, res) => {
       city: r.CIDADE || '',
       state: r.UF || '',
       vendedor_id: r.ID_VENDEDOR || null,
-      vendedor_name: r.VENDEDOR_NOME || null
+      vendedor_name: r.VENDEDOR_NOME || null,
+      id_empresa: r.ID_EMPRESA || null,
     })));
   } catch (error) {
     console.error('Erro ao listar clientes:', error);
