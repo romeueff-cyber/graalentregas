@@ -86,10 +86,11 @@ export default function HygienePage() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <SprayCanIcon className="w-5 h-5 text-primary" />
-            <h1 className="font-semibold text-foreground">Agenda de Higienização</h1>
+            <h1 className="font-semibold text-foreground truncate">Agenda de Higienização</h1>
           </div>
+          <EmpresaSelector />
         </div>
 
         {/* Tabs */}
