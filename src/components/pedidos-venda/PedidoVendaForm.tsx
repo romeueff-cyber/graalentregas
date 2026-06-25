@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, History, Beer, Package } from 'lucide-react';
+import { Plus, Trash2, History, Beer, Package, MapPin, Pencil } from 'lucide-react';
 import { usePedidosVenda, NovoPedidoVendaInput } from '@/hooks/usePedidosVenda';
 import { useClientesVendedor } from '@/hooks/useClientesVendedor';
 import { ClienteVendedorForm } from './ClienteVendedorForm';
 import { AddItemSheet, AddedItem } from './AddItemSheet';
 import { ClienteCombobox, ClienteSelecionado } from './ClienteCombobox';
+import { AddressAutocomplete } from './AddressAutocomplete';
 import { fetchERPClientLastOrder } from '@/hooks/useERPCatalog';
 import { toast } from 'sonner';
 
