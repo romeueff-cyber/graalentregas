@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, History, Beer, Package, MapPin, Pencil } from 'lucide-react';
+import { Plus, Trash2, History, Beer, Package, MapPin, Pencil, Loader2 } from 'lucide-react';
 import { usePedidosVenda, NovoPedidoVendaInput } from '@/hooks/usePedidosVenda';
-import { useClientesVendedor } from '@/hooks/useClientesVendedor';
+import { ClienteVendedor, useClientesVendedor } from '@/hooks/useClientesVendedor';
 import { ClienteVendedorForm } from './ClienteVendedorForm';
 import { AddItemSheet, AddedItem } from './AddItemSheet';
 import { ClienteCombobox, ClienteSelecionado } from './ClienteCombobox';
 import { AddressAutocomplete } from './AddressAutocomplete';
-import { fetchERPClientLastOrder } from '@/hooks/useERPCatalog';
+import { fetchERPClientDetails, fetchERPClientLastOrder, getERPClientAddressParts, ERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 
@@ -41,6 +42,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [showNovoCliente, setShowNovoCliente] = useState(false);
   const [sheetMode, setSheetMode] = useState<'produto' | 'equipamento' | null>(null);
   const [loadingLast, setLoadingLast] = useState(false);
+  const [loadingEnderecoCliente, setLoadingEnderecoCliente] = useState(false);
+  const enderecoRequestRef = useRef(0);
   const [lastOrderPreview, setLastOrderPreview] = useState<{
     order_number: string;
     delivery_date: string | null;
@@ -68,13 +71,70 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     return Boolean(normalized && !normalized.includes('enderecoserainformadonopedido'));
   };
 
-  const findClienteLocalCorrespondente = (v: ClienteSelecionado | null) => {
+  const buildEnderecoCadastrado = (parts: ERPClientAddressParts, fallback = '') => {
+    const rua = parts.endereco || fallback;
+    const enderecoBase = composeEndereco(rua || '', parts.numero || '', parts.bairro || '') || rua || '';
+    const cidadeUf = [parts.cidade, parts.uf].filter(Boolean).join('/');
+    return enderecoBase ? [enderecoBase, cidadeUf].filter(Boolean).join(' - ') : '';
+  };
+
+  const applyEnderecoParts = (parts: ERPClientAddressParts, fallback = '') => {
+    const cadastrado = buildEnderecoCadastrado(parts, fallback);
+    const ruaOuEndereco = parts.endereco || fallback || cadastrado;
+    setEnderecoCadastrado(cadastrado);
+    setEnderecoEntrega(ruaOuEndereco);
+    setNumero(parts.numero || '');
+    setBairro(parts.bairro || '');
+    setLatLng({ lat: parts.lat, lng: parts.lng });
+    return cadastrado;
+  };
+
+  const buscarEnderecoERP = async (
+    idClienteErp: string,
+    requestId: number,
+    clienteLocalId?: string,
+  ) => {
+    setLoadingEnderecoCliente(true);
+    try {
+      const erpClient = await fetchERPClientDetails(idClienteErp);
+      if (requestId !== enderecoRequestRef.current) return;
+
+      const parts = getERPClientAddressParts(erpClient ?? undefined);
+      const cadastrado = applyEnderecoParts(parts);
+      if (cadastrado) {
+        setOverrideEndereco(false);
+        if (clienteLocalId) {
+          await supabase
+            .from('clientes_vendedor')
+            .update({
+              endereco: cadastrado,
+              latitude: parts.lat ?? null,
+              longitude: parts.lng ?? null,
+            })
+            .eq('id', clienteLocalId);
+        }
+        return;
+      }
+
+      setOverrideEndereco(true);
+      toast.warning('Endereço não encontrado no cadastro do cliente. Informe o endereço de entrega.');
+    } catch (error) {
+      if (requestId !== enderecoRequestRef.current) return;
+      console.warn('[pedido venda] erro ao buscar endereço do cliente', error);
+      setOverrideEndereco(true);
+      toast.error('Não foi possível buscar o endereço do cadastro do cliente');
+    } finally {
+      if (requestId === enderecoRequestRef.current) setLoadingEnderecoCliente(false);
+    }
+  };
+
+  const findClienteLocalCorrespondente = (v: ClienteSelecionado | null, lista = clientes) => {
     if (!v || v.tipo !== 'erp') return null;
     const erpDoc = cleanDoc(v.documento);
     const erpNome = normalizeText(v.nome);
     const erpApelido = normalizeText(v.apelido);
 
-    return clientes.find((c) => {
+    return lista.find((c) => {
       if (c.id_cliente_erp && c.id_cliente_erp === v.id) return true;
       const localDoc = cleanDoc(c.cpf_cnpj);
       if (erpDoc && localDoc && erpDoc === localDoc) return true;
@@ -85,6 +145,46 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         (erpApelido && (erpApelido === localNome || erpApelido === localFantasia))
       );
     }) ?? null;
+  };
+
+  const fetchClienteLocalCorrespondente = async (v: ClienteSelecionado) => {
+    if (v.tipo !== 'erp') return null;
+
+    const { data, error } = await supabase
+      .from('clientes_vendedor')
+      .select('*')
+      .limit(2000);
+
+    if (error) {
+      console.warn('[pedido venda] erro ao buscar cliente local correspondente', error);
+      return null;
+    }
+
+    return findClienteLocalCorrespondente(v, (data as ClienteVendedor[]) || []);
+  };
+
+  const buscarEnderecoLocalOuERP = async (v: ClienteSelecionado, requestId: number) => {
+    if (v.tipo !== 'erp') return;
+    setLoadingEnderecoCliente(true);
+    const clienteLocal = await fetchClienteLocalCorrespondente(v);
+    if (requestId !== enderecoRequestRef.current) return;
+
+    const enderecoLocal = isEnderecoValido(clienteLocal?.endereco) ? clienteLocal!.endereco : '';
+    if (enderecoLocal) {
+      setEnderecoCadastrado(enderecoLocal);
+      setEnderecoEntrega(enderecoLocal);
+      setNumero('');
+      setBairro('');
+      setLatLng({
+        lat: clienteLocal?.latitude ?? undefined,
+        lng: clienteLocal?.longitude ?? undefined,
+      });
+      setOverrideEndereco(false);
+      setLoadingEnderecoCliente(false);
+      return;
+    }
+
+    await buscarEnderecoERP(v.id, requestId, clienteLocal?.id);
   };
 
   const resetForm = () => {
@@ -103,6 +203,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   };
 
   const handleClienteChange = (v: ClienteSelecionado | null) => {
+    const requestId = ++enderecoRequestRef.current;
+    setLoadingEnderecoCliente(false);
     setClienteSel(v);
     setOverrideEndereco(false);
     if (v?.tipo === 'app') {
@@ -115,24 +217,27 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
         lat: v.cliente.latitude ?? undefined,
         lng: v.cliente.longitude ?? undefined,
       });
+      if (!addr && v.cliente.id_cliente_erp) {
+        void buscarEnderecoERP(v.cliente.id_cliente_erp, requestId, v.cliente.id);
+      }
     } else if (v?.tipo === 'erp') {
-      const rua = v.endereco || '';
-      const num = v.numero || '';
-      const bai = v.bairro || '';
-      const cid = [v.cidade, v.uf].filter(Boolean).join('/');
-      const cadastradoErp = [composeEndereco(rua, num, bai), cid].filter(Boolean).join(' - ');
+      const parts = getERPClientAddressParts(v);
+      const cadastradoErp = buildEnderecoCadastrado(parts);
       const clienteLocal = findClienteLocalCorrespondente(v);
       const enderecoLocal = isEnderecoValido(clienteLocal?.endereco) ? clienteLocal!.endereco : '';
       const cadastrado = cadastradoErp || enderecoLocal;
       setEnderecoCadastrado(cadastrado);
-      setEnderecoEntrega(rua || enderecoLocal);
-      setNumero(num);
-      setBairro(bai);
+      setEnderecoEntrega(parts.endereco || enderecoLocal);
+      setNumero(parts.numero || '');
+      setBairro(parts.bairro || '');
       setLatLng({
-        lat: v.lat ?? clienteLocal?.latitude ?? undefined,
-        lng: v.lng ?? clienteLocal?.longitude ?? undefined,
+        lat: parts.lat ?? clienteLocal?.latitude ?? undefined,
+        lng: parts.lng ?? clienteLocal?.longitude ?? undefined,
       });
-      if (!cadastrado) setOverrideEndereco(true);
+      if (!cadastrado) {
+        setOverrideEndereco(true);
+        void buscarEnderecoLocalOuERP(v, requestId);
+      }
     } else {
       setEnderecoCadastrado('');
       setEnderecoEntrega('');
@@ -141,6 +246,40 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       setLatLng({});
     }
   };
+
+  useEffect(() => {
+    if (!open || !clienteSel || overrideEndereco || enderecoCadastrado) return;
+
+    const timer = window.setTimeout(() => {
+      if (clienteSel.tipo === 'app') {
+        const addr = isEnderecoValido(clienteSel.cliente.endereco) ? clienteSel.cliente.endereco : '';
+        if (!addr) return;
+        setEnderecoCadastrado(addr);
+        setEnderecoEntrega(addr);
+        setLatLng({
+          lat: clienteSel.cliente.latitude ?? undefined,
+          lng: clienteSel.cliente.longitude ?? undefined,
+        });
+        return;
+      }
+
+      const clienteLocal = findClienteLocalCorrespondente(clienteSel);
+      const enderecoLocal = isEnderecoValido(clienteLocal?.endereco) ? clienteLocal!.endereco : '';
+      if (!enderecoLocal) return;
+      setEnderecoCadastrado(enderecoLocal);
+      setEnderecoEntrega(enderecoLocal);
+      setNumero('');
+      setBairro('');
+      setLatLng({
+        lat: clienteLocal?.latitude ?? undefined,
+        lng: clienteLocal?.longitude ?? undefined,
+      });
+      setOverrideEndereco(false);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, clienteSel, clientes, overrideEndereco, enderecoCadastrado]);
 
 
   const handleAdd = (item: AddedItem) => {
@@ -181,8 +320,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
           quantidade: e.quantity || 1,
         })),
       });
-    } catch (e: any) {
-      const msg = String(e?.message || e);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('non-2xx') || msg.includes('404')) {
         toast.error('Endpoint de "último pedido" ainda não está disponível no servidor ERP. Avise o administrador para atualizar a API.');
       } else {
@@ -294,34 +433,42 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Label>Endereço de entrega *</Label>
-                {clienteSel && enderecoCadastrado && !overrideEndereco && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => setOverrideEndereco(true)}
-                  >
-                    <Pencil className="w-3 h-3 mr-1" />
-                    Informar novo endereço
-                  </Button>
-                )}
-                {overrideEndereco && enderecoCadastrado && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => {
-                      setOverrideEndereco(false);
-                      setEnderecoEntrega(enderecoCadastrado);
-                    }}
-                  >
-                    Usar endereço cadastrado
-                  </Button>
-                )}
+                <div className="flex items-center gap-2 text-right">
+                  {loadingEnderecoCliente && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Buscando endereço
+                    </span>
+                  )}
+                  {clienteSel && enderecoCadastrado && !overrideEndereco && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => setOverrideEndereco(true)}
+                    >
+                      <Pencil className="w-3 h-3 mr-1" />
+                      Informar novo endereço
+                    </Button>
+                  )}
+                  {overrideEndereco && enderecoCadastrado && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => {
+                        setOverrideEndereco(false);
+                        setEnderecoEntrega(enderecoCadastrado);
+                      }}
+                    >
+                      Usar endereço cadastrado
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {clienteSel && enderecoCadastrado && !overrideEndereco ? (

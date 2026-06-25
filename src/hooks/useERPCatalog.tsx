@@ -11,6 +11,25 @@ export interface ERPEquipmentType {
   description: string;
 }
 
+export interface ERPClientDetails {
+  id?: number | string;
+  name?: string;
+  nickname?: string;
+  document?: string;
+  [key: string]: unknown;
+}
+
+export interface ERPClientAddressParts {
+  endereco?: string;
+  bairro?: string;
+  numero?: string;
+  cidade?: string;
+  uf?: string;
+  cep?: string;
+  lat?: number;
+  lng?: number;
+}
+
 const catalogStore = localforage.createInstance({
   name: 'graal-beer-delivery',
   storeName: 'erp_catalog',
@@ -28,6 +47,77 @@ async function cachedFetch<T>(key: string, fetcher: () => Promise<T>): Promise<T
     if (cached) return cached;
     throw err;
   }
+}
+
+const getERPField = (client: object | null | undefined, ...keys: string[]) => {
+  if (!client) return undefined;
+  const entries = Object.entries(client);
+  for (const key of keys) {
+    const found = entries.find(([entryKey, value]) =>
+      entryKey.toLowerCase() === key.toLowerCase() && value != null && String(value).trim() !== '',
+    );
+    if (found) return found[1];
+  }
+  return undefined;
+};
+
+const toText = (value: unknown) => {
+  if (value == null) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
+};
+
+const toNumber = (value: unknown) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+};
+
+export function getERPClientAddressParts(client: object | null | undefined): ERPClientAddressParts {
+  return {
+    endereco: toText(getERPField(client, 'address', 'street', 'endereco', 'logradouro', 'rua')),
+    bairro: toText(getERPField(client, 'neighborhood', 'district', 'bairro', 'sublocality')),
+    numero: toText(getERPField(client, 'number', 'numero', 'street_number')),
+    cidade: toText(getERPField(client, 'city', 'cidade', 'municipio')),
+    uf: toText(getERPField(client, 'state', 'uf', 'estado')),
+    cep: toText(getERPField(client, 'postal_code', 'zip', 'cep')),
+    lat: toNumber(getERPField(client, 'latitude', 'lat')),
+    lng: toNumber(getERPField(client, 'longitude', 'lng', 'lon')),
+  };
+}
+
+export async function fetchERPClientDetails(clientId: string): Promise<ERPClientDetails | null> {
+  const { data: sess } = await supabase.auth.getSession();
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-erp-clients?client_id=${encodeURIComponent(clientId)}&limit=1`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${sess.session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+  });
+  const text = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = null;
+  }
+  const payloadRecord = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? payload as { error?: unknown; data?: unknown; clients?: unknown }
+    : null;
+
+  if (!response.ok) throw new Error(String(payloadRecord?.error || text || `HTTP ${response.status}`));
+
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payloadRecord?.data)
+      ? payloadRecord.data
+      : Array.isArray(payloadRecord?.clients)
+        ? payloadRecord.clients
+        : payloadRecord
+          ? [payloadRecord]
+          : [];
+
+  return (list[0] as ERPClientDetails | undefined) ?? null;
 }
 
 export function useERPProducts() {
