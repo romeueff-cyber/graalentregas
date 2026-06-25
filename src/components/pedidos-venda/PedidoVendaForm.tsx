@@ -29,7 +29,10 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [clienteSel, setClienteSel] = useState<ClienteSelecionado | null>(null);
   const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
+  const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
+  const [latLng, setLatLng] = useState<{ lat?: number; lng?: number }>({});
+  const [overrideEndereco, setOverrideEndereco] = useState(false);
   const [observacoes, setObservacoes] = useState('');
   const [produtos, setProdutos] = useState<Item[]>([]);
   const [equipamentos, setEquipamentos] = useState<Item[]>([]);
@@ -48,7 +51,10 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setClienteSel(null);
     setDataEntrega('');
     setHorario('');
+    setEnderecoCadastrado('');
     setEnderecoEntrega('');
+    setLatLng({});
+    setOverrideEndereco(false);
     setObservacoes('');
     setProdutos([]);
     setEquipamentos([]);
@@ -56,8 +62,21 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
 
   const handleClienteChange = (v: ClienteSelecionado | null) => {
     setClienteSel(v);
-    if (v?.tipo === 'app' && !enderecoEntrega) {
-      setEnderecoEntrega(v.cliente.endereco);
+    setOverrideEndereco(false);
+    if (v?.tipo === 'app') {
+      const addr = v.cliente.endereco || '';
+      setEnderecoCadastrado(addr);
+      setEnderecoEntrega(addr);
+      setLatLng({
+        lat: v.cliente.latitude ?? undefined,
+        lng: v.cliente.longitude ?? undefined,
+      });
+    } else {
+      // ERP-only client: no address available locally
+      setEnderecoCadastrado('');
+      setEnderecoEntrega('');
+      setLatLng({});
+      if (v) setOverrideEndereco(true);
     }
   };
 
