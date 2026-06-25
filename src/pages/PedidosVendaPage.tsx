@@ -17,6 +17,8 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { getERPClientAddressParts } from '@/hooks/useERPCatalog';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+
 
 interface ERPClientLite {
   id: string | number;
