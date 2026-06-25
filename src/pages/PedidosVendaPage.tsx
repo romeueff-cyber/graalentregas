@@ -111,7 +111,7 @@ export default function PedidosVendaPage() {
   const [showCliente, setShowCliente] = useState(false);
   const [refuseTarget, setRefuseTarget] = useState<PedidoVenda | null>(null);
   const [motivo, setMotivo] = useState('');
-  const [detailPedido, setDetailPedido] = useState<PedidoVenda | null>(null);
+  
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
