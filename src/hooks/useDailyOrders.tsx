@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
 import { erpOrdersCache, type ERPCacheStatus } from '@/lib/erp-cache';
 import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+
 
 interface OrderItem {
   product: string;
