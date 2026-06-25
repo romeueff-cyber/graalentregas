@@ -135,8 +135,15 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
     await refetch();
   }, [isOnline, queryClient, targetDate, refetch]);
 
+  const filteredOrders = useMemo(() => {
+    const all = orders || [];
+    if (!empresasFilter.length) return all;
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(o.id_empresa as any));
+  }, [orders, empresasFilter]);
+
   return {
-    orders: orders || [],
+    orders: filteredOrders,
+
     isLoading,
     isFetching,
     refetch,
