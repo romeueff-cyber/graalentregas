@@ -381,3 +381,37 @@ export default function PedidosVendaPage() {
     </div>
   );
 }
+
+function ClienteCard({
+  cliente,
+  onCreatePedido,
+}: {
+  cliente: ClienteVendedor;
+  onCreatePedido: (c: ClienteVendedor) => void;
+}) {
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium truncate">{cliente.nome_fantasia || cliente.nome}</div>
+          {cliente.nome_fantasia && (
+            <div className="text-xs text-muted-foreground truncate">{cliente.nome}</div>
+          )}
+          <div className="text-sm text-muted-foreground">CPF/CNPJ: {cliente.cpf_cnpj}</div>
+          <div className="text-sm text-muted-foreground line-clamp-2">{cliente.endereco}</div>
+          {(cliente.telefone || cliente.email) && (
+            <div className="text-xs text-muted-foreground mt-1 truncate">
+              {cliente.telefone}
+              {cliente.telefone && cliente.email && ' • '}
+              {cliente.email}
+            </div>
+          )}
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => onCreatePedido(cliente)}>
+          <Plus className="w-4 h-4 mr-1" />Pedido
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
