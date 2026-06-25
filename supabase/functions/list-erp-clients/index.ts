@@ -40,17 +40,23 @@ Deno.serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle();
 
-    let allowedEmpresas = roleData ? ERP_EMPRESAS : [];
-    if (!roleData) {
-      const { data: companies, error: companiesError } = await supabase
-        .from('user_companies')
-        .select('empresa_id')
-        .eq('user_id', userId);
-      if (companiesError) throw companiesError;
-      allowedEmpresas = (companies ?? [])
-        .map((row) => Number(row.empresa_id))
-        .filter((n) => ERP_EMPRESAS.includes(n));
-    }
+    const { data: companies, error: companiesError } = await supabase
+      .from('user_companies')
+      .select('empresa_id')
+      .eq('user_id', userId);
+    if (companiesError) throw companiesError;
+
+    const configuredEmpresas = (companies ?? [])
+      .map((row) => Number(row.empresa_id))
+      .filter((n) => ERP_EMPRESAS.includes(n));
+
+    // Mesmo admin respeita as empresas marcadas no cadastro.
+    // Admin sem configuração mantém acesso total para não bloquear usuários antigos.
+    const allowedEmpresas = configuredEmpresas.length > 0
+      ? configuredEmpresas
+      : roleData
+        ? ERP_EMPRESAS
+        : [];
 
     const requestedEmpresas = parseEmpresas(url.searchParams.get('empresas'));
     const effectiveEmpresas = requestedEmpresas.length > 0
