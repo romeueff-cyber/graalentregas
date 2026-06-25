@@ -136,8 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // No valid online session - clear stale cache if session is null (expired)
           if (!cachedAuth || !isValid) {
             await authStorage.clear();
-      queryClient.clear();
-      lastUserRef.current = null;
+            queryClient.clear();
+            lastUserRef.current = null;
           }
           clearTimeout(timeoutId);
           setIsLoading(false);
@@ -220,6 +220,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         await authStorage.clear();
+        queryClient.clear();
+        lastUserRef.current = null;
       } catch (storageErr) {
         // Not critical for online login.
         console.warn('Pre-login cache clear failed:', storageErr);
