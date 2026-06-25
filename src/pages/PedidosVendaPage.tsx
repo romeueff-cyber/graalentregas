@@ -264,6 +264,35 @@ export default function PedidosVendaPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!detailPedido} onOpenChange={(o) => !o && closeDetail()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do pedido</DialogTitle>
+          </DialogHeader>
+          {detailPedido && (
+            <PedidoCard
+              pedido={detailPedido}
+              showVendedor
+              showActions={
+                canApprovePedidoVenda && detailPedido.status === 'pendente_aprovacao'
+                  ? 'aprovacao'
+                  : isVendedor && detailPedido.status === 'pendente_aprovacao'
+                  ? 'vendedor'
+                  : null
+              }
+              onApprove={(id) => { approvePedido.mutate(id); closeDetail(); }}
+              onRefuse={(p) => { setRefuseTarget(p); closeDetail(); }}
+              onCancel={(id) => { cancelPedido.mutate(id); closeDetail(); }}
+            />
+          )}
+          {pedidoIdFromUrl && !detailPedido && (
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              Carregando pedido…
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
