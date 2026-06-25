@@ -589,6 +589,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
         mode={sheetMode ?? 'produto'}
         onOpenChange={(o) => !o && setSheetMode(null)}
         onAdd={handleAdd}
+        clientErpId={getIdClienteErp()}
       />
 
       <Dialog open={!!lastOrderPreview} onOpenChange={(o) => !o && setLastOrderPreview(null)}>
