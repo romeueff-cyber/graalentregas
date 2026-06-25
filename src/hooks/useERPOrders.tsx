@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
 import { erpOrdersCache, type ERPCacheStatus } from '@/lib/erp-cache';
 import { isOnline as checkOnline } from '@/lib/offline-storage';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import type { DailyOrderData } from '@/hooks/useDailyOrders';
 
 export { type DailyOrderData } from '@/hooks/useDailyOrders';
+
 
 interface UseERPOrdersOptions {
   date?: string;
