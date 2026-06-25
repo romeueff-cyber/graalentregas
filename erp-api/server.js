@@ -306,6 +306,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
 app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const dateParam = req.query.date; // formato YYYY-MM-DD
+    const empresasParam = req.query.empresas; // ex: "1,3"
     
     if (!dateParam) {
       return res.status(400).json({ error: 'Parâmetro date é obrigatório (YYYY-MM-DD)' });
@@ -315,15 +316,26 @@ app.get('/api/orders', authenticate, async (req, res) => {
     const [year, month, day] = dateParam.split('-');
     const firebirdDate = `${month}/${day}/${year}`;
     
-    console.log(`Buscando pedidos para data: ${firebirdDate}`);
+    // Filtro multi-empresa opcional
+    let empresaWhere = '';
+    const empresaParams = [];
+    if (empresasParam) {
+      const ids = String(empresasParam).split(',').map(s => parseInt(s.trim())).filter(Boolean);
+      if (ids.length > 0) {
+        empresaWhere = ` AND cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`;
+        empresaParams.push(...ids);
+      }
+    }
+    
+    console.log(`Buscando pedidos para data: ${firebirdDate} empresas: ${empresasParam || 'todas'}`);
     
     // Query para buscar pedidos do dia marcados para entrega
-    // IMPORTANTE: ov.ENTREGAR = 1 filtra apenas pedidos marcados para entrega
     const ordersQuery = `
       SELECT 
         ov.N_PEDIDO,
         ov.ID_ORDENS_VENDA,
         ov.ID_CLIENTE,
+        cl.ID_EMPRESA,
         ov.DATA_PREV_RETORNO,
         ov.DATA_PREV_ENTREGA,
         ov.OBS,
@@ -346,11 +358,12 @@ app.get('/api/orders', authenticate, async (req, res) => {
       LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
       WHERE CAST(ov.DATA_PREV_ENTREGA AS DATE) = ?
         AND ov.ENTREGAR = 1
-        AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+        AND (ov.DELETED IS NULL OR ov.DELETED = 0)${empresaWhere}
       ORDER BY ov.N_PEDIDO DESC
     `;
     
-    const orders = await executeQuery(ordersQuery, [firebirdDate]);
+    const orders = await executeQuery(ordersQuery, [firebirdDate, ...empresaParams]);
+
     
     if (!orders || orders.length === 0) {
       return res.json([]);
