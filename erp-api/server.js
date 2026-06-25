@@ -1055,9 +1055,27 @@ app.get('/api/clients/:clientId/last-order', authenticate, async (req, res) => {
 // ==========================================
 app.get('/api/allocations', authenticate, async (req, res) => {
   try {
+    const { empresas } = req.query;
+    const where = [
+      "e.STATUS = 'ALOCADO'",
+      '(ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)',
+      '(e.DELETED IS NULL OR e.DELETED = 0)',
+      '(ef.DELETED IS NULL OR ef.DELETED = 0)',
+      '(f.DELETED IS NULL OR f.DELETED = 0)',
+    ];
+    const params = [];
+    if (empresas) {
+      const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
+      if (ids.length > 0) {
+        where.push(`cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`);
+        params.push(...ids);
+      }
+    }
+
     const query = `
       SELECT
         cl.ID_CLIENTE,
+        cl.ID_EMPRESA,
         p.NOME AS CLIENTE_NOME,
         p.APELIDO AS CLIENTE_APELIDO,
         e.PATRIMONIO,
@@ -1072,15 +1090,11 @@ app.get('/api/allocations', authenticate, async (req, res) => {
       INNER JOIN CLIENTES cl           ON cl.ID_CLIENTE = f.ID_CLIENTE
       INNER JOIN PESSOAS p             ON p.ID_PESSOA = cl.ID_PESSOA
       LEFT  JOIN TIPO_EQUIPAMENTO te   ON te.ID_TIPO_EQUIPAMENTO = e.ID_TIPO_EQUIPAMENTO
-      WHERE e.STATUS = 'ALOCADO'
-        AND (ef.ID_STATUS IS NULL OR ef.ID_STATUS <> 10)
-        AND (e.DELETED IS NULL OR e.DELETED = 0)
-        AND (ef.DELETED IS NULL OR ef.DELETED = 0)
-        AND (f.DELETED IS NULL OR f.DELETED = 0)
+      WHERE ${where.join(' AND ')}
       ORDER BY p.NOME, te.DESCRICAO, e.PATRIMONIO
     `;
 
-    const rows = await executeQuery(query, []);
+    const rows = await executeQuery(query, params);
     res.json((rows || []).map(r => ({
       client_id: r.ID_CLIENTE,
       client_name: (r.CLIENTE_APELIDO || r.CLIENTE_NOME || '').trim(),
@@ -1090,6 +1104,7 @@ app.get('/api/allocations', authenticate, async (req, res) => {
       type: r.TIPO?.trim() || 'Equipamento',
       order_number: r.N_PEDIDO?.toString() || null,
       delivery_date: r.DATA_PREV_ENTREGA || null,
+      id_empresa: r.ID_EMPRESA || null,
     })));
   } catch (error) {
     console.error('Erro ao listar alocações:', error);
