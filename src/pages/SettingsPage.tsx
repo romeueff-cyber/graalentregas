@@ -595,6 +595,8 @@ export default function SettingsPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            <WhatsAppEmpresaSettingsCard />
           </>
         )}
 
