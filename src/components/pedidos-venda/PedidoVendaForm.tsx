@@ -31,6 +31,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const [horario, setHorario] = useState('');
   const [enderecoCadastrado, setEnderecoCadastrado] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
+  const [numero, setNumero] = useState('');
+  const [bairro, setBairro] = useState('');
   const [latLng, setLatLng] = useState<{ lat?: number; lng?: number }>({});
   const [overrideEndereco, setOverrideEndereco] = useState(false);
   const [observacoes, setObservacoes] = useState('');
@@ -46,6 +48,11 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     equipamentos: Item[];
   } | null>(null);
 
+  const composeEndereco = (rua: string, num: string, bai: string) => {
+    const parts = [rua.trim(), num.trim() && `nº ${num.trim()}`, bai.trim() && `Bairro ${bai.trim()}`]
+      .filter(Boolean);
+    return parts.join(', ');
+  };
 
   const resetForm = () => {
     setClienteSel(null);
@@ -53,6 +60,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     setHorario('');
     setEnderecoCadastrado('');
     setEnderecoEntrega('');
+    setNumero('');
+    setBairro('');
     setLatLng({});
     setOverrideEndereco(false);
     setObservacoes('');
@@ -67,18 +76,33 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       const addr = v.cliente.endereco || '';
       setEnderecoCadastrado(addr);
       setEnderecoEntrega(addr);
+      setNumero('');
+      setBairro('');
       setLatLng({
         lat: v.cliente.latitude ?? undefined,
         lng: v.cliente.longitude ?? undefined,
       });
+    } else if (v?.tipo === 'erp') {
+      const rua = v.endereco || '';
+      const num = v.numero || '';
+      const bai = v.bairro || '';
+      const cid = [v.cidade, v.uf].filter(Boolean).join('/');
+      const cadastrado = [composeEndereco(rua, num, bai), cid].filter(Boolean).join(' - ');
+      setEnderecoCadastrado(cadastrado);
+      setEnderecoEntrega(rua);
+      setNumero(num);
+      setBairro(bai);
+      setLatLng({ lat: v.lat, lng: v.lng });
+      if (!cadastrado) setOverrideEndereco(true);
     } else {
-      // ERP-only client: no address available locally
       setEnderecoCadastrado('');
       setEnderecoEntrega('');
+      setNumero('');
+      setBairro('');
       setLatLng({});
-      if (v) setOverrideEndereco(true);
     }
   };
+
 
   const handleAdd = (item: AddedItem) => {
     if (item.tipo === 'produto') setProdutos((a) => [...a, item]);
@@ -142,7 +166,12 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
   const handleSubmit = async () => {
     if (!clienteSel) return toast.error('Selecione um cliente');
     if (!dataEntrega) return toast.error('Informe a data de entrega');
-    if (!enderecoEntrega.trim()) return toast.error('Informe o endereço');
+
+    const enderecoFinal = overrideEndereco || !enderecoCadastrado
+      ? composeEndereco(enderecoEntrega, numero, bairro)
+      : enderecoCadastrado;
+
+    if (!enderecoFinal.trim()) return toast.error('Informe o endereço');
     if (!produtos.length && !equipamentos.length)
       return toast.error('Adicione ao menos um produto ou equipamento');
 
@@ -166,7 +195,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       nome_cliente: nomeCliente,
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
-      endereco_entrega: enderecoEntrega,
+      endereco_entrega: enderecoFinal,
       latitude: latLng.lat ?? (isApp ? clienteSel.cliente.latitude ?? undefined : undefined),
       longitude: latLng.lng ?? (isApp ? clienteSel.cliente.longitude ?? undefined : undefined),
       observacoes: observacoes || undefined,
@@ -177,6 +206,7 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
     resetForm();
     onOpenChange(false);
   };
+
 
   return (
     <>
@@ -261,13 +291,33 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
                   <span className="flex-1">{enderecoCadastrado}</span>
                 </div>
               ) : (
-                <AddressAutocomplete
-                  value={enderecoEntrega}
-                  onChange={setEnderecoEntrega}
-                  onSelect={(r) => setLatLng({ lat: r.lat, lng: r.lng })}
-                  placeholder="Digite e selecione no Google Maps..."
-                />
+                <div className="space-y-2">
+                  <AddressAutocomplete
+                    value={enderecoEntrega}
+                    onChange={setEnderecoEntrega}
+                    onSelect={(r) => {
+                      setLatLng({ lat: r.lat, lng: r.lng });
+                      if (r.numero) setNumero(r.numero);
+                      if (r.bairro) setBairro(r.bairro);
+                    }}
+                    placeholder="Rua / logradouro..."
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Número"
+                      inputMode="numeric"
+                      value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Bairro"
+                      value={bairro}
+                      onChange={(e) => setBairro(e.target.value)}
+                    />
+                  </div>
+                </div>
               )}
+
             </div>
 
             <ItemsSection
