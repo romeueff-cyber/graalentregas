@@ -302,6 +302,16 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clienteSel, clientes, overrideEndereco, enderecoCadastrado]);
 
+  // Pré-seleciona cliente quando a janela abre via "Criar pedido" no card do cliente
+  useEffect(() => {
+    if (!open) return;
+    if (initialCliente && !clienteSel) {
+      handleClienteChange(initialCliente);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialCliente]);
+
+
 
   const handleAdd = (item: AddedItem) => {
     if (item.tipo === 'produto') setProdutos((a) => [...a, item]);
