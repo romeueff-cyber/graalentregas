@@ -4,10 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHygieneClients } from '@/hooks/useHygieneClients';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { FullPageLoader } from '@/components/ui/loading-spinner';
 import { HygieneClientCard } from '@/components/hygiene/HygieneClientCard';
 import { HygieneClientDialog } from '@/components/hygiene/HygieneClientDialog';
 import { HygieneServiceDialog } from '@/components/hygiene/HygieneServiceDialog';
+import { AllocationsTab } from '@/components/hygiene/AllocationsTab';
 import { SprayCanIcon } from '@/components/icons';
 import {
   Plus,
@@ -16,8 +18,10 @@ import {
   AlertTriangle,
   CalendarClock,
   Users,
+  Package,
 } from 'lucide-react';
 import type { HygieneClientWithEquipments, HygieneEquipmentWithServices } from '@/types/hygiene';
+
 
 export default function HygienePage() {
   const navigate = useNavigate();
