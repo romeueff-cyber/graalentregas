@@ -95,29 +95,42 @@ function buildMessage(
 
   if (boletosPend.length) {
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const isAtrasado = (b: { due_date: string; status: string }) =>
+      new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
     const totalDevido = boletosPend.reduce((s, b) => s + (b.total_amount || 0) / 100, 0);
-    const vencidos = boletosPend.filter((b) => new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE');
+    const vencidos = boletosPend.filter(isAtrasado);
+
     lines.push('');
-    lines.push(`⚠️ *Boletos em aberto:* ${boletosPend.length} • ${fmtMoney(totalDevido)}`);
+    lines.push('━━━━━━━━━━━━━━━━━━━━');
+    lines.push(`⚠️ *ATENÇÃO — Cliente possui pendências*`);
+    lines.push(`Em aberto: ${boletosPend.length} boleto(s) • ${fmtMoney(totalDevido)}`);
     if (vencidos.length) {
-      lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0))}`);
+      const totalVenc = vencidos.reduce((s, b) => s + (b.total_amount || 0) / 100, 0);
+      lines.push(`🔴 Vencidos: ${vencidos.length} • ${fmtMoney(totalVenc)}`);
     }
-    for (const b of boletosPend.slice(0, 5)) {
-      const venc = fmtDate(b.due_date);
-      const atrasado = new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
-      lines.push(`• Pedido ${b.order_number} — ${fmtMoney((b.total_amount || 0) / 100)} • venc. ${venc}${atrasado ? ' 🔴' : ''}`);
-      const det = (b as { detail?: ErpOrderDetail }).detail;
-      if (atrasado && det) {
-        if (det.delivery_date) lines.push(`   📅 Entrega: ${fmtDate(det.delivery_date)}`);
-        if (det.items?.length) {
-          lines.push(`   🍺 ${det.items.map((i) => `${i.quantity}x ${i.product}`).join(', ')}`);
+
+    if (vencidos.length) {
+      lines.push('');
+      lines.push('*Pedidos vencidos:*');
+      const vencList = vencidos.slice(0, 5) as Array<typeof vencidos[number] & { detail?: ErpOrderDetail | null }>;
+      vencList.forEach((b, idx) => {
+        if (idx > 0) lines.push('');
+        lines.push(`🔴 *Pedido ${b.order_number}* — ${fmtMoney((b.total_amount || 0) / 100)}`);
+        lines.push(`   Vencimento: ${fmtDate(b.due_date)}`);
+        const det = b.detail;
+        if (det?.delivery_date) lines.push(`   Entregue em: ${fmtDate(det.delivery_date)}`);
+        if (det?.items?.length) {
+          lines.push(`   Produtos:`);
+          for (const i of det.items) lines.push(`     • ${i.quantity}x ${i.product}`);
         }
-        if (det.equipments?.length) {
-          lines.push(`   🛠️ ${det.equipments.map((e) => `${e.quantity}x ${e.type}`).join(', ')}`);
+        if (det?.equipments?.length) {
+          lines.push(`   Equipamentos:`);
+          for (const e of det.equipments) lines.push(`     • ${e.quantity}x ${e.type}`);
         }
-      }
+      });
+      if (vencidos.length > 5) lines.push(`\n… e mais ${vencidos.length - 5} pedido(s) vencido(s)`);
     }
-    if (boletosPend.length > 5) lines.push(`… e mais ${boletosPend.length - 5}`);
+    lines.push('━━━━━━━━━━━━━━━━━━━━');
   }
 
   if (pedido.observacoes) {
