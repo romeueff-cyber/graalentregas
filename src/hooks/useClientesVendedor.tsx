@@ -21,6 +21,7 @@ export interface ClienteVendedor {
   observacoes: string | null;
   id_cliente_erp: string | null;
   origem: ClienteVendedorOrigem;
+  id_empresa?: number | null;
   created_at: string;
 }
 
