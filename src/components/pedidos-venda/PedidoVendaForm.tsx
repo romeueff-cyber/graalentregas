@@ -394,9 +394,8 @@ export function PedidoVendaForm({ open, onOpenChange }: Props) {
       <ClienteVendedorForm
         open={showNovoCliente}
         onOpenChange={setShowNovoCliente}
-        onCreated={(id) => {
-          const c = clientes.find((x) => x.id === id);
-          if (c) handleClienteChange({ tipo: 'app', cliente: c });
+        onCreated={(cliente) => {
+          handleClienteChange({ tipo: 'app', cliente });
         }}
 
       />
