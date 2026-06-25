@@ -215,7 +215,20 @@ Deno.serve(async (req) => {
         .filter((b) => normalize(b.customer_name) === nomeAlvo);
     }
 
-    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome, boletosPend);
+    // Para cada boleto vencido, busca detalhes do pedido no ERP (limite 5)
+    type BoletoComDetalhe = typeof boletosPend[number] & { detail?: ErpOrderDetail | null };
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const enriquecidos: BoletoComDetalhe[] = await Promise.all(
+      boletosPend.slice(0, 5).map(async (b) => {
+        const vencido = new Date(`${b.due_date}T12:00:00`) < hoje || b.status === 'LATE';
+        if (!vencido || !b.order_number) return b;
+        const detail = await fetchErpOrderDetail(b.order_number);
+        return { ...b, detail };
+      }),
+    );
+    const boletosFinal = [...enriquecidos, ...boletosPend.slice(5)];
+
+    const text = buildMessage(pedido, pedido.itens ?? [], vendedorNome, boletosFinal);
     const recipient = normalizeRecipient(ZAPSTER_GROUP_RECIPIENT);
 
     const resp = await fetch(ZAPSTER_URL, {
