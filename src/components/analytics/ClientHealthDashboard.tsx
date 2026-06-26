@@ -475,16 +475,88 @@ export function ClientHealthDashboard({
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Mobile: card list with all key metrics */}
+          <div className="sm:hidden space-y-2">
+            {visibleRows.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum cliente encontrado com os filtros aplicados.
+              </div>
+            ) : visibleRows.map(r => {
+              const variant = STATUS_VARIANT[r.status];
+              const statusDotColor =
+                variant === 'success' ? 'bg-status-collected'
+                : variant === 'warning' ? 'bg-amber-500'
+                : variant === 'destructive' ? 'bg-destructive'
+                : 'bg-primary';
+              const ind = noteIndicators.get(r.clientName.trim().toLowerCase());
+              const noteColor = ind?.hasDueOrOverdue ? 'text-destructive' : 'text-amber-500';
+              return (
+                <button
+                  key={`m-${r.clientId}-${r.clientName}`}
+                  type="button"
+                  onClick={() => handleRowClick(r.clientName)}
+                  className="w-full text-left rounded-lg border bg-card p-3 active:bg-accent/60 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {ind?.hasOpen && (
+                          <StickyNote className={`w-3.5 h-3.5 shrink-0 ${noteColor}`} />
+                        )}
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${statusDotColor}`} aria-label={STATUS_LABEL[r.status]} />
+                        <span className="font-medium text-sm truncate">{r.clientName}</span>
+                      </div>
+                      {r.grupoCliente && r.grupoCliente !== 'Sem grupo' && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{r.grupoCliente}</div>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 mt-2.5 text-[11px]">
+                    <div>
+                      <div className="text-muted-foreground">Pedidos</div>
+                      <div className="font-semibold text-sm text-foreground">{r.totalOrders}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Interv.</div>
+                      <div className="font-semibold text-sm text-foreground">
+                        {r.avgIntervalDays > 0 ? `${r.avgIntervalDays}d` : '–'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Últ.</div>
+                      <div className={`font-semibold text-sm ${r.daysSinceLast > 60 ? 'text-destructive' : r.daysSinceLast > 30 ? 'text-amber-500' : 'text-foreground'}`}>
+                        {r.daysSinceLast}d
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Tend.</div>
+                      <div className={`font-semibold text-sm ${r.trendPct > 0 ? 'text-status-collected' : r.trendPct < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {r.trendPct > 0 ? '+' : ''}{r.trendPct}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    Valor: <span className="text-foreground font-medium">{formatCurrency(r.totalValue)}</span>
+                    {' · '}Ticket: <span className="text-foreground font-medium">{formatCurrency(r.avgTicket)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop/tablet: table */}
+          <div className="overflow-x-auto hidden sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b">
                   <th className="py-2 px-2 font-medium">Cliente</th>
                   <th className="py-2 px-2 font-medium hidden md:table-cell">Grupo</th>
                   <th className="py-2 px-2 font-medium text-right">Pedidos</th>
-                  <th className="py-2 px-2 font-medium text-right hidden sm:table-cell">Valor</th>
-                  <th className="py-2 px-2 font-medium text-right hidden lg:table-cell">Interv. médio</th>
+                  <th className="py-2 px-2 font-medium text-right">Valor</th>
+                  <th className="py-2 px-2 font-medium text-right">Interv. médio</th>
                   <th className="py-2 px-2 font-medium text-right">Últ. pedido</th>
                   <th className="py-2 px-2 font-medium text-right hidden md:table-cell">Tendência</th>
                   <th className="py-2 px-2 font-medium text-center">Status</th>
@@ -500,28 +572,20 @@ export function ClientHealthDashboard({
                   </tr>
                 ) : visibleRows.map(r => {
                   const variant = STATUS_VARIANT[r.status];
-                  const statusDotColor =
-                    variant === 'success' ? 'bg-status-collected'
-                    : variant === 'warning' ? 'bg-amber-500'
-                    : variant === 'destructive' ? 'bg-destructive'
-                    : 'bg-primary';
                   return (
                     <tr
                       key={`${r.clientId}-${r.clientName}`}
                       className="border-b last:border-0 hover:bg-accent/40 cursor-pointer active:bg-accent/60"
                       onClick={() => handleRowClick(r.clientName)}
                     >
-                      <td className="py-2 px-2 font-medium text-foreground max-w-[140px] sm:max-w-[200px]">
+                      <td className="py-2 px-2 font-medium text-foreground max-w-[200px]">
                         <div className="flex items-center gap-1.5 min-w-0">
                           {(() => {
                             const ind = noteIndicators.get(r.clientName.trim().toLowerCase());
                             if (!ind?.hasOpen) return null;
                             const color = ind.hasDueOrOverdue ? 'text-destructive' : 'text-amber-500';
                             return (
-                              <StickyNote
-                                className={`w-3.5 h-3.5 shrink-0 ${color}`}
-                                aria-label={ind.hasDueOrOverdue ? 'Follow-up vencido' : 'Tem notas'}
-                              />
+                              <StickyNote className={`w-3.5 h-3.5 shrink-0 ${color}`} />
                             );
                           })()}
                           <span className="truncate">{r.clientName}</span>
@@ -531,10 +595,10 @@ export function ClientHealthDashboard({
                         {r.grupoCliente}
                       </td>
                       <td className="py-2 px-2 text-right">{r.totalOrders}</td>
-                      <td className="py-2 px-2 text-right hidden sm:table-cell">
+                      <td className="py-2 px-2 text-right">
                         {formatCurrency(r.totalValue)}
                       </td>
-                      <td className="py-2 px-2 text-right hidden lg:table-cell">
+                      <td className="py-2 px-2 text-right">
                         {r.avgIntervalDays > 0 ? `${r.avgIntervalDays}d` : '-'}
                       </td>
                       <td className="py-2 px-2 text-right whitespace-nowrap">
@@ -556,21 +620,14 @@ export function ClientHealthDashboard({
                         </span>
                       </td>
                       <td className="py-2 px-2 text-center">
-                        {/* Dot on mobile, full badge on sm+ */}
-                        <span
-                          className={`inline-block sm:hidden w-2.5 h-2.5 rounded-full ${statusDotColor}`}
-                          aria-label={STATUS_LABEL[r.status]}
-                        />
                         <Badge
                           variant={variant === 'destructive' ? 'destructive' : 'secondary'}
                           className={
-                            'hidden sm:inline-flex ' + (
-                              variant === 'success'
-                                ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
-                                : variant === 'warning'
-                                ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
-                                : ''
-                            )
+                            variant === 'success'
+                              ? 'bg-status-collected/15 text-status-collected hover:bg-status-collected/20'
+                              : variant === 'warning'
+                              ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20'
+                              : ''
                           }
                         >
                           {STATUS_LABEL[r.status]}
@@ -585,6 +642,7 @@ export function ClientHealthDashboard({
               </tbody>
             </table>
           </div>
+
 
           {filteredRows.length > visibleRows.length && (
             <div className="flex flex-col items-center gap-1 pt-2">
