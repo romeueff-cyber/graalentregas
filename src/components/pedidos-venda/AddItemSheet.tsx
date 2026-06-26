@@ -34,7 +34,8 @@ const QUICK_UNIT = [1, 5, 10];
 // Demais (growler, garrafa, etc) usam quantidades unitárias.
 const isChoppProduct = (desc: string) => /\bchopp?\b/i.test(desc || '');
 
-// Equipamentos só devem listar chopeira/barril.
+// Filtros por palavra-chave (tabela ERP é grande).
+const isProdutoVenda = (desc: string) => /\b(chopp?|garrafa|growler)\b/i.test(desc || '');
 const isChoperaOuBarril = (desc: string) => /\b(chopeira|barril)\b/i.test(desc || '');
 
 const formatBRL = (v: number) =>
@@ -69,7 +70,9 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
   }, [open, mode]);
 
   const filtered = useMemo(() => {
-    const base = mode === 'equipamento' ? list.filter((x) => isChoperaOuBarril(x.description)) : list;
+    let base = list;
+    if (mode === 'equipamento') base = list.filter((x) => isChoperaOuBarril(x.description));
+    else base = list.filter((x) => isProdutoVenda(x.description));
     const s = search.trim().toUpperCase();
     if (!s) return base.slice(0, 200);
     return base.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);

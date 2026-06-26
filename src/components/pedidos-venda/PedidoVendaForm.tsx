@@ -563,7 +563,25 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               onAdd={() => setSheetMode('produto')}
               onRemove={(idx) => setProdutos((a) => a.filter((_, i) => i !== idx))}
               emptyLabel="Nenhum produto adicionado"
+              renderExtra={(item) => {
+                if (!/\bchopp?\b/i.test(item.descricao)) return null;
+                const escaped = item.descricao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const tagRe = new RegExp(`p/\\s*${escaped}`, 'i');
+                const alocado = equipamentos.reduce((sum, e) => {
+                  const m = e.descricao.match(/barril\s*(\d+)\s*l/i);
+                  if (!m) return sum;
+                  if (!tagRe.test(e.descricao)) return sum;
+                  return sum + parseInt(m[1], 10) * e.quantidade;
+                }, 0);
+                const ok = alocado >= item.quantidade;
+                return (
+                  <div className={`text-xs mt-0.5 ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    Barris: {alocado}/{item.quantidade} L {ok ? '✓' : '(falta ' + (item.quantidade - alocado) + 'L)'}
+                  </div>
+                );
+              }}
             />
+
 
             <ItemsSection
               title="Equipamentos"
@@ -581,6 +599,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                     onClick={() => {
                       const choppItems = produtos.filter((p) => /\bchopp?\b/i.test(p.descricao));
                       if (!choppItems.length) return;
+                      const sizes = [50, 30, 10];
                       const sugeridos: Item[] = [];
                       choppItems.forEach((p) => {
                         sugeridos.push({
@@ -589,12 +608,28 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                           descricao: `Chopeira (sugerido p/ ${p.descricao})`,
                           quantidade: 1,
                         });
-                        sugeridos.push({
-                          tipo: 'equipamento',
-                          id_erp: '',
-                          descricao: `Barril ${p.quantidade}L (sugerido p/ ${p.descricao})`,
-                          quantidade: 1,
-                        });
+                        let rem = p.quantidade;
+                        for (const s of sizes) {
+                          const n = Math.floor(rem / s);
+                          if (n > 0) {
+                            sugeridos.push({
+                              tipo: 'equipamento',
+                              id_erp: '',
+                              descricao: `Barril ${s}L (sugerido p/ ${p.descricao})`,
+                              quantidade: n,
+                            });
+                            rem -= n * s;
+                          }
+                        }
+                        if (rem > 0) {
+                          // resto < 10L: arredonda para 1 barril de 10L
+                          sugeridos.push({
+                            tipo: 'equipamento',
+                            id_erp: '',
+                            descricao: `Barril 10L (sugerido p/ ${p.descricao})`,
+                            quantidade: 1,
+                          });
+                        }
                       });
                       setEquipamentos((a) => [...a, ...sugeridos]);
                       toast.success(`${sugeridos.length} equipamento(s) sugerido(s). Personalize se necessário.`);
@@ -604,6 +639,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                   </Button>
                 ) : null
               }
+
             />
 
             <div>
@@ -693,7 +729,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
 }
 
 function ItemsSection({
-  title, icon, items, onAdd, onRemove, emptyLabel, extraAction,
+  title, icon, items, onAdd, onRemove, emptyLabel, extraAction, renderExtra,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -702,6 +738,7 @@ function ItemsSection({
   onRemove: (idx: number) => void;
   emptyLabel: string;
   extraAction?: React.ReactNode;
+  renderExtra?: (item: Item, idx: number) => React.ReactNode;
 }) {
   return (
     <div>
@@ -732,6 +769,7 @@ function ItemsSection({
                     {v != null && ` · ${v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
                     {sub != null && ` · Subtotal: ${sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
                   </div>
+                  {renderExtra?.(it, idx)}
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
                   <Trash2 className="w-4 h-4" />
