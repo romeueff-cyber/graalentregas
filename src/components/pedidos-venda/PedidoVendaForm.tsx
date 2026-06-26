@@ -572,6 +572,38 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               onAdd={() => setSheetMode('equipamento')}
               onRemove={(idx) => setEquipamentos((a) => a.filter((_, i) => i !== idx))}
               emptyLabel="Nenhum equipamento adicionado"
+              extraAction={
+                produtos.some((p) => /\bchopp?\b/i.test(p.descricao)) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const choppItems = produtos.filter((p) => /\bchopp?\b/i.test(p.descricao));
+                      if (!choppItems.length) return;
+                      const sugeridos: Item[] = [];
+                      choppItems.forEach((p) => {
+                        sugeridos.push({
+                          tipo: 'equipamento',
+                          id_erp: '',
+                          descricao: `Chopeira (sugerido p/ ${p.descricao})`,
+                          quantidade: 1,
+                        });
+                        sugeridos.push({
+                          tipo: 'equipamento',
+                          id_erp: '',
+                          descricao: `Barril ${p.quantidade}L (sugerido p/ ${p.descricao})`,
+                          quantidade: 1,
+                        });
+                      });
+                      setEquipamentos((a) => [...a, ...sugeridos]);
+                      toast.success(`${sugeridos.length} equipamento(s) sugerido(s). Personalize se necessário.`);
+                    }}
+                  >
+                    Sugerir do chopp
+                  </Button>
+                ) : null
+              }
             />
 
             <div>
