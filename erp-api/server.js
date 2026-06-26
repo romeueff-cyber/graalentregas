@@ -779,7 +779,8 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
         terms_description: order.PAYMENT_TERMS_DESCRIPTION,
         due_days: dueDays.length > 0 ? dueDays : [0]
       },
-      total_amount: order.TOTAL_AMOUNT
+      total_amount: order.TOTAL_AMOUNT,
+      id_empresa: order.ID_EMPRESA || null
     });
     
   } catch (error) {
