@@ -10,17 +10,26 @@ import { EMPRESA_OPTIONS } from '@/lib/empresas';
 export function EmpresaSelector({ className = '' }: { className?: string }) {
   const { allowedEmpresas, selectedEmpresa, setSelectedEmpresa, hasMultiple } = useEmpresa();
 
-  if (!hasMultiple || !selectedEmpresa) return null;
+  if (!hasMultiple) return null;
 
   const opts = EMPRESA_OPTIONS.filter(o => allowedEmpresas.includes(o.id));
 
   return (
-    <Select value={String(selectedEmpresa)} onValueChange={(v) => setSelectedEmpresa(Number(v) as any)}>
+    <Select
+      value={selectedEmpresa == null ? 'all' : String(selectedEmpresa)}
+      onValueChange={(v) => setSelectedEmpresa(v === 'all' ? null : (Number(v) as any))}
+    >
       <SelectTrigger className={`h-9 w-auto gap-2 ${className}`}>
         <Building2 className="w-4 h-4 text-muted-foreground" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="all">
+          <span className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground" />
+            Todas as empresas
+          </span>
+        </SelectItem>
         {opts.map(o => (
           <SelectItem key={o.id} value={String(o.id)}>
             <span className="flex items-center gap-2">
