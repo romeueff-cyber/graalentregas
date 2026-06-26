@@ -342,6 +342,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
         // ERP returns amount in reais (e.g. 540.00), not cents
         setManualAmount(Number(data.total_amount).toFixed(2).replace('.', ','));
       }
+      setManualIdEmpresa(data.id_empresa ?? null);
       toast.success('Dados carregados do ERP');
     } else {
       toast.error('Pedido não encontrado no ERP');
