@@ -115,10 +115,9 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
               : Array.isArray(payloadRecord?.clients)
                 ? payloadRecord.clients as ERPClient[]
                 : [];
-        setErpResults(results.filter((client) => {
-          if (!empresasFilter.length) return false;
-          return client.id_empresa != null && empresasFilter.includes(Number(client.id_empresa) as any);
-        }));
+        // O backend já restringe por empresa permitida do usuário;
+        // confiamos no resultado para não esconder clientes sem id_empresa preenchido.
+        setErpResults(results);
       } catch (e: unknown) {
         console.warn('[erp clients search] erro', e);
         setErpError('Falha de rede ao consultar o ERP.');
@@ -136,17 +135,24 @@ export function ClienteCombobox({ clientesLocal, value, onChange }: Props) {
     () => new Set(clientesLocal.map((c) => c.id_cliente_erp).filter(Boolean) as string[]),
     [clientesLocal],
   );
+  // Filtro por empresa: aceita também clientes sem id_empresa definido (legado),
+  // mas se houver id_empresa precisa pertencer às empresas permitidas.
+  const matchesEmpresa = (id: number | null | undefined) =>
+    empresasFilter.length === 0
+      ? true
+      : id == null
+        ? true
+        : empresasFilter.includes(Number(id) as any);
+
   const filteredLocal = clientesLocal.filter((c) => (
-    empresasFilter.length > 0
-    && c.id_empresa != null
-    && empresasFilter.includes(Number(c.id_empresa) as any)
+    matchesEmpresa(c.id_empresa as number | null | undefined)
     && (!term || matchesTerm([c.nome, c.nome_fantasia, c.cpf_cnpj, c.id_cliente_erp], term))
   ));
+  // Para ERP: o backend já restringe por empresa. Aqui apenas removemos duplicados
+  // e filtramos por termo localmente.
   const filteredErp = erpResults.filter((e) => (
     !localErpIds.has(String(e.id))
-    && empresasFilter.length > 0
-    && e.id_empresa != null
-    && empresasFilter.includes(Number(e.id_empresa) as any)
+    && matchesEmpresa(e.id_empresa as number | null | undefined)
     && matchesTerm([e.name, e.nickname, e.document, e.id], term)
   ));
 

@@ -1,15 +1,16 @@
-import { useMemo, useRef, useState } from 'react';
-import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, MapPin } from 'lucide-react';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { toast } from 'sonner';
 
 const LIBRARIES: ('places')[] = ['places'];
 
 // Jaraguá do Sul / SC
 const JARAGUA = { lat: -26.4858, lng: -49.0667 };
-const RADIUS_KM = 150;
+const RADIUS_KM = 100;
 
 export interface AddressResult {
   formatted: string;
@@ -53,16 +54,35 @@ const parseComponents = (
   cep: componentByType(comps, 'postal_code'),
 });
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+interface Prediction {
+  place_id: string;
+  description: string;
+}
+
 export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: Props) {
   const { apiKey } = useGoogleMapsKey();
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: apiKey,
     libraries: LIBRARIES,
   });
-  const acRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const [searching, setSearching] = useState(false);
 
-  // Build a ~150 km bounding box around Jaraguá do Sul (used as bias)
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [sessionToken, setSessionToken] = useState<google.maps.places.AutocompleteSessionToken | null>(null);
+  const debounceRef = useRef<number | null>(null);
+
   const bounds = useMemo(() => {
     if (!isLoaded || !window.google?.maps) return undefined;
     const dLat = RADIUS_KM / 111;
@@ -73,15 +93,81 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: 
     );
   }, [isLoaded]);
 
-  const handlePlaceChanged = () => {
-    const place = acRef.current?.getPlace();
-    if (!place) return;
-    const formatted = place.formatted_address || place.name || value;
-    const lat = place.geometry?.location?.lat();
-    const lng = place.geometry?.location?.lng();
-    const parsed = parseComponents(place.address_components);
-    onChange(formatted);
-    onSelect?.({ formatted, lat, lng, ...parsed });
+  useEffect(() => {
+    if (isLoaded && !sessionToken && window.google?.maps?.places) {
+      setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+    }
+  }, [isLoaded, sessionToken]);
+
+  const fetchPredictions = useCallback(
+    (input: string) => {
+      if (!isLoaded || !window.google?.maps?.places || !input || input.length < 3) {
+        setPredictions([]);
+        return;
+      }
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        {
+          input,
+          componentRestrictions: { country: 'br' },
+          bounds,
+          locationBias: bounds,
+          sessionToken: sessionToken || undefined,
+        } as google.maps.places.AutocompletionRequest,
+        (results) => {
+          setPredictions(
+            (results || []).map((r) => ({ place_id: r.place_id, description: r.description })),
+          );
+        },
+      );
+    },
+    [isLoaded, bounds, sessionToken],
+  );
+
+  const handleInputChange = (val: string) => {
+    onChange(val);
+    setOpen(true);
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => fetchPredictions(val), 250);
+  };
+
+  const handleSelectPrediction = (p: Prediction) => {
+    if (!isLoaded || !window.google?.maps) return;
+    const placesService = new window.google.maps.places.PlacesService(
+      document.createElement('div'),
+    );
+    placesService.getDetails(
+      {
+        placeId: p.place_id,
+        fields: ['formatted_address', 'geometry', 'name', 'address_components'],
+        sessionToken: sessionToken || undefined,
+      },
+      (place, status) => {
+        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
+          toast.error('Não foi possível obter o endereço.');
+          return;
+        }
+        const lat = place.geometry?.location?.lat();
+        const lng = place.geometry?.location?.lng();
+        if (lat != null && lng != null) {
+          const dist = haversineKm(JARAGUA.lat, JARAGUA.lng, lat, lng);
+          if (dist > RADIUS_KM) {
+            toast.error(`Endereço fora do raio de ${RADIUS_KM} km de Jaraguá do Sul (${dist.toFixed(0)} km).`);
+            return;
+          }
+        }
+        const formatted = place.formatted_address || place.name || p.description;
+        const parsed = parseComponents(place.address_components);
+        onChange(formatted);
+        onSelect?.({ formatted, lat, lng, ...parsed });
+        setPredictions([]);
+        setOpen(false);
+        // Renew session token after a selection (per Google billing)
+        if (window.google?.maps?.places) {
+          setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+        }
+      },
+    );
   };
 
   const handleManualSearch = async () => {
@@ -90,7 +176,7 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: 
     try {
       const geocoder = new window.google.maps.Geocoder();
       const query = /brasil|brazil/i.test(value) ? value : `${value}, Brasil`;
-      const res = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
+      const res = await new Promise<google.maps.GeocoderResult[] | null>((resolve) => {
         geocoder.geocode(
           {
             address: query,
@@ -98,66 +184,68 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: 
             componentRestrictions: { country: 'BR' },
             bounds,
           },
-          (results, status) => resolve(status === 'OK' && results?.[0] ? results[0] : null),
+          (results, status) => resolve(status === 'OK' && results ? results : null),
         );
       });
-      if (res) {
-        const formatted = res.formatted_address;
-        const lat = res.geometry.location.lat();
-        const lng = res.geometry.location.lng();
-        const parsed = parseComponents(res.address_components);
-        onChange(formatted);
-        onSelect?.({ formatted, lat, lng, ...parsed });
+      const valid = (res || []).find((r) => {
+        const lat = r.geometry.location.lat();
+        const lng = r.geometry.location.lng();
+        return haversineKm(JARAGUA.lat, JARAGUA.lng, lat, lng) <= RADIUS_KM;
+      });
+      if (!valid) {
+        toast.error(`Nenhum resultado dentro do raio de ${RADIUS_KM} km de Jaraguá do Sul.`);
+        return;
       }
+      const lat = valid.geometry.location.lat();
+      const lng = valid.geometry.location.lng();
+      const parsed = parseComponents(valid.address_components);
+      onChange(valid.formatted_address);
+      onSelect?.({ formatted: valid.formatted_address, lat, lng, ...parsed });
+      setOpen(false);
     } finally {
       setSearching(false);
     }
   };
 
   return (
-    <div className="flex gap-2">
-      <div className="flex-1">
-        {isLoaded ? (
-          <Autocomplete
-            onLoad={(ac) => {
-              acRef.current = ac;
-              if (bounds) {
-                ac.setBounds(bounds);
-                ac.setOptions({ strictBounds: false });
-              }
-            }}
-            onPlaceChanged={handlePlaceChanged}
-            options={{
-              componentRestrictions: { country: 'br' },
-              fields: ['formatted_address', 'geometry', 'name', 'address_components'],
-              bounds,
-              strictBounds: false,
-            }}
-          >
-            <Input
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={placeholder || 'Digite o endereço...'}
-            />
-          </Autocomplete>
-        ) : (
+    <div className="space-y-1.5">
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
           <Input
             value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder || 'Digite o endereço...'}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={() => predictions.length > 0 && setOpen(true)}
+            placeholder={placeholder || `Digite o endereço (raio ${RADIUS_KM} km de Jaraguá)...`}
+            autoComplete="off"
           />
-        )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={handleManualSearch}
+          disabled={!isLoaded || searching || !value}
+          title={`Buscar no mapa (raio de ${RADIUS_KM} km de Jaraguá do Sul)`}
+        >
+          {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+        </Button>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        onClick={handleManualSearch}
-        disabled={!isLoaded || searching || !value}
-        title="Buscar no mapa (raio de 150 km de Jaraguá do Sul)"
-      >
-        {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-      </Button>
+
+      {open && predictions.length > 0 && (
+        <div className="rounded-md border bg-popover text-popover-foreground shadow-md max-h-64 overflow-y-auto">
+          {predictions.map((p) => (
+            <button
+              key={p.place_id}
+              type="button"
+              onClick={() => handleSelectPrediction(p)}
+              className="w-full text-left px-3 py-2.5 hover:bg-muted active:bg-muted/80 transition flex items-start gap-2 border-b last:border-b-0"
+            >
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+              <span className="text-sm">{p.description}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
