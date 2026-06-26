@@ -74,12 +74,14 @@ interface UsePedidosVendaOptions {
 
 export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {}) {
   const { user, canApprovePedidoVenda } = useAuth();
-  const { selectedEmpresa } = useEmpresa();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const queryClient = useQueryClient();
 
+  const empresasFilter = selectedEmpresa != null ? [selectedEmpresa] : allowedEmpresas;
+
   const query = useQuery({
-    queryKey: ['pedidos-venda', scope, user?.id, selectedEmpresa],
-    enabled: !!user && selectedEmpresa != null,
+    queryKey: ['pedidos-venda', scope, user?.id, selectedEmpresa, empresasFilter.join(',')],
+    enabled: !!user && empresasFilter.length > 0,
     queryFn: async (): Promise<PedidoVenda[]> => {
       let q = supabase
         .from('pedidos_venda')
@@ -88,7 +90,8 @@ export function usePedidosVenda({ scope = 'meus' }: UsePedidosVendaOptions = {})
 
       if (scope === 'meus' && user) q = q.eq('vendedor_id', user.id);
       if (scope === 'pendentes') q = q.eq('status', 'pendente_aprovacao');
-      if (selectedEmpresa) q = q.eq('id_empresa', selectedEmpresa);
+      if (empresasFilter.length === 1) q = q.eq('id_empresa', empresasFilter[0]);
+      else q = q.in('id_empresa', empresasFilter);
 
       const { data, error } = await q;
       if (error) throw error;
