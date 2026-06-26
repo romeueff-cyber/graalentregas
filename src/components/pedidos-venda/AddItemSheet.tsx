@@ -30,10 +30,12 @@ interface Props {
 const QUICK_BARRIL = [10, 20, 30, 50];
 const QUICK_UNIT = [1, 5, 10];
 
-const isBarrelLike = (desc: string) => {
-  const s = (desc || '').toLowerCase();
-  return s.includes('barril') || s.includes('chopeira') || /\b(10|20|30|50)\s*l\b/.test(s);
-};
+// Produtos "chopp" usam quantidades de barril (10/20/30/50L).
+// Demais (growler, garrafa, etc) usam quantidades unitárias.
+const isChoppProduct = (desc: string) => /\bchopp?\b/i.test(desc || '');
+
+// Equipamentos só devem listar chopeira/barril.
+const isChoperaOuBarril = (desc: string) => /\b(chopeira|barril)\b/i.test(desc || '');
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
