@@ -70,7 +70,9 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
   }, [open, mode]);
 
   const filtered = useMemo(() => {
-    const base = mode === 'equipamento' ? list.filter((x) => isChoperaOuBarril(x.description)) : list;
+    let base = list;
+    if (mode === 'equipamento') base = list.filter((x) => isChoperaOuBarril(x.description));
+    else base = list.filter((x) => isProdutoVenda(x.description));
     const s = search.trim().toUpperCase();
     if (!s) return base.slice(0, 200);
     return base.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);
