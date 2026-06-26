@@ -48,6 +48,7 @@ export interface NovoPedidoVendaInput {
   id_cliente_erp?: string | null;
   cliente_vendedor_id?: string | null;
   nome_cliente: string;
+  documento_cliente?: string | null;
   data_entrega: string;
   horario_entrega?: string;
   endereco_entrega: string;
