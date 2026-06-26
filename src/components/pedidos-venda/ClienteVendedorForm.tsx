@@ -56,7 +56,16 @@ export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
           </div>
           <div>
             <Label>Endereço *</Label>
-            <Textarea rows={2} value={form.endereco} onChange={(e) => update('endereco', e.target.value)} />
+            <AddressAutocomplete
+              value={form.endereco}
+              onChange={(v) => update('endereco', v)}
+              onSelect={(r) => {
+                update('endereco', r.formatted);
+                if (r.lat != null) update('latitude', r.lat);
+                if (r.lng != null) update('longitude', r.lng);
+              }}
+              placeholder="Digite e selecione o endereço"
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
