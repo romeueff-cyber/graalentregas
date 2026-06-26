@@ -30,10 +30,12 @@ interface Props {
 const QUICK_BARRIL = [10, 20, 30, 50];
 const QUICK_UNIT = [1, 5, 10];
 
-const isBarrelLike = (desc: string) => {
-  const s = (desc || '').toLowerCase();
-  return s.includes('barril') || s.includes('chopeira') || /\b(10|20|30|50)\s*l\b/.test(s);
-};
+// Produtos "chopp" usam quantidades de barril (10/20/30/50L).
+// Demais (growler, garrafa, etc) usam quantidades unitárias.
+const isChoppProduct = (desc: string) => /\bchopp?\b/i.test(desc || '');
+
+// Equipamentos só devem listar chopeira/barril.
+const isChoperaOuBarril = (desc: string) => /\b(chopeira|barril)\b/i.test(desc || '');
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -67,10 +69,11 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
   }, [open, mode]);
 
   const filtered = useMemo(() => {
+    const base = mode === 'equipamento' ? list.filter((x) => isChoperaOuBarril(x.description)) : list;
     const s = search.trim().toUpperCase();
-    if (!s) return list.slice(0, 200);
-    return list.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);
-  }, [list, search]);
+    if (!s) return base.slice(0, 200);
+    return base.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);
+  }, [list, search, mode]);
 
   const handleSelect = async (x: { id: string | number; description: string }) => {
     const id = String(x.id);
@@ -197,7 +200,7 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
                 className="mt-1"
               />
               {(() => {
-                const isBarril = mode === 'equipamento' || isBarrelLike(selected?.descricao || '');
+                const isBarril = mode === 'equipamento' || isChoppProduct(selected?.descricao || '');
                 const buttons = isBarril ? QUICK_BARRIL : QUICK_UNIT;
                 return (
                   <div className={`grid gap-2 mt-2 ${buttons.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>

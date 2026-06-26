@@ -572,6 +572,38 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               onAdd={() => setSheetMode('equipamento')}
               onRemove={(idx) => setEquipamentos((a) => a.filter((_, i) => i !== idx))}
               emptyLabel="Nenhum equipamento adicionado"
+              extraAction={
+                produtos.some((p) => /\bchopp?\b/i.test(p.descricao)) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const choppItems = produtos.filter((p) => /\bchopp?\b/i.test(p.descricao));
+                      if (!choppItems.length) return;
+                      const sugeridos: Item[] = [];
+                      choppItems.forEach((p) => {
+                        sugeridos.push({
+                          tipo: 'equipamento',
+                          id_erp: '',
+                          descricao: `Chopeira (sugerido p/ ${p.descricao})`,
+                          quantidade: 1,
+                        });
+                        sugeridos.push({
+                          tipo: 'equipamento',
+                          id_erp: '',
+                          descricao: `Barril ${p.quantidade}L (sugerido p/ ${p.descricao})`,
+                          quantidade: 1,
+                        });
+                      });
+                      setEquipamentos((a) => [...a, ...sugeridos]);
+                      toast.success(`${sugeridos.length} equipamento(s) sugerido(s). Personalize se necessário.`);
+                    }}
+                  >
+                    Sugerir do chopp
+                  </Button>
+                ) : null
+              }
             />
 
             <div>
@@ -661,7 +693,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
 }
 
 function ItemsSection({
-  title, icon, items, onAdd, onRemove, emptyLabel,
+  title, icon, items, onAdd, onRemove, emptyLabel, extraAction,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -669,14 +701,18 @@ function ItemsSection({
   onAdd: () => void;
   onRemove: (idx: number) => void;
   emptyLabel: string;
+  extraAction?: React.ReactNode;
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2">
         <Label className="flex items-center gap-2">{icon}{title}</Label>
-        <Button variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="w-4 h-4 mr-1" />Adicionar
-        </Button>
+        <div className="flex items-center gap-2">
+          {extraAction}
+          <Button variant="outline" size="sm" onClick={onAdd}>
+            <Plus className="w-4 h-4 mr-1" />Adicionar
+          </Button>
+        </div>
       </div>
       {items.length === 0 ? (
         <div className="text-xs text-muted-foreground py-2 px-3 border border-dashed rounded-md text-center">
