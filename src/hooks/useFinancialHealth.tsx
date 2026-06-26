@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, startOfDay, addDays, isAfter, isBefore, parseISO, format } from 'date-fns';
 import { useClientHealth, type ClientHealthStatus } from './useClientHealth';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 export interface FinancialBoleto {
   id: string;
