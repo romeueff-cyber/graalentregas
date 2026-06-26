@@ -63,6 +63,7 @@ export interface CreateBoletoRequest {
     rules?: string[];
   };
   production?: boolean;
+  idEmpresa?: number | null;
 }
 
 export interface BoletoResponse {
