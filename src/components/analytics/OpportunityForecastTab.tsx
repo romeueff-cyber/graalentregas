@@ -26,10 +26,13 @@ const mapStyles = [
   { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
 ];
 
+const LIBRARIES: Libraries = ['places'];
+
 export function OpportunityForecastTab({ days }: Props) {
   const { opportunities, confirmedDeliveries, summary, nearRadiusKm, isLoading, grupos } =
     useOpportunityForecast(days);
   const { apiKey } = useGoogleMapsKey();
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: LIBRARIES });
   const [grupoFilter, setGrupoFilter] = useState<string>('all');
   const [onlyNear, setOnlyNear] = useState<'all' | 'near'>('all');
   const [selected, setSelected] = useState<OpportunityRow | null>(null);
