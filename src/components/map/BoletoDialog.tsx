@@ -319,6 +319,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         }],
         dueDate: inst.dueDate,
         ...buildBoletoPaymentTerms(boletoSettings),
+        idEmpresa: erpIdEmpresa,
         notification: email ? {
           name: order.client_name,
           email: email,
