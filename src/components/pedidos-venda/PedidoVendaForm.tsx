@@ -411,10 +411,15 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
       ? clienteSel.cliente.nome_fantasia || clienteSel.cliente.nome
       : clienteSel.apelido || clienteSel.nome;
 
+    const documentoCliente = isApp
+      ? clienteSel.cliente.cpf_cnpj || null
+      : clienteSel.documento || null;
+
     const input: NovoPedidoVendaInput = {
       cliente_vendedor_id: isApp ? clienteSel.cliente.id : null,
       id_cliente_erp: isApp ? clienteSel.cliente.id_cliente_erp || null : clienteSel.id,
       nome_cliente: nomeCliente,
+      documento_cliente: documentoCliente,
       data_entrega: dataEntrega,
       horario_entrega: horario || undefined,
       endereco_entrega: enderecoFinal,
