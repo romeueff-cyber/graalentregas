@@ -563,7 +563,25 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               onAdd={() => setSheetMode('produto')}
               onRemove={(idx) => setProdutos((a) => a.filter((_, i) => i !== idx))}
               emptyLabel="Nenhum produto adicionado"
+              renderExtra={(item) => {
+                if (!/\bchopp?\b/i.test(item.descricao)) return null;
+                const escaped = item.descricao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const tagRe = new RegExp(`p/\\s*${escaped}`, 'i');
+                const alocado = equipamentos.reduce((sum, e) => {
+                  const m = e.descricao.match(/barril\s*(\d+)\s*l/i);
+                  if (!m) return sum;
+                  if (!tagRe.test(e.descricao)) return sum;
+                  return sum + parseInt(m[1], 10) * e.quantidade;
+                }, 0);
+                const ok = alocado >= item.quantidade;
+                return (
+                  <div className={`text-xs mt-0.5 ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    Barris: {alocado}/{item.quantidade} L {ok ? '✓' : '(falta ' + (item.quantidade - alocado) + 'L)'}
+                  </div>
+                );
+              }}
             />
+
 
             <ItemsSection
               title="Equipamentos"
