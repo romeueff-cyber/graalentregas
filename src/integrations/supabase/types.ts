@@ -598,6 +598,7 @@ export type Database = {
           cliente_vendedor_id: string | null
           created_at: string
           data_entrega: string
+          documento_cliente: string | null
           endereco_entrega: string
           horario_entrega: string | null
           id: string
@@ -607,6 +608,7 @@ export type Database = {
           longitude: number | null
           motivo_recusa: string | null
           nome_cliente: string
+          numero_pedido: number | null
           observacoes: string | null
           status: Database["public"]["Enums"]["pedido_venda_status"]
           updated_at: string
@@ -618,6 +620,7 @@ export type Database = {
           cliente_vendedor_id?: string | null
           created_at?: string
           data_entrega: string
+          documento_cliente?: string | null
           endereco_entrega: string
           horario_entrega?: string | null
           id?: string
@@ -627,6 +630,7 @@ export type Database = {
           longitude?: number | null
           motivo_recusa?: string | null
           nome_cliente: string
+          numero_pedido?: number | null
           observacoes?: string | null
           status?: Database["public"]["Enums"]["pedido_venda_status"]
           updated_at?: string
@@ -638,6 +642,7 @@ export type Database = {
           cliente_vendedor_id?: string | null
           created_at?: string
           data_entrega?: string
+          documento_cliente?: string | null
           endereco_entrega?: string
           horario_entrega?: string | null
           id?: string
@@ -647,6 +652,7 @@ export type Database = {
           longitude?: number | null
           motivo_recusa?: string | null
           nome_cliente?: string
+          numero_pedido?: number | null
           observacoes?: string | null
           status?: Database["public"]["Enums"]["pedido_venda_status"]
           updated_at?: string
