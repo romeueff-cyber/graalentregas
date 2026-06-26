@@ -147,6 +147,10 @@ export function useDailyOrderLocations() {
       console.log('Restoring', cached.length, 'geocoded locations from cache');
       setLocations(cached);
       hasGeocodedRef.current = true;
+    } else {
+      setLocations([]);
+      setFailedOrders([]);
+      hasGeocodedRef.current = false;
     }
   }, [cacheKey]);
 
