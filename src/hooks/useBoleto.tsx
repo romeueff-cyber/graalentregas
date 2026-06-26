@@ -310,7 +310,7 @@ export function useBoleto() {
       console.log('[Boleto] Created successfully:', data.id);
       
       // Save to database
-      await saveBoletoToDatabase(request.orderNumber, request.customer, request.dueDate, data);
+      await saveBoletoToDatabase(request.orderNumber, request.customer, request.dueDate, data, request.idEmpresa ?? null);
       
       toast.success('Boleto gerado com sucesso!');
       
