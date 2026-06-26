@@ -58,12 +58,15 @@ export function useClientHealth(days: number = 90) {
     [days]
   );
   const endDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+  const empresasFilter = selectedEmpresa != null ? [selectedEmpresa] : allowedEmpresas;
 
   const { data: rawData, isLoading, error, refetch } = useQuery({
-    queryKey: ['client-health', startDate, endDate],
+    queryKey: ['client-health', startDate, endDate, empresasFilter.join(',')],
+    enabled: empresasFilter.length > 0,
     queryFn: async (): Promise<ERPOrderAnalytics[]> => {
       const { data, error } = await supabase.functions.invoke('get-erp-analytics', {
-        body: { start_date: startDate, end_date: endDate },
+        body: { start_date: startDate, end_date: endDate, empresas: empresasFilter },
       });
       if (error) throw error;
       return data || [];
