@@ -7,9 +7,9 @@ import { EmpresaId, EMPRESAS } from '@/lib/empresas';
 interface EmpresaContextValue {
   /** Empresas que o usuário pode acessar. Admins veem todas. */
   allowedEmpresas: EmpresaId[];
-  /** Empresa ativa para filtragem (única). Default = primeira permitida. */
+  /** Empresa ativa para filtragem. null = todas as permitidas. */
   selectedEmpresa: EmpresaId | null;
-  setSelectedEmpresa: (id: EmpresaId) => void;
+  setSelectedEmpresa: (id: EmpresaId | null) => void;
   /** True se o usuário tem acesso a mais de uma empresa (mostra seletor). */
   hasMultiple: boolean;
   isLoading: boolean;
@@ -54,17 +54,23 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
       setSelectedEmpresaState(null);
       return;
     }
-    const stored = Number(localStorage.getItem(STORAGE_KEY)) as EmpresaId;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === 'all') {
+      setSelectedEmpresaState(null);
+      return;
+    }
+    const stored = Number(raw) as EmpresaId;
     if (stored && allowedEmpresas.includes(stored)) {
       setSelectedEmpresaState(stored);
     } else {
-      setSelectedEmpresaState(allowedEmpresas[0]);
+      // Multi-empresa: default "Todas". Single: a única permitida.
+      setSelectedEmpresaState(allowedEmpresas.length > 1 ? null : allowedEmpresas[0]);
     }
   }, [allowedEmpresas]);
 
-  const setSelectedEmpresa = (id: EmpresaId) => {
+  const setSelectedEmpresa = (id: EmpresaId | null) => {
     setSelectedEmpresaState(id);
-    localStorage.setItem(STORAGE_KEY, String(id));
+    localStorage.setItem(STORAGE_KEY, id == null ? 'all' : String(id));
   };
 
   return (
