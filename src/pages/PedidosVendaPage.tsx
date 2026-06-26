@@ -60,7 +60,17 @@ function PedidoCard({
     <Card className="p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-semibold">{pedido.nome_cliente}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold">{pedido.nome_cliente}</span>
+            {pedido.numero_pedido != null && (
+              <span className="text-xs font-mono text-muted-foreground">
+                #APP-{String(pedido.numero_pedido).padStart(3, '0')}
+              </span>
+            )}
+          </div>
+          {pedido.documento_cliente && (
+            <div className="text-xs text-muted-foreground">Doc: {pedido.documento_cliente}</div>
+          )}
           {showVendedor && pedido.vendedor_nome && (
             <div className="text-xs text-muted-foreground">Vendedor: {pedido.vendedor_nome}</div>
           )}
