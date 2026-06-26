@@ -62,21 +62,32 @@ app.get('/health', (req, res) => {
 // ==========================================
 app.get('/api/orders/analytics', authenticate, async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, empresas } = req.query;
     
     if (!start_date || !end_date) {
       return res.status(400).json({ error: 'Parâmetros start_date e end_date são obrigatórios (YYYY-MM-DD)' });
     }
     
-    // Converter datas para formato Firebird
     const [startYear, startMonth, startDay] = start_date.split('-');
     const [endYear, endMonth, endDay] = end_date.split('-');
     const firebirdStartDate = `${startMonth}/${startDay}/${startYear}`;
     const firebirdEndDate = `${endMonth}/${endDay}/${endYear}`;
     
-    console.log(`Buscando analytics de ${firebirdStartDate} até ${firebirdEndDate}`);
+    // Filtro multi-empresa opcional
+    let empresaWhere = '';
+    const empresaParams = [];
+    if (empresas) {
+      const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
+      if (ids.length > 0) {
+        empresaWhere = ` AND C.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`;
+        empresaParams.push(...ids);
+      }
+    }
     
-    const query = `
+    console.log(`Buscando analytics de ${firebirdStartDate} até ${firebirdEndDate} empresas: ${empresas || 'todas'}`);
+    
+    // Tenta query com JOIN em GRUPO_CLIENTE; se falhar (nome de tabela/coluna), faz fallback sem grupo.
+    const queryComGrupo = `
       SELECT 
         OV.ID_ORDENS_VENDA,
         OV.N_PEDIDO,
@@ -84,16 +95,45 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
         OV.DATA_PREV_ENTREGA,
         P.APELIDO AS NOME_CLIENTE,
         P.NOME AS NOME_COMPLETO,
-        C.ID_CLIENTE
+        C.ID_CLIENTE,
+        C.ID_EMPRESA,
+        GC.DESCRICAO AS GRUPO_CLIENTE
+      FROM ORDENS_VENDA OV
+      LEFT JOIN CLIENTES C ON OV.ID_CLIENTE = C.ID_CLIENTE
+      LEFT JOIN PESSOAS P ON C.ID_PESSOA = P.ID_PESSOA
+      LEFT JOIN GRUPO_CLIENTE GC ON C.ID_GRUPO_CLIENTE = GC.ID_GRUPO_CLIENTE
+      WHERE OV.DATA_PREV_ENTREGA BETWEEN ? AND ?
+        AND (OV.DELETED IS NULL OR OV.DELETED = 0)
+        ${empresaWhere}
+      ORDER BY OV.DATA_PREV_ENTREGA DESC
+    `;
+
+    const querySemGrupo = `
+      SELECT 
+        OV.ID_ORDENS_VENDA,
+        OV.N_PEDIDO,
+        OV.VALOR_PEDIDO,
+        OV.DATA_PREV_ENTREGA,
+        P.APELIDO AS NOME_CLIENTE,
+        P.NOME AS NOME_COMPLETO,
+        C.ID_CLIENTE,
+        C.ID_EMPRESA
       FROM ORDENS_VENDA OV
       LEFT JOIN CLIENTES C ON OV.ID_CLIENTE = C.ID_CLIENTE
       LEFT JOIN PESSOAS P ON C.ID_PESSOA = P.ID_PESSOA
       WHERE OV.DATA_PREV_ENTREGA BETWEEN ? AND ?
         AND (OV.DELETED IS NULL OR OV.DELETED = 0)
+        ${empresaWhere}
       ORDER BY OV.DATA_PREV_ENTREGA DESC
     `;
-    
-    const result = await executeQuery(query, [firebirdStartDate, firebirdEndDate]);
+
+    let result;
+    try {
+      result = await executeQuery(queryComGrupo, [firebirdStartDate, firebirdEndDate, ...empresaParams]);
+    } catch (e) {
+      console.warn('[analytics] JOIN GRUPO_CLIENTE falhou, usando query sem grupo:', e.message);
+      result = await executeQuery(querySemGrupo, [firebirdStartDate, firebirdEndDate, ...empresaParams]);
+    }
     
     if (!result || result.length === 0) {
       return res.json([]);
@@ -105,7 +145,9 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
       value: row.VALOR_PEDIDO || 0,
       date: row.DATA_PREV_ENTREGA || null,
       clientName: row.NOME_CLIENTE || row.NOME_COMPLETO || '',
-      clientId: row.ID_CLIENTE
+      clientId: row.ID_CLIENTE,
+      grupoCliente: row.GRUPO_CLIENTE || null,
+      id_empresa: row.ID_EMPRESA || null,
     }));
     
     res.json(orders);
