@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { GoogleMap, LoadScript, Marker, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Circle, type Libraries } from '@react-google-maps/api';
 import { useOpportunityForecast, type OpportunityRow } from '@/hooks/useOpportunityForecast';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { KPICard } from './KPICard';
