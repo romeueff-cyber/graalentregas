@@ -92,6 +92,8 @@ export function useDailyOrders() {
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
     queryKey: ['daily-orders-hook', today, empresasFilter.join(',')],
     queryFn: async () => {
+      const cacheKey = `${today}|empresas:${empresasFilter.join(',') || 'none'}`;
+
       // Try to fetch from network first
       if (isOnline) {
         try {
@@ -105,7 +107,7 @@ export function useDailyOrders() {
           const ordersData = data as DailyOrderData[];
           
           // Save to cache for offline use
-          await erpOrdersCache.save(today, ordersData);
+          await erpOrdersCache.save(cacheKey, ordersData);
           await updateCacheStatus();
           
           console.log(`[ERP Cache] Saved ${ordersData.length} orders for ${today}`);
@@ -118,7 +120,7 @@ export function useDailyOrders() {
       }
 
       // Try to get from cache
-      const cachedOrders = await erpOrdersCache.get(today);
+      const cachedOrders = await erpOrdersCache.get(cacheKey);
       if (cachedOrders) {
         console.log(`[ERP Cache] Using cached data for ${today} (${cachedOrders.length} orders)`);
         return cachedOrders;
@@ -133,6 +135,7 @@ export function useDailyOrders() {
       throw new Error('Erro ao carregar pedidos do ERP');
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: empresasFilter.length > 0,
     retry: (failureCount, error) => {
       // Don't retry if offline
       if (!checkOnline()) return false;
@@ -195,7 +198,7 @@ export function useDailyOrders() {
     if (!empresasFilter.length) return all;
     // Server já filtra por empresa. No cliente, mantemos os pedidos cujo id_empresa
     // bate OU está ausente (legado/JOIN nulo), evitando "sumir" pedidos válidos.
-    return all.filter(o => o.id_empresa == null || empresasFilter.includes(o.id_empresa as any));
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(Number(o.id_empresa) as any));
   }, [orders, empresasFilter]);
 
 

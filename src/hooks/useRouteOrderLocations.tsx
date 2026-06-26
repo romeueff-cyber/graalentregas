@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 function isAbortErrorLike(err: unknown): boolean {
   const anyErr = err as any;
@@ -88,9 +89,17 @@ export function useRouteOrderLocations(date: string) {
   const [locations, setLocations] = useState<OrderLocation[]>([]);
   const [failedOrders, setFailedOrders] = useState<string[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   
   // Track if geocoding has run for current date
   const geocodedDateRef = useRef<string | null>(null);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
+  const cacheKey = useMemo(() => `${date}|empresas:${empresasFilter.join(',') || 'none'}`, [date, empresasFilter]);
 
   // Check if Google Maps is ready
   useEffect(() => {
@@ -114,11 +123,11 @@ export function useRouteOrderLocations(date: string) {
   }, []);
 
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ['route-orders', date],
+    queryKey: ['route-orders', date, empresasFilter.join(',')],
     queryFn: async ({ signal }) => {
       try {
         const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-          body: { date },
+          body: { date, empresas: empresasFilter },
           signal,
         });
         
@@ -132,7 +141,8 @@ export function useRouteOrderLocations(date: string) {
         }
         
         console.log(`Orders loaded for ${date}:`, data?.length || 0);
-        return data as Order[];
+        const list = (data as Array<Order & { id_empresa?: number | null }>) || [];
+        return list.filter((order) => order.id_empresa != null && empresasFilter.includes(Number(order.id_empresa) as any)) as Order[];
       } catch (err: any) {
         // Handle abort errors gracefully
         if (signal?.aborted || isAbortErrorLike(err)) {
@@ -143,7 +153,7 @@ export function useRouteOrderLocations(date: string) {
       }
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !!date,
+    enabled: !!date && empresasFilter.length > 0,
     retry: (failureCount, error: any) => {
       // Don't retry on abort errors
       if (isAbortErrorLike(error)) {
@@ -155,19 +165,19 @@ export function useRouteOrderLocations(date: string) {
 
   // Restore locations from cache when date changes
   useEffect(() => {
-    const cached = geocodeCache.get(date);
+    const cached = geocodeCache.get(cacheKey);
     if (cached && cached.length > 0) {
       console.log(`Restoring ${cached.length} cached locations for ${date}`);
       setLocations(cached);
-      geocodedDateRef.current = date;
+      geocodedDateRef.current = cacheKey;
     } else {
       // Clear locations when switching to a new date without cache
-      if (geocodedDateRef.current !== date) {
+      if (geocodedDateRef.current !== cacheKey) {
         setLocations([]);
         setFailedOrders([]);
       }
     }
-  }, [date]);
+  }, [date, cacheKey]);
 
   // Geocode addresses when Google Maps is ready and orders are loaded
   const geocodeOrders = useCallback(async () => {
@@ -235,20 +245,20 @@ export function useRouteOrderLocations(date: string) {
     setLocations(spreadResults);
     setFailedOrders(failed);
     setIsGeocoding(false);
-    geocodedDateRef.current = date;
+    geocodedDateRef.current = cacheKey;
     
     // Cache results
     if (spreadResults.length > 0) {
-      geocodeCache.set(date, spreadResults);
+      geocodeCache.set(cacheKey, spreadResults);
     }
-  }, [orders, isGoogleReady, isGeocoding, date]);
+  }, [orders, isGoogleReady, isGeocoding, date, cacheKey]);
 
   // Trigger geocoding when ready and date hasn't been geocoded
   useEffect(() => {
-    if (orders && orders.length > 0 && isGoogleReady && geocodedDateRef.current !== date && !isGeocoding) {
+    if (orders && orders.length > 0 && isGoogleReady && geocodedDateRef.current !== cacheKey && !isGeocoding) {
       geocodeOrders();
     }
-  }, [orders, isGoogleReady, date, isGeocoding, geocodeOrders]);
+  }, [orders, isGoogleReady, cacheKey, isGeocoding, geocodeOrders]);
 
   // Orders without valid coordinates
   const ordersWithoutLocation = useMemo(() => {

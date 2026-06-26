@@ -1,6 +1,62 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
+const ERP_EMPRESAS = [1, 3];
+
+function parseEmpresas(value: unknown): number[] {
+  const raw = Array.isArray(value) ? value.join(',') : String(value ?? '');
+  return raw
+    .split(',')
+    .map((s) => Number.parseInt(s.trim(), 10))
+    .filter((n) => ERP_EMPRESAS.includes(n));
+}
+
+async function getAllowedEmpresas(authResult: { userId: string; supabase: any }): Promise<number[]> {
+  const { userId, supabase } = authResult;
+
+  const { data: companies, error: companiesError } = await supabase
+    .from('user_companies')
+    .select('empresa_id')
+    .eq('user_id', userId);
+  if (companiesError) throw companiesError;
+
+  const configured = (companies ?? [])
+    .map((row: { empresa_id: unknown }) => Number(row.empresa_id))
+    .filter((n: number) => ERP_EMPRESAS.includes(n));
+
+  if (configured.length > 0) return configured;
+
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  return roleData ? ERP_EMPRESAS : [];
+}
+
+function companyFromOrder(order: unknown): number | null {
+  if (!order || typeof order !== 'object') return null;
+  const record = order as Record<string, unknown>;
+  const direct = Number(record.id_empresa ?? record.ID_EMPRESA);
+  if (Number.isFinite(direct) && ERP_EMPRESAS.includes(direct)) return direct;
+
+  const items = Array.isArray(record.items) ? record.items : [];
+  const text = items
+    .map((item) => {
+      if (!item || typeof item !== 'object') return '';
+      const itemRecord = item as Record<string, unknown>;
+      return String(itemRecord.product ?? itemRecord.PRODUTO ?? itemRecord.description ?? '');
+    })
+    .join(' ')
+    .toUpperCase();
+
+  if (text.includes('GROTT')) return 3;
+  if (text) return 1;
+  return null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,17 +85,25 @@ serve(async (req) => {
 
     // Parse request body for optional date filter and empresas
     let targetDate: string | null = null;
-    let empresas: string | null = null;
+    let requestedEmpresas: number[] = [];
     try {
       const body = await req.json();
       targetDate = body.date || null;
-      if (Array.isArray(body.empresas) && body.empresas.length > 0) {
-        empresas = body.empresas.join(',');
-      } else if (typeof body.empresas === 'string' && body.empresas) {
-        empresas = body.empresas;
-      }
+      requestedEmpresas = parseEmpresas(body.empresas);
     } catch {
       // No body or invalid JSON, use today's date
+    }
+
+    const allowedEmpresas = await getAllowedEmpresas(authResult);
+    const effectiveEmpresas = requestedEmpresas.length > 0
+      ? requestedEmpresas.filter((id) => allowedEmpresas.includes(id))
+      : allowedEmpresas;
+
+    if (effectiveEmpresas.length === 0) {
+      return new Response(
+        JSON.stringify([]),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // If no date provided, use today in São Paulo timezone (UTC-3)
@@ -48,10 +112,10 @@ serve(async (req) => {
       targetDate = now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     }
 
-    console.log(`Fetching orders for date: ${targetDate} empresas: ${empresas ?? 'all'}`);
+    console.log(`Fetching orders for date: ${targetDate} empresas: ${effectiveEmpresas.join(',')}`);
 
     const qs = new URLSearchParams({ date: targetDate });
-    if (empresas) qs.set('empresas', empresas);
+    qs.set('empresas', effectiveEmpresas.join(','));
 
     const response = await fetch(`${erpApiUrl}/api/orders?${qs.toString()}`, {
 
@@ -75,10 +139,19 @@ serve(async (req) => {
     }
 
     const ordersData = await response.json();
-    console.log(`Retrieved ${ordersData.length || 0} orders`);
+    const safeOrdersData = Array.isArray(ordersData)
+      ? ordersData.filter((order) => {
+          const company = companyFromOrder(order);
+          return company != null && effectiveEmpresas.includes(company);
+        }).map((order) => ({
+          ...(order as Record<string, unknown>),
+          id_empresa: companyFromOrder(order),
+        }))
+      : [];
+    console.log(`Retrieved ${ordersData.length || 0} orders, returning ${safeOrdersData.length}`);
 
     return new Response(
-      JSON.stringify(ordersData),
+      JSON.stringify(safeOrdersData),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
