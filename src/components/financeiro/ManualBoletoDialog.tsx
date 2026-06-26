@@ -87,6 +87,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   const [manualAmount, setManualAmount] = useState('');
   const [manualDueDate, setManualDueDate] = useState(() => format(addDays(new Date(), 7), 'yyyy-MM-dd'));
   const [manualDescription, setManualDescription] = useState('');
+  const [manualIdEmpresa, setManualIdEmpresa] = useState<number | null>(null);
   
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
