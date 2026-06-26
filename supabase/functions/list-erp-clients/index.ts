@@ -25,6 +25,48 @@ function companyFromClientProducts(client: Record<string, unknown>): number | nu
   return null;
 }
 
+async function inferCompanyFromLastOrder(
+  client: Record<string, unknown>,
+  erpBaseUrl: string,
+  erpApiKey: string,
+): Promise<void> {
+  const directCompany = Number(client.id_empresa ?? client.ID_EMPRESA);
+  if (Number.isFinite(directCompany) && ERP_EMPRESAS.includes(directCompany)) {
+    client.id_empresa = directCompany;
+    return;
+  }
+
+  const fromPayload = companyFromClientProducts(client);
+  if (fromPayload != null) {
+    client.id_empresa = fromPayload;
+    return;
+  }
+
+  const clientId = client.id ?? client.ID_CLIENTE ?? client.client_id;
+  if (!clientId) {
+    client.id_empresa = 1;
+    return;
+  }
+
+  try {
+    const lastTarget = `${erpBaseUrl.replace(/\/$/, '')}/api/clients/${encodeURIComponent(String(clientId))}/last-order`;
+    const resp = await fetch(lastTarget, {
+      headers: { 'x-api-key': erpApiKey },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (resp.ok) {
+      const lastOrder = await resp.json();
+      const inferred = companyFromClientProducts(lastOrder as Record<string, unknown>);
+      client.id_empresa = inferred ?? 1;
+      return;
+    }
+  } catch (e) {
+    console.warn('[list-erp-clients] fallback last-order failed', String(e));
+  }
+
+  client.id_empresa = 1;
+}
+
 function parseEmpresas(value: string | null): number[] {
   if (!value) return [];
   return String(value)
@@ -114,6 +156,21 @@ Deno.serve(async (req) => {
       payload = null;
     }
 
+    const enrichList = async (list: unknown[]) => {
+      const objects = list.filter((c): c is Record<string, unknown> => !!c && typeof c === 'object') as Record<string, unknown>[];
+      const missing = objects.filter((c) => {
+        const directCompany = Number(c.id_empresa ?? c.ID_EMPRESA);
+        return !Number.isFinite(directCompany) || !ERP_EMPRESAS.includes(directCompany);
+      });
+
+      // O endpoint antigo do Node não expõe id_empresa; para busca por cliente,
+      // inferimos pelos últimos pedidos somente para um lote inicial, evitando excesso de chamadas.
+      const shouldInfer = effectiveEmpresas.includes(3) && (url.searchParams.get('search') || url.searchParams.get('client_id'));
+      if (shouldInfer) {
+        await Promise.all(missing.slice(0, 80).map((c) => inferCompanyFromLastOrder(c, ERP_API_URL, ERP_API_KEY)));
+      }
+    };
+
     const filterClient = (client: unknown) => {
       if (!client || typeof client !== 'object') return false;
       const record = client as Record<string, unknown>;
@@ -132,12 +189,15 @@ Deno.serve(async (req) => {
 
     let responseBody = text;
     if (Array.isArray(payload)) {
+      await enrichList(payload);
       responseBody = JSON.stringify(payload.filter(filterClient));
     } else if (payload && typeof payload === 'object') {
       const record = payload as { data?: unknown; clients?: unknown };
       if (Array.isArray(record.data)) {
+        await enrichList(record.data);
         responseBody = JSON.stringify({ ...record, data: record.data.filter(filterClient) });
       } else if (Array.isArray(record.clients)) {
+        await enrichList(record.clients);
         responseBody = JSON.stringify({ ...record, clients: record.clients.filter(filterClient) });
       } else if (!filterClient(record)) {
         responseBody = JSON.stringify([]);
