@@ -2,6 +2,29 @@ import { verifyAuth, corsHeaders } from '../_shared/auth.ts';
 
 const ERP_EMPRESAS = [1, 3];
 
+function companyFromClientProducts(client: Record<string, unknown>): number | null {
+  const fields = [
+    client.empresa,
+    client.company,
+    client.last_product,
+    client.last_order_product,
+    client.ultimo_produto,
+    client.produto,
+  ];
+  const products = Array.isArray(client.items) ? client.items : Array.isArray(client.products) ? client.products : [];
+  for (const item of products) {
+    if (item && typeof item === 'object') {
+      const itemRecord = item as Record<string, unknown>;
+      fields.push(itemRecord.product, itemRecord.description, itemRecord.PRODUTO, itemRecord.DESCRICAO);
+    } else {
+      fields.push(item);
+    }
+  }
+  const text = fields.map((v) => String(v ?? '')).join(' ').toUpperCase();
+  if (text.includes('GROTT')) return 3;
+  return null;
+}
+
 function parseEmpresas(value: string | null): number[] {
   if (!value) return [];
   return String(value)
@@ -93,8 +116,18 @@ Deno.serve(async (req) => {
 
     const filterClient = (client: unknown) => {
       if (!client || typeof client !== 'object') return false;
-      const company = Number((client as { id_empresa?: unknown; ID_EMPRESA?: unknown }).id_empresa ?? (client as { ID_EMPRESA?: unknown }).ID_EMPRESA);
-      return Number.isFinite(company) && effectiveEmpresas.includes(company);
+      const record = client as Record<string, unknown>;
+      const directCompany = Number(record.id_empresa ?? record.ID_EMPRESA);
+      let company: number | null = Number.isFinite(directCompany) && ERP_EMPRESAS.includes(directCompany)
+        ? directCompany
+        : null;
+
+      // O Node antigo ainda pode não retornar id_empresa. Como fallback temporário,
+      // classificamos clientes com último produto/descrição contendo GROTT como empresa 3;
+      // os demais sem empresa explícita ficam na empresa 1 (Graal).
+      if (company == null) company = companyFromClientProducts(record) ?? 1;
+      record.id_empresa = company;
+      return effectiveEmpresas.includes(company);
     };
 
     let responseBody = text;
