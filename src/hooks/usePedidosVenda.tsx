@@ -37,6 +37,8 @@ export interface PedidoVenda {
   aprovado_em: string | null;
   created_at: string;
   updated_at: string;
+  numero_pedido?: number | null;
+  documento_cliente?: string | null;
   itens?: PedidoVendaItem[];
   vendedor_nome?: string;
   id_empresa: number;
