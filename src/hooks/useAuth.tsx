@@ -5,6 +5,7 @@ import { authStorage, isOnline } from '@/lib/offline-storage';
 import { isAbortErrorLike, toFriendlyAuthError } from '@/lib/abort-error';
 import type { AppRole, Profile } from '@/types/database';
 import { queryClient } from '@/lib/query-client';
+import { erpOrdersCache } from '@/lib/erp-cache';
 
 interface AuthContextType {
   user: User | null;
@@ -220,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         await authStorage.clear();
+        await erpOrdersCache.clear();
         queryClient.clear();
         lastUserRef.current = null;
       } catch (storageErr) {
@@ -270,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     await authStorage.clear();
+    await erpOrdersCache.clear();
     queryClient.clear();
     lastUserRef.current = null;
     setUser(null);

@@ -135,6 +135,7 @@ export function useDailyOrders() {
       throw new Error('Erro ao carregar pedidos do ERP');
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: empresasFilter.length > 0,
     retry: (failureCount, error) => {
       // Don't retry if offline
       if (!checkOnline()) return false;
