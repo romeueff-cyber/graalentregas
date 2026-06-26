@@ -112,6 +112,7 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: 
           componentRestrictions: { country: 'br' },
           bounds,
           locationBias: bounds,
+          strictBounds: true,
           sessionToken: sessionToken || undefined,
         } as google.maps.places.AutocompletionRequest,
         (results) => {
