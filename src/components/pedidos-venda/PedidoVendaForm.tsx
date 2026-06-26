@@ -581,6 +581,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                     onClick={() => {
                       const choppItems = produtos.filter((p) => /\bchopp?\b/i.test(p.descricao));
                       if (!choppItems.length) return;
+                      const sizes = [50, 30, 10];
                       const sugeridos: Item[] = [];
                       choppItems.forEach((p) => {
                         sugeridos.push({
@@ -589,12 +590,28 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                           descricao: `Chopeira (sugerido p/ ${p.descricao})`,
                           quantidade: 1,
                         });
-                        sugeridos.push({
-                          tipo: 'equipamento',
-                          id_erp: '',
-                          descricao: `Barril ${p.quantidade}L (sugerido p/ ${p.descricao})`,
-                          quantidade: 1,
-                        });
+                        let rem = p.quantidade;
+                        for (const s of sizes) {
+                          const n = Math.floor(rem / s);
+                          if (n > 0) {
+                            sugeridos.push({
+                              tipo: 'equipamento',
+                              id_erp: '',
+                              descricao: `Barril ${s}L (sugerido p/ ${p.descricao})`,
+                              quantidade: n,
+                            });
+                            rem -= n * s;
+                          }
+                        }
+                        if (rem > 0) {
+                          // resto < 10L: arredonda para 1 barril de 10L
+                          sugeridos.push({
+                            tipo: 'equipamento',
+                            id_erp: '',
+                            descricao: `Barril 10L (sugerido p/ ${p.descricao})`,
+                            quantidade: 1,
+                          });
+                        }
                       });
                       setEquipamentos((a) => [...a, ...sugeridos]);
                       toast.success(`${sugeridos.length} equipamento(s) sugerido(s). Personalize se necessário.`);
@@ -604,6 +621,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                   </Button>
                 ) : null
               }
+
             />
 
             <div>
