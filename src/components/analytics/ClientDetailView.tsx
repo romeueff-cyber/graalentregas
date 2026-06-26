@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   DollarSign, Package, Calendar, TrendingUp, TrendingDown, Clock, Repeat, Award,
   ArrowLeft, Receipt, CalendarClock, BarChart2, ShieldAlert, FileText,
-  Users, AlertCircle, ExternalLink, Image as ImageIcon,
+  Users, AlertCircle, ExternalLink, Image as ImageIcon, HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   format, differenceInDays, startOfWeek, startOfMonth, addDays, getDay, isPast,
