@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getTodaySaoPaulo } from '@/lib/date-utils';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 interface OrderAddress {
   street: string;
@@ -86,6 +87,7 @@ export function useDailyOrderLocations() {
   const [locations, setLocations] = useState<OrderLocation[]>([]);
   const [failedOrders, setFailedOrders] = useState<string[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   
   // Use ref instead of state to track if geocoding has run (doesn't cause re-render issues)
   const hasGeocodedRef = useRef(false);
@@ -93,6 +95,13 @@ export function useDailyOrderLocations() {
   const today = useMemo(() => {
     return getTodaySaoPaulo();
   }, []);
+
+  const empresasFilter = useMemo(() => {
+    if (selectedEmpresa) return [selectedEmpresa];
+    return allowedEmpresas;
+  }, [selectedEmpresa, allowedEmpresas]);
+
+  const cacheKey = useMemo(() => `${today}|empresas:${empresasFilter.join(',') || 'none'}`, [today, empresasFilter]);
 
   // Check if Google Maps is ready
   useEffect(() => {
@@ -117,27 +126,29 @@ export function useDailyOrderLocations() {
   }, []);
 
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ['daily-orders-for-map', today],
+    queryKey: ['daily-orders-for-map', today, empresasFilter.join(',')],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('list-erp-orders', {
-        body: { date: today },
+        body: { date: today, empresas: empresasFilter },
       });
       if (error) throw error;
       console.log('Daily orders loaded:', data?.length || 0);
-      return data as Order[];
+      const list = (data as Array<Order & { id_empresa?: number | null }>) || [];
+      return list.filter((order) => order.id_empresa != null && empresasFilter.includes(Number(order.id_empresa) as any)) as Order[];
     },
     staleTime: 1000 * 60 * 5,
+    enabled: empresasFilter.length > 0,
   });
 
   // Restore locations from cache on mount if available for today
   useEffect(() => {
-    const cached = geocodeCache.get(today);
+    const cached = geocodeCache.get(cacheKey);
     if (cached && cached.length > 0) {
       console.log('Restoring', cached.length, 'geocoded locations from cache');
       setLocations(cached);
       hasGeocodedRef.current = true;
     }
-  }, [today]);
+  }, [cacheKey]);
 
   // Geocode addresses when Google Maps is ready and orders are loaded
   const geocodeOrders = useCallback(async () => {
@@ -213,9 +224,9 @@ export function useDailyOrderLocations() {
     
     // Cache the results for today to persist across navigation
     if (spreadResults.length > 0) {
-      geocodeCache.set(today, spreadResults);
+      geocodeCache.set(cacheKey, spreadResults);
     }
-  }, [orders, isGoogleReady, isGeocoding, today]);
+  }, [orders, isGoogleReady, isGeocoding, cacheKey]);
 
   // Trigger geocoding when ready
   useEffect(() => {
