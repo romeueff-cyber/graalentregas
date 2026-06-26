@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2, Minus, Plus } from 'lucide-react';
 import { useERPProducts, useERPEquipmentTypes, fetchERPProductPrice } from '@/hooks/useERPCatalog';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
