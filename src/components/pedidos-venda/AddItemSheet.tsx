@@ -69,10 +69,11 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
   }, [open, mode]);
 
   const filtered = useMemo(() => {
+    const base = mode === 'equipamento' ? list.filter((x) => isChoperaOuBarril(x.description)) : list;
     const s = search.trim().toUpperCase();
-    if (!s) return list.slice(0, 200);
-    return list.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);
-  }, [list, search]);
+    if (!s) return base.slice(0, 200);
+    return base.filter((x) => x.description.toUpperCase().includes(s)).slice(0, 200);
+  }, [list, search, mode]);
 
   const handleSelect = async (x: { id: string | number; description: string }) => {
     const id = String(x.id);
