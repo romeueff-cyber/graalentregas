@@ -612,12 +612,11 @@ export default function SettingsPage() {
                     try {
                       const { data, error } = await supabase.functions.invoke('backfill-boletos-empresa');
                       if (error) throw error;
-                      toast({
-                        title: 'Backfill concluído',
-                        description: `Atualizados: ${data.updated}/${data.total} • Sem ID empresa: ${data.notFound} • Erros: ${data.errors}`,
-                      });
+                      toast.success(
+                        `Backfill: atualizados ${data.updated}/${data.total} • sem empresa ${data.notFound} • erros ${data.errors}`
+                      );
                     } catch (e: any) {
-                      toast({ title: 'Erro no backfill', description: e.message, variant: 'destructive' });
+                      toast.error(`Erro no backfill: ${e.message}`);
                     }
                   }}
                 >
