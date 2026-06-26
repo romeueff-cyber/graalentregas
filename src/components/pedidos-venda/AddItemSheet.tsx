@@ -193,34 +193,51 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
             </div>
             <div>
               <Label>Quantidade*</Label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                placeholder="Informe a quantidade"
-                value={qty}
-                onChange={(e) => setQty(e.target.value === '' ? '' : Number(e.target.value))}
-                className="mt-1"
-              />
               {(() => {
                 const isBarril = mode === 'equipamento' || isChoppProduct(selected?.descricao || '');
-                const buttons = isBarril ? QUICK_BARRIL : QUICK_UNIT;
+                const step = isBarril ? 10 : 1;
+                const current = Number(qty) || 0;
+                const dec = () => setQty(Math.max(0, current - step) || '');
+                const inc = () => setQty(current + step);
                 return (
-                  <div className={`grid gap-2 mt-2 ${buttons.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                    {buttons.map((n) => (
-                      <Button
-                        key={n}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => setQty((prev) => (Number(prev) || 0) + n)}
-                      >
-                        +{n}
-                      </Button>
-                    ))}
+                  <div className="mt-1 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 rounded-full shrink-0"
+                      onClick={dec}
+                      disabled={current <= 0}
+                      aria-label="Diminuir"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </Button>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step={step}
+                      placeholder="0"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="text-center text-lg font-semibold h-12"
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon"
+                      className="h-12 w-12 rounded-full shrink-0"
+                      onClick={inc}
+                      aria-label="Aumentar"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </Button>
                   </div>
                 );
               })()}
+              {(mode === 'equipamento' || isChoppProduct(selected?.descricao || '')) && (
+                <p className="text-xs text-muted-foreground mt-1">Incremento de 10 em 10</p>
+              )}
             </div>
 
             {mode === 'produto' && (
