@@ -27,6 +27,7 @@ import {
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
 import { useBoletoSettings } from '@/hooks/useBoletoSettings';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
@@ -59,6 +60,8 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   const { createBoleto, formatCurrency, isLoading: isBoletoLoading } = useBoleto();
   const { boletoSettings, buildBoletoPaymentTerms } = useBoletoSettings();
   const { fetchBoletoData } = useERPBoletoData();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+  
   
   const [activeTab, setActiveTab] = useState<'search' | 'manual'>('search');
   
