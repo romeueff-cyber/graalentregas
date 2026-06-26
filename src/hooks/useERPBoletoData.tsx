@@ -21,6 +21,7 @@ export interface ERPBoletoData {
     due_days: number[];
   };
   total_amount: number | null;
+  id_empresa: number | null;
 }
 
 export function useERPBoletoData() {

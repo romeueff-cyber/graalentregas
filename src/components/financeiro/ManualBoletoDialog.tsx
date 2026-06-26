@@ -87,6 +87,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   const [manualAmount, setManualAmount] = useState('');
   const [manualDueDate, setManualDueDate] = useState(() => format(addDays(new Date(), 7), 'yyyy-MM-dd'));
   const [manualDescription, setManualDescription] = useState('');
+  const [manualIdEmpresa, setManualIdEmpresa] = useState<number | null>(null);
   
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -241,6 +242,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           amount: Math.round(amountValue * 100),
         }],
         dueDate: editableDueDate,
+        idEmpresa: selectedEmpresa ?? (allowedEmpresas.length === 1 ? allowedEmpresas[0] : null),
         ...buildBoletoPaymentTerms(boletoSettings),
       };
       
@@ -302,6 +304,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           amount: Math.round(amountValue * 100),
         }],
         dueDate: manualDueDate,
+        idEmpresa: manualIdEmpresa ?? selectedEmpresa ?? (allowedEmpresas.length === 1 ? allowedEmpresas[0] : null),
         ...buildBoletoPaymentTerms(boletoSettings),
       };
       
@@ -340,6 +343,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
         // ERP returns amount in reais (e.g. 540.00), not cents
         setManualAmount(Number(data.total_amount).toFixed(2).replace('.', ','));
       }
+      setManualIdEmpresa(data.id_empresa ?? null);
       toast.success('Dados carregados do ERP');
     } else {
       toast.error('Pedido não encontrado no ERP');

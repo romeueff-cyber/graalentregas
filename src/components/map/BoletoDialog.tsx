@@ -86,6 +86,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [email, setEmail] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
+  const [erpIdEmpresa, setErpIdEmpresa] = useState<number | null>(null);
 
   // Check for existing boletos and load ERP data when dialog opens
   useEffect(() => {
@@ -116,6 +117,8 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       fetchBoletoData(order.order_number).then((data) => {
         if (data) {
           setIsBoleto(data.payment.method_type === 'BOL');
+          setErpIdEmpresa(data.id_empresa ?? null);
+          
           
           if (data.customer.document) {
             setDocument(formatDocumentFromERP(data.customer.document, data.customer.document_type));
@@ -316,6 +319,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         }],
         dueDate: inst.dueDate,
         ...buildBoletoPaymentTerms(boletoSettings),
+        idEmpresa: erpIdEmpresa,
         notification: email ? {
           name: order.client_name,
           email: email,

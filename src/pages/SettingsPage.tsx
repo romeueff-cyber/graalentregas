@@ -597,6 +597,33 @@ export default function SettingsPage() {
             </Card>
 
             <WhatsAppEmpresaSettingsCard />
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Backfill empresa dos boletos</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Consulta o ERP para preencher o campo <code>id_empresa</code> dos boletos já gerados.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase.functions.invoke('backfill-boletos-empresa');
+                      if (error) throw error;
+                      toast.success(
+                        `Backfill: atualizados ${data.updated}/${data.total} • sem empresa ${data.notFound} • erros ${data.errors}`
+                      );
+                    } catch (e: any) {
+                      toast.error(`Erro no backfill: ${e.message}`);
+                    }
+                  }}
+                >
+                  Executar backfill
+                </Button>
+              </CardContent>
+            </Card>
           </>
         )}
 

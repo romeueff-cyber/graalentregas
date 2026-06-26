@@ -726,7 +726,8 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
         fpgto.ID_FPGTO AS PAYMENT_TERMS_ID,
         fpgto.CODIGO AS PAYMENT_TERMS_CODE,
         fpgto.DESCRICAO AS PAYMENT_TERMS_DESCRIPTION,
-        ov.VALOR_PEDIDO AS TOTAL_AMOUNT
+        ov.VALOR_PEDIDO AS TOTAL_AMOUNT,
+        cl.ID_EMPRESA AS ID_EMPRESA
       FROM ORDENS_VENDA ov
       INNER JOIN CLIENTES cl ON cl.ID_CLIENTE = ov.ID_CLIENTE
       INNER JOIN PESSOAS p ON p.ID_PESSOA = cl.ID_PESSOA
@@ -778,7 +779,8 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
         terms_description: order.PAYMENT_TERMS_DESCRIPTION,
         due_days: dueDays.length > 0 ? dueDays : [0]
       },
-      total_amount: order.TOTAL_AMOUNT
+      total_amount: order.TOTAL_AMOUNT,
+      id_empresa: order.ID_EMPRESA || null
     });
     
   } catch (error) {
