@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useClientesVendedor, NovoClienteInput, ClienteVendedor } from '@/hooks/useClientesVendedor';
+import { AddressAutocomplete } from './AddressAutocomplete';
 
 interface Props {
   open: boolean;
