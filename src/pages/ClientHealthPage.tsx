@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { EmpresaSelector } from '@/components/empresa/EmpresaSelector';
 
 export default function ClientHealthPage() {
   const navigate = useNavigate();
