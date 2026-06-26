@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 export interface Boleto {
   id: string;
@@ -23,6 +24,7 @@ export interface Boleto {
   reconciled: boolean;
   reconciled_at: string | null;
   reconciled_by_user_id: string | null;
+  id_empresa: number | null;
 }
 
 export interface CreateBoletoRecord {
@@ -40,6 +42,7 @@ export interface CreateBoletoRecord {
   pix_emv?: string;
   pix_qr_code_url?: string;
   created_by_user_id?: string;
+  id_empresa?: number | null;
 }
 
 export interface SyncResult {
@@ -53,19 +56,30 @@ export interface SyncResult {
 export function useBoletos() {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
 
   const { data: boletos, isLoading, error, refetch } = useQuery({
-    queryKey: ['boletos'],
+    queryKey: ['boletos', selectedEmpresa, allowedEmpresas.join(',')],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('boletos')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // Filtro por empresa: se selecionou uma, restringe a ela; caso contrário, restringe às permitidas
+      if (selectedEmpresa) {
+        q = q.eq('id_empresa', selectedEmpresa);
+      } else if (allowedEmpresas.length > 0) {
+        q = q.in('id_empresa', allowedEmpresas);
+      }
+
+      const { data, error } = await q;
 
       if (error) throw error;
       return data as Boleto[];
     },
   });
+
 
   const createBoletoRecord = useMutation({
     mutationFn: async (boleto: CreateBoletoRecord) => {

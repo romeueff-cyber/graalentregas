@@ -27,7 +27,13 @@ interface Props {
   clientErpId?: string | null;
 }
 
-const QUICK = [1, 5, 10, 100];
+const QUICK_BARRIL = [10, 20, 30, 50];
+const QUICK_UNIT = [1, 5, 10];
+
+const isBarrelLike = (desc: string) => {
+  const s = (desc || '').toLowerCase();
+  return s.includes('barril') || s.includes('chopeira') || /\b(10|20|30|50)\s*l\b/.test(s);
+};
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -190,19 +196,25 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
                 onChange={(e) => setQty(e.target.value === '' ? '' : Number(e.target.value))}
                 className="mt-1"
               />
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {QUICK.map((n) => (
-                  <Button
-                    key={n}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => setQty((prev) => (Number(prev) || 0) + n)}
-                  >
-                    +{n}
-                  </Button>
-                ))}
-              </div>
+              {(() => {
+                const isBarril = mode === 'equipamento' || isBarrelLike(selected?.descricao || '');
+                const buttons = isBarril ? QUICK_BARRIL : QUICK_UNIT;
+                return (
+                  <div className={`grid gap-2 mt-2 ${buttons.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    {buttons.map((n) => (
+                      <Button
+                        key={n}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => setQty((prev) => (Number(prev) || 0) + n)}
+                      >
+                        +{n}
+                      </Button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {mode === 'produto' && (
