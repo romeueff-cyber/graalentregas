@@ -441,6 +441,48 @@ export function ClientDetailView({
       {(churnScore != null || groupComparison) && (
         <Card>
           <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Saúde do cliente
+              </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 text-xs space-y-3">
+                  <div>
+                    <p className="font-semibold mb-1">Score de churn (0–100)</p>
+                    <p className="text-muted-foreground">
+                      Risco de o cliente parar de comprar. Calculado pelo tempo sem pedir,
+                      queda de frequência e intervalo médio histórico.
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                      <li><span className="text-status-collected font-semibold">0–49</span> · baixo risco</li>
+                      <li><span className="text-amber-600 font-semibold">50–79</span> · atenção</li>
+                      <li><span className="text-destructive font-semibold">80–100</span> · alto risco</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Comparação com o grupo</p>
+                    <p className="text-muted-foreground">
+                      Variação % deste cliente vs. a média dos demais clientes do mesmo grupo
+                      (segmento ERP) no período analisado.
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                      <li><strong>pedidos:</strong> quantidade de pedidos</li>
+                      <li><strong>valor:</strong> faturamento total</li>
+                      <li><strong>ticket:</strong> valor médio por pedido</li>
+                    </ul>
+                    <p className="mt-1 text-muted-foreground">
+                      <span className="text-status-collected font-semibold">Verde</span> = acima da média ·{' '}
+                      <span className="text-destructive font-semibold">Vermelho</span> = abaixo.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             {churnScore != null && (
               <div className="flex items-center gap-3">
                 <div className={`flex items-center justify-center w-14 h-14 rounded-full bg-muted ${churnColor}`}>
@@ -481,6 +523,9 @@ export function ClientDetailView({
                   <ComparisonBadge pct={cmpValue} label="valor" />
                   <ComparisonBadge pct={cmpTicket} label="ticket" />
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">
+                  Verde = acima da média do grupo · Vermelho = abaixo.
+                </p>
               </div>
             )}
           </CardContent>
