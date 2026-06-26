@@ -251,7 +251,8 @@ export function useBoleto() {
     orderNumber: string,
     customer: BoletoCustomer,
     dueDate: string,
-    response: BoletoResponse
+    response: BoletoResponse,
+    idEmpresa?: number | null
   ) => {
     try {
       const { error: insertError } = await supabase
@@ -271,6 +272,7 @@ export function useBoleto() {
           pix_emv: response.pix?.emv || null,
           pix_qr_code_url: response.pix?.qr_code_url || null,
           created_by_user_id: user?.id || null,
+          id_empresa: idEmpresa ?? null,
         });
 
       if (insertError) {
