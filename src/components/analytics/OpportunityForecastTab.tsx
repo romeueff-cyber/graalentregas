@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { GoogleMap, LoadScript, Marker, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Circle, type Libraries } from '@react-google-maps/api';
 import { useOpportunityForecast, type OpportunityRow } from '@/hooks/useOpportunityForecast';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { KPICard } from './KPICard';
@@ -26,10 +26,13 @@ const mapStyles = [
   { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
 ];
 
+const LIBRARIES: Libraries = ['places'];
+
 export function OpportunityForecastTab({ days }: Props) {
   const { opportunities, confirmedDeliveries, summary, nearRadiusKm, isLoading, grupos } =
     useOpportunityForecast(days);
   const { apiKey } = useGoogleMapsKey();
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: LIBRARIES });
   const [grupoFilter, setGrupoFilter] = useState<string>('all');
   const [onlyNear, setOnlyNear] = useState<'all' | 'near'>('all');
   const [selected, setSelected] = useState<OpportunityRow | null>(null);
@@ -253,18 +256,11 @@ export function OpportunityForecastTab({ days }: Props) {
           </CardHeader>
           <CardContent>
             <div className="h-[500px] rounded-lg overflow-hidden border">
-              <LoadScript
-                key={apiKey}
-                id="google-map-script"
-                googleMapsApiKey={apiKey}
-                language="pt-BR"
-                region="BR"
-                loadingElement={
-                  <div className="flex items-center justify-center h-full bg-muted">
-                    <LoadingSpinner text="Carregando mapa..." />
-                  </div>
-                }
-              >
+              {!isLoaded ? (
+                <div className="flex items-center justify-center h-full bg-muted">
+                  <LoadingSpinner text="Carregando mapa..." />
+                </div>
+              ) : (
                 <GoogleMap
                   mapContainerStyle={mapContainerStyle}
                   center={center}
@@ -279,7 +275,6 @@ export function OpportunityForecastTab({ days }: Props) {
                 >
                   {mapReady && (
                     <>
-                      {/* Confirmed delivery 5km circles */}
                       {confirmedDeliveries.map((d) => (
                         <Circle
                           key={`circle-${d.orderNumber}`}
@@ -288,7 +283,6 @@ export function OpportunityForecastTab({ days }: Props) {
                           options={circleOptions(COLOR_CONFIRMED)}
                         />
                       ))}
-                      {/* Confirmed delivery markers */}
                       {confirmedDeliveries.map((d) => (
                         <Marker
                           key={`conf-${d.orderNumber}`}
@@ -304,7 +298,6 @@ export function OpportunityForecastTab({ days }: Props) {
                           }}
                         />
                       ))}
-                      {/* Opportunity markers */}
                       {opportunityMarkers.map((o) => (
                         <Marker
                           key={`opp-${o.clientId}-${o.clientName}`}
@@ -325,7 +318,7 @@ export function OpportunityForecastTab({ days }: Props) {
                     </>
                   )}
                 </GoogleMap>
-              </LoadScript>
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 italic">
               Coordenadas dos clientes prováveis vêm da última entrega registrada. Clientes sem
