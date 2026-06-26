@@ -29,6 +29,7 @@ export default function ClientHealthPage() {
     await queryClient.invalidateQueries({ queryKey: ['analytics-all-equipments'] });
     await queryClient.invalidateQueries({ queryKey: ['erp-analytics'] });
     await queryClient.invalidateQueries({ queryKey: ['client-health'] });
+    await queryClient.invalidateQueries({ queryKey: ['financial-health-boletos'] });
     setIsRefreshing(false);
   };
 
