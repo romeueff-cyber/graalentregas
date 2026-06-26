@@ -117,6 +117,8 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       fetchBoletoData(order.order_number).then((data) => {
         if (data) {
           setIsBoleto(data.payment.method_type === 'BOL');
+          setErpIdEmpresa(data.id_empresa ?? null);
+          
           
           if (data.customer.document) {
             setDocument(formatDocumentFromERP(data.customer.document, data.customer.document_type));
