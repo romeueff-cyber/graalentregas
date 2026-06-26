@@ -693,7 +693,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
 }
 
 function ItemsSection({
-  title, icon, items, onAdd, onRemove, emptyLabel,
+  title, icon, items, onAdd, onRemove, emptyLabel, extraAction,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -701,14 +701,18 @@ function ItemsSection({
   onAdd: () => void;
   onRemove: (idx: number) => void;
   emptyLabel: string;
+  extraAction?: React.ReactNode;
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2">
         <Label className="flex items-center gap-2">{icon}{title}</Label>
-        <Button variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="w-4 h-4 mr-1" />Adicionar
-        </Button>
+        <div className="flex items-center gap-2">
+          {extraAction}
+          <Button variant="outline" size="sm" onClick={onAdd}>
+            <Plus className="w-4 h-4 mr-1" />Adicionar
+          </Button>
+        </div>
       </div>
       {items.length === 0 ? (
         <div className="text-xs text-muted-foreground py-2 px-3 border border-dashed rounded-md text-center">
