@@ -7,9 +7,9 @@ import { EmpresaId, EMPRESAS } from '@/lib/empresas';
 interface EmpresaContextValue {
   /** Empresas que o usuário pode acessar. Admins veem todas. */
   allowedEmpresas: EmpresaId[];
-  /** Empresa ativa para filtragem (única). Default = primeira permitida. */
+  /** Empresa ativa para filtragem. null = todas as permitidas. */
   selectedEmpresa: EmpresaId | null;
-  setSelectedEmpresa: (id: EmpresaId) => void;
+  setSelectedEmpresa: (id: EmpresaId | null) => void;
   /** True se o usuário tem acesso a mais de uma empresa (mostra seletor). */
   hasMultiple: boolean;
   isLoading: boolean;
