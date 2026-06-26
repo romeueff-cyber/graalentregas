@@ -193,7 +193,9 @@ export function useDailyOrders() {
   const filteredOrders = useMemo(() => {
     const all = orders || [];
     if (!empresasFilter.length) return all;
-    return all.filter(o => o.id_empresa != null && empresasFilter.includes(o.id_empresa as any));
+    // Server já filtra por empresa. No cliente, mantemos os pedidos cujo id_empresa
+    // bate OU está ausente (legado/JOIN nulo), evitando "sumir" pedidos válidos.
+    return all.filter(o => o.id_empresa == null || empresasFilter.includes(o.id_empresa as any));
   }, [orders, empresasFilter]);
 
 
