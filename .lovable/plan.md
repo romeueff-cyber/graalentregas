@@ -1,78 +1,95 @@
-## Objetivo
+# Correções Multi-Empresa & Ajustes Pedidos de Venda
 
-Suportar duas empresas no ERP (ID_EMPRESA: **1 = Graal Beer**, **3 = Grott Beer**) e filtrar todos os dados exibidos no app conforme as empresas que o usuário tem permissão de acessar.
+Vários pontos do sistema ainda não respeitam a empresa do usuário, e há ajustes UX no fluxo de Pedido de Venda. Plano abaixo agrupado por tema.
 
-## 1. Backend ERP (`erp-api/server.js`)
+## 1. Filtro de empresa nos clientes (Pedido de Venda)
 
-Incluir `ID_EMPRESA` em todas as queries que retornam dados de cliente, pedidos, equipamentos, alocações, boletos e produtos:
+Problema: usuário Marcel (somente Grott / `id_empresa = 3`) não consegue ver o cliente "Potus" (que tem nome fantasia diferente da razão social).
 
-- `/api/clients` e `/api/clients/search` → adicionar `c.ID_EMPRESA` no SELECT
-- `/api/orders/*` → adicionar `o.ID_EMPRESA`
-- `/api/allocations` → adicionar `ID_EMPRESA` do cliente
-- `/api/equipments`, `/api/financial/*` → idem
-- Aceitar query param opcional `?empresas=1,3` para já filtrar no servidor (otimização)
+Causas a corrigir:
+- `ClienteCombobox` busca pelo termo digitado, mas o ERP só filtra por `RAZAO`. Cliente cadastrado como "Potus" no fantasia não aparece.
+- A busca no `erp-api/server.js` precisa considerar `NOME_FANTASIA` (ou equivalente) além de `RAZAO`, mantendo filtro `ID_EMPRESA IN (...)`.
 
-## 2. Banco (Lovable Cloud)
+Ação:
+- Atualizar query no `/api/clients` do `erp-api/server.js` para `WHERE (RAZAO LIKE ? OR FANTASIA LIKE ? OR CNPJ_CPF LIKE ?) AND ID_EMPRESA IN (...)`.
+- Confirmar que `list-erp-clients` repassa `empresas` corretamente (já feito) e que o front sempre injeta `[selectedEmpresa]`.
 
-Nova tabela `user_companies`:
-```
-user_id (uuid → auth.users)
-empresa_id (int)  -- 1 ou 3
-PRIMARY KEY (user_id, empresa_id)
-```
-- GRANT padrão + RLS (admin gerencia, usuário lê o próprio)
-- Função `get_user_empresas(_user_id)` retornando `int[]`
-- Função `user_has_empresa(_user_id, _empresa_id)` → boolean
+## 2. Autocomplete de endereço (Pedido de Venda)
 
-Adicionar coluna `id_empresa INT` em:
-- `clientes_vendedor`
-- `pedidos_venda`
-- `boletos`
-- `equipments` (quando vier do ERP)
+Problemas:
+- Ao clicar numa sugestão, ela não é selecionável (sugestões abrem fora do modal/sheet → conflito de foco/touch com Radix Dialog/Sheet).
+- Raio de 150 km não restringe — Google retorna endereços de São Paulo. `LocationBias` por bounds é apenas viés, não restrição.
 
-Backfill: default `1` (Graal) para dados existentes.
+Ação:
+- Em `AddressAutocomplete.tsx`:
+  - Renderizar a `pac-container` dentro do dialog/sheet (anexar manualmente ao container do form via `MutationObserver` movendo `.pac-container` para `document.body` com `z-index` alto, **OU** trocar pelo `AutocompleteService` + lista própria controlada — mais robusto dentro de dialogs).
+  - Reduzir raio para **100 km** e validar resultado: se `lat/lng` cair fora do raio, descartar/avisar.
+  - Para a busca manual (botão lupa), usar `Geocoder` e filtrar resultados por distância haversine ao centro de Jaraguá; se nenhum dentro de 100 km, mostrar toast "fora do raio".
+- Atualizar constante `RADIUS_KM = 100`.
 
-Atualizar políticas RLS dessas tabelas para exigir `user_has_empresa(auth.uid(), id_empresa)`.
+## 3. UX em "Adicionar Produto" (Pedido de Venda)
 
-## 3. Edge Functions
+Problema: botões `+1` e `+10` são pouco flexíveis para barris (volumes típicos 10/20/30/50 L) vs growlers (unidade).
 
-Todas as functions que chamam o ERP passam a:
-1. Ler `user_companies` do usuário autenticado
-2. Repassar `?empresas=...` para o ERP
-3. Filtrar resposta por segurança
+Ação em `AddItemSheet.tsx`:
+- Detectar se o item é **barril** (via `tipo === 'equipamento'` ou nome contendo "barril"/"chopeira"): mostrar botões **+10, +20, +30, +50**.
+- Caso contrário (produto normal, growler, etc.): mostrar somente **+1**.
+- Manter campo numérico editável.
 
-Functions impactadas: `sync-vendedor-clients`, `get-erp-allocations`, `get-erp-orders`, `get-erp-product-price`, `erp-clients-search`, etc.
+## 4. Filtro de empresa no Mapa do dia (pedidos, recolhas, higienização)
 
-## 4. Frontend
+Problema:
+- Admin vê pedidos do dia de todas as empresas mesmo com empresa selecionada (não respeita `selectedEmpresa`).
+- Marcel não vê pedidos (mas vê recolhas/higiene de outras empresas).
 
-**Contexto novo** `useUserCompanies()` — carrega empresas permitidas do usuário logado, cacheia, e expõe seletor quando o usuário tem acesso a mais de uma.
+Ação:
+- `useDailyOrders`: já filtra por `empresasFilter`. Verificar se `list-erp-orders` está retornando `id_empresa` nas linhas e se o filtro SQL `ID_EMPRESA IN (...)` está ativo (corrigir lá se faltar).
+- **Recolhas/Equipamentos** (`equipments`): adicionar coluna `id_empresa` se ainda não existe e filtrar no front por `selectedEmpresa`. Preencher `id_empresa` no momento da entrega a partir do pedido ERP. Aplicar filtro em `DailyOrdersMapView`, `DailyOrdersSidebar`, hooks de recolha.
+- **Higienização** (`hygiene_clients`/`hygiene_equipment`): adicionar `id_empresa` e filtrar nas listagens/marcadores. Default empresa atual ao criar.
 
-**Header global**: dropdown "Empresa" (só aparece se usuário tem >1). Default = primeira. Persistido em localStorage.
+## 5. Financeiro / Boletos por empresa
 
-**Hooks impactados** passam a filtrar/incluir a empresa ativa:
-- `useClientesVendedor`, `useERPOrders`, `useERPAllocations`, `useBoletos`, `useERPCatalog`
+Problema: boletos exibidos de todas as empresas.
 
-**Tela Admin → Usuários**: nova seção "Empresas do usuário" com checkboxes (Graal Beer / Grott Beer) salvando em `user_companies`. Só admin acessa.
+Ação:
+- Garantir que `boletos` tenha `id_empresa` (já incluído em migração anterior) e que `useBoletos` / `useERPBoletoData` filtrem por `selectedEmpresa`.
+- Atualizar Edge Functions `get-erp-boleto-data` e `sync-boletos-status` para receber/usar `empresas` e filtrar por `ID_EMPRESA`.
+- Filtrar UI em `FinanceiroPage.tsx`.
 
-**Badges visuais**: nos cards de cliente/pedido/alocação, exibir mini-badge com a empresa (cor distinta para cada uma) quando o usuário tem acesso a múltiplas.
+## 6. Auditoria geral multi-empresa
 
-## 5. Migração de dados existentes
+Revisar todas as telas com dados ERP/Supabase e aplicar filtro por `selectedEmpresa` quando aplicável:
 
-- `UPDATE clientes_vendedor SET id_empresa = 1` (todos atuais são Graal)
-- Reexecutar `sync-vendedor-clients` para popular `id_empresa` correto vindo do ERP
-- Inserir `user_companies` para todos os usuários atuais com `empresa_id = 1` (mantém acesso atual)
+- Pedidos de Venda (já filtrado — revalidar).
+- Pedidos do Dia / Mapa (item 4).
+- Recolhas / Equipamentos (item 4).
+- Higienização / Alocações (item 4 + `AllocationsTab` já filtra — revalidar).
+- Financeiro / Boletos (item 5).
+- Analytics / Saúde do Cliente / Performance / Profitability: filtrar por `selectedEmpresa`.
+- Rotas / Otimização: filtrar pontos de entrega por empresa.
+- Etiquetas / Templates: opcional — manter global por enquanto.
+- Configurações: já tem card por empresa (WhatsApp).
 
-## 6. Ordem de implementação
+Para cada hook ERP (`useERPOrders`, `useERPAnalytics`, `useERPBoletoData`, `useERPAllocations`, `useClientesVendedor`, `useDeliveredOrders`, etc.), garantir que:
+1. `queryKey` inclui `selectedEmpresa`.
+2. Body do `functions.invoke` envia `empresas: [selectedEmpresa]`.
+3. Edge function aplica `WHERE ID_EMPRESA IN (...)` no SQL Firebird.
+4. Fallback usa `allowedEmpresas` se nenhuma selecionada (admin com várias).
 
-1. `erp-api/server.js` — expor ID_EMPRESA (requer `pm2 restart`)
-2. Migration: tabela `user_companies`, colunas `id_empresa`, funções, RLS, backfill
-3. Edge functions — propagar filtro
-4. Hooks + contexto + seletor no header
-5. Tela admin para gerenciar empresas por usuário
-6. Badges nos cards
+## Detalhes técnicos
 
-## Observações técnicas
+- **Migração SQL**: adicionar `id_empresa INT` (nullable inicialmente) em `equipments`, `hygiene_clients`, `hygiene_equipment` se ausente; backfill por join com pedidos quando possível; index em `(id_empresa)`.
+- **erp-api**: padronizar helper `buildEmpresaClause(empresas)` retornando `AND ID_EMPRESA IN (1,3)` validado.
+- **Edge Functions**: validar `empresas` vs `user_companies` do JWT antes de repassar ao ERP, evitando bypass.
+- **Front**: criar util `useEmpresaFilter()` que devolve `{ empresasParam, queryKeySuffix }` reutilizado em todos os hooks ERP.
 
-- IDs hardcoded como constantes em `src/lib/empresas.ts`: `{ GRAAL: 1, GROTT: 3 }` com labels e cores.
-- Admin sempre vê tudo (bypass via `has_role(uid,'admin')` nas políticas).
-- Memory nova será criada documentando a regra multi-empresa.
+## Ordem de execução sugerida
+
+1. Endereço (autocomplete + raio 100 km) — bug bloqueante UX.
+2. Busca de clientes por fantasia — bug funcional Marcel.
+3. Botões de quantidade (+10/+20/+30/+50) — UX rápida.
+4. Filtro empresa em pedidos do dia / mapa / recolhas / higiene.
+5. Filtro empresa no Financeiro/Boletos.
+6. Auditoria final dos demais hooks/telas ERP.
+
+Quer que eu siga nessa ordem ou prefere priorizar algo (ex.: financeiro primeiro)?

@@ -27,6 +27,7 @@ import {
 import { useBoleto, type CreateBoletoRequest, type BoletoResponse } from '@/hooks/useBoleto';
 import { useBoletoSettings } from '@/hooks/useBoletoSettings';
 import { useERPBoletoData } from '@/hooks/useERPBoletoData';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
@@ -59,6 +60,8 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   const { createBoleto, formatCurrency, isLoading: isBoletoLoading } = useBoleto();
   const { boletoSettings, buildBoletoPaymentTerms } = useBoletoSettings();
   const { fetchBoletoData } = useERPBoletoData();
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+  
   
   const [activeTab, setActiveTab] = useState<'search' | 'manual'>('search');
   
@@ -122,11 +125,14 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
     setIsSearching(true);
     try {
       // For now, search in existing boletos
-      const { data, error } = await supabase
+      let q = supabase
         .from('boletos')
         .select('customer_name, customer_document, customer_email')
         .or(`customer_name.ilike.%${clientSearch}%,customer_document.ilike.%${clientSearch}%`)
         .limit(20);
+      if (selectedEmpresa) q = q.eq('id_empresa', selectedEmpresa);
+      else if (allowedEmpresas.length) q = q.in('id_empresa', allowedEmpresas);
+      const { data, error } = await q;
       
       if (error) throw error;
       
