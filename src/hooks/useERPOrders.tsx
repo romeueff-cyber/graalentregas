@@ -65,6 +65,8 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
   const { data: orders, isLoading, refetch, isFetching, error } = useQuery({
     queryKey: ['erp-orders', targetDate, empresasFilter.join(',')],
     queryFn: async () => {
+      const cacheKey = `${targetDate}|empresas:${empresasFilter.join(',') || 'none'}`;
+
       // Try to fetch from network first
       if (isOnline) {
         try {
@@ -78,7 +80,7 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
           const ordersData = data as DailyOrderData[];
           
           // Save to cache for offline use
-          await erpOrdersCache.save(targetDate, ordersData);
+          await erpOrdersCache.save(cacheKey, ordersData);
           await updateCacheStatus();
           
           console.log(`[ERP Cache] Saved ${ordersData.length} orders for ${targetDate}`);
@@ -91,7 +93,7 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
       }
 
       // Try to get from cache
-      const cachedOrders = await erpOrdersCache.get(targetDate);
+      const cachedOrders = await erpOrdersCache.get(cacheKey);
       if (cachedOrders) {
         console.log(`[ERP Cache] Using cached data for ${targetDate} (${cachedOrders.length} orders)`);
         return cachedOrders;
@@ -139,7 +141,7 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
     const all = orders || [];
     if (!empresasFilter.length) return all;
     // Server já filtra; aqui aceitamos id_empresa ausente para não esconder legado.
-    return all.filter(o => o.id_empresa == null || empresasFilter.includes(o.id_empresa as any));
+    return all.filter(o => o.id_empresa != null && empresasFilter.includes(Number(o.id_empresa) as any));
   }, [orders, empresasFilter]);
 
   return {
