@@ -27,8 +27,8 @@ interface Props {
   clientErpId?: string | null;
 }
 
-const QUICK_BARRIL = [10, 20, 30, 50];
-const QUICK_UNIT = [1, 5, 10];
+// Incremento por tipo de produto
+
 
 // Produtos "chopp" usam quantidades de barril (10/20/30/50L).
 // Demais (growler, garrafa, etc) usam quantidades unitárias.
