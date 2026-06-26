@@ -304,6 +304,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           amount: Math.round(amountValue * 100),
         }],
         dueDate: manualDueDate,
+        idEmpresa: manualIdEmpresa ?? selectedEmpresa ?? (allowedEmpresas.length === 1 ? allowedEmpresas[0] : null),
         ...buildBoletoPaymentTerms(boletoSettings),
       };
       
