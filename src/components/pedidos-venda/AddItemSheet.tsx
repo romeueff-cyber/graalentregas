@@ -199,7 +199,7 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
                 className="mt-1"
               />
               {(() => {
-                const isBarril = mode === 'equipamento' || isBarrelLike(selected?.descricao || '');
+                const isBarril = mode === 'equipamento' || isChoppProduct(selected?.descricao || '');
                 const buttons = isBarril ? QUICK_BARRIL : QUICK_UNIT;
                 return (
                   <div className={`grid gap-2 mt-2 ${buttons.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
