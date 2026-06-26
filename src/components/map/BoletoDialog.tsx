@@ -86,6 +86,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [email, setEmail] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
+  const [erpIdEmpresa, setErpIdEmpresa] = useState<number | null>(null);
 
   // Check for existing boletos and load ERP data when dialog opens
   useEffect(() => {
