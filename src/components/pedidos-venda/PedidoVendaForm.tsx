@@ -729,7 +729,7 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
 }
 
 function ItemsSection({
-  title, icon, items, onAdd, onRemove, emptyLabel, extraAction,
+  title, icon, items, onAdd, onRemove, emptyLabel, extraAction, renderExtra,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -738,6 +738,7 @@ function ItemsSection({
   onRemove: (idx: number) => void;
   emptyLabel: string;
   extraAction?: React.ReactNode;
+  renderExtra?: (item: Item, idx: number) => React.ReactNode;
 }) {
   return (
     <div>
@@ -768,6 +769,7 @@ function ItemsSection({
                     {v != null && ` · ${v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
                     {sub != null && ` · Subtotal: ${sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
                   </div>
+                  {renderExtra?.(it, idx)}
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
                   <Trash2 className="w-4 h-4" />
