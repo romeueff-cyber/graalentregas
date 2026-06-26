@@ -34,7 +34,8 @@ const QUICK_UNIT = [1, 5, 10];
 // Demais (growler, garrafa, etc) usam quantidades unitárias.
 const isChoppProduct = (desc: string) => /\bchopp?\b/i.test(desc || '');
 
-// Equipamentos só devem listar chopeira/barril.
+// Filtros por palavra-chave (tabela ERP é grande).
+const isProdutoVenda = (desc: string) => /\b(chopp?|garrafa|growler)\b/i.test(desc || '');
 const isChoperaOuBarril = (desc: string) => /\b(chopeira|barril)\b/i.test(desc || '');
 
 const formatBRL = (v: number) =>
