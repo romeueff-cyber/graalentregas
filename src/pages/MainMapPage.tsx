@@ -306,6 +306,17 @@ export default function MainMapPage() {
                     <ClipboardCheck className="w-5 h-5" />
                     Pedidos de Venda
                   </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate('/saude-cliente');
+                    }}
+                  >
+                    <HeartPulse className="w-5 h-5" />
+                    Saúde do Cliente
+                  </Button>
                   {isAdmin && (
                     <>
                       <Button
@@ -318,17 +329,6 @@ export default function MainMapPage() {
                       >
                         <BarChart3 className="w-5 h-5" />
                         Analytics & Relatórios
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-3"
-                        onClick={() => {
-                          setShowMenu(false);
-                          navigate('/saude-cliente');
-                        }}
-                      >
-                        <HeartPulse className="w-5 h-5" />
-                        Saúde do Cliente
                       </Button>
                       <Button
                         variant="ghost"

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, HeartPulse, RefreshCw, Sparkles, Activity, DollarSign } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { EmpresaSelector } from '@/components/empresa/EmpresaSelector';
 
 export default function ClientHealthPage() {
   const navigate = useNavigate();
@@ -39,26 +40,25 @@ export default function ClientHealthPage() {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="glass border-b px-4 py-3 safe-area-top sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-2">
-              <HeartPulse className="w-5 h-5 text-primary" />
-              <h1 className="font-semibold text-foreground">Saúde do Cliente</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <HeartPulse className="w-5 h-5 text-primary shrink-0" />
+              <h1 className="font-semibold text-foreground truncate">Saúde do Cliente</h1>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-1">
+            <EmpresaSelector />
+            <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mt-3 flex-wrap">

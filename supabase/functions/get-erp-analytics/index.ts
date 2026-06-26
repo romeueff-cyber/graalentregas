@@ -30,11 +30,15 @@ serve(async (req) => {
     // Parse request body for date range
     let startDate: string;
     let endDate: string;
+    let empresas: number[] = [];
     
     try {
       const body = await req.json();
       startDate = body.start_date;
       endDate = body.end_date;
+      if (Array.isArray(body.empresas)) {
+        empresas = body.empresas.map((n: unknown) => Number(n)).filter((n: number) => [1, 3].includes(n));
+      }
     } catch {
       return new Response(
         JSON.stringify({ error: 'Parâmetros start_date e end_date são obrigatórios' }),
@@ -49,9 +53,37 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Fetching analytics for period: ${startDate} to ${endDate}`);
+    // Cruza com as empresas que o usuário realmente pode acessar
+    const { userId, supabase } = authResult as { userId: string; supabase: any };
+    const { data: companies } = await supabase
+      .from('user_companies')
+      .select('empresa_id')
+      .eq('user_id', userId);
+    const { data: isAdmin } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    const allowed = (companies ?? []).map((r: any) => Number(r.empresa_id)).filter((n: number) => [1, 3].includes(n));
+    const allowedEmpresas = allowed.length > 0 ? allowed : (isAdmin ? [1, 3] : []);
+    if (allowedEmpresas.length === 0) {
+      return new Response(JSON.stringify([]), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const effective = empresas.length > 0
+      ? empresas.filter((id) => allowedEmpresas.includes(id))
+      : allowedEmpresas;
+    if (effective.length === 0) {
+      return new Response(JSON.stringify([]), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const url = `${erpApiUrl}/api/orders/analytics?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+    console.log(`Fetching analytics for period: ${startDate} to ${endDate} empresas: ${effective.join(',')}`);
+
+    const url = `${erpApiUrl}/api/orders/analytics?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&empresas=${effective.join(',')}`;
     
     const response = await fetch(url, {
       method: 'GET',
