@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, differenceInDays } from 'date-fns';
 import { useMemo } from 'react';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import type { ERPOrderAnalytics } from './useERPAnalytics';
 
 export type ClientHealthStatus = 'ativo' | 'risco' | 'parado' | 'novo';
