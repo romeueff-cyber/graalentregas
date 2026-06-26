@@ -85,16 +85,25 @@ const toReais = (cents: number) => cents / 100;
 
 export function useFinancialHealth(days: number = 180) {
   const { metrics: healthMetrics, isLoading: healthLoading } = useClientHealth(days);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+  const empresasFilter = selectedEmpresa != null ? [selectedEmpresa] : allowedEmpresas;
 
   const { data: boletos, isLoading, error, refetch } = useQuery({
-    queryKey: ['financial-health-boletos', days],
+    queryKey: ['financial-health-boletos', days, empresasFilter.join(',')],
+    enabled: empresasFilter.length > 0,
     queryFn: async (): Promise<FinancialBoleto[]> => {
       const since = format(addDays(new Date(), -days), 'yyyy-MM-dd');
-      const { data, error } = await supabase
+      let q = supabase
         .from('boletos')
-        .select('id, order_number, customer_name, customer_document, total_amount, due_date, status, created_at, reconciled')
+        .select('id, order_number, customer_name, customer_document, total_amount, due_date, status, created_at, reconciled, id_empresa')
         .gte('created_at', since)
         .order('due_date', { ascending: false });
+      if (selectedEmpresa != null) {
+        q = q.eq('id_empresa', selectedEmpresa);
+      } else if (allowedEmpresas.length > 0) {
+        q = q.in('id_empresa', allowedEmpresas);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []) as FinancialBoleto[];
     },
