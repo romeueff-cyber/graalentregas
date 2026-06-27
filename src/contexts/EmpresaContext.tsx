@@ -54,6 +54,17 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
       setSelectedEmpresaState(null);
       return;
     }
+    const signatureKey = `${STORAGE_KEY}__sig`;
+    const currentSig = [...allowedEmpresas].sort().join(',');
+    const lastSig = localStorage.getItem(signatureKey);
+    // Se o conjunto de empresas mudou (ex.: admin ganhou acesso a uma nova empresa),
+    // resetamos para "Todas" para evitar continuar filtrando pela anterior.
+    if (lastSig !== currentSig) {
+      localStorage.setItem(signatureKey, currentSig);
+      localStorage.setItem(STORAGE_KEY, 'all');
+      setSelectedEmpresaState(allowedEmpresas.length > 1 ? null : allowedEmpresas[0]);
+      return;
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === 'all') {
       setSelectedEmpresaState(null);
@@ -63,7 +74,6 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     if (stored && allowedEmpresas.includes(stored)) {
       setSelectedEmpresaState(stored);
     } else {
-      // Multi-empresa: default "Todas". Single: a única permitida.
       setSelectedEmpresaState(allowedEmpresas.length > 1 ? null : allowedEmpresas[0]);
     }
   }, [allowedEmpresas]);
