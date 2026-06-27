@@ -73,19 +73,14 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
     const firebirdStartDate = `${startMonth}/${startDay}/${startYear}`;
     const firebirdEndDate = `${endMonth}/${endDay}/${endYear}`;
     
-    // Filtro multi-empresa opcional
-    let empresaWhere = '';
-    const empresaParams = [];
-    if (empresas) {
-      const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
-      if (ids.length > 0) {
-        empresaWhere = ` AND C.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`;
-        empresaParams.push(...ids);
-      }
-    }
-    
+    // Filtro multi-empresa opcional — aplicado em JS depois da inferência para
+    // não excluir clientes com C.ID_EMPRESA = NULL (caso comum no cadastro).
+    const empresaIds = empresas
+      ? String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean)
+      : [];
+
     console.log(`Buscando analytics de ${firebirdStartDate} até ${firebirdEndDate} empresas: ${empresas || 'todas'}`);
-    
+
     // Tenta query com JOIN em GRUPO_CLIENTE; se falhar (nome de tabela/coluna), faz fallback sem grupo.
     const queryComGrupo = `
       SELECT 
@@ -104,7 +99,6 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
       LEFT JOIN GRUPO_CLIENTE GC ON C.ID_GRUPO_CLIENTE = GC.ID_GRUPO_CLIENTE
       WHERE OV.DATA_PREV_ENTREGA BETWEEN ? AND ?
         AND (OV.DELETED IS NULL OR OV.DELETED = 0)
-        ${empresaWhere}
       ORDER BY OV.DATA_PREV_ENTREGA DESC
     `;
 
@@ -123,16 +117,29 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
       LEFT JOIN PESSOAS P ON C.ID_PESSOA = P.ID_PESSOA
       WHERE OV.DATA_PREV_ENTREGA BETWEEN ? AND ?
         AND (OV.DELETED IS NULL OR OV.DELETED = 0)
-        ${empresaWhere}
       ORDER BY OV.DATA_PREV_ENTREGA DESC
     `;
 
     let result;
     try {
-      result = await executeQuery(queryComGrupo, [firebirdStartDate, firebirdEndDate, ...empresaParams]);
+      result = await executeQuery(queryComGrupo, [firebirdStartDate, firebirdEndDate]);
     } catch (e) {
       console.warn('[analytics] JOIN GRUPO_CLIENTE falhou, usando query sem grupo:', e.message);
-      result = await executeQuery(querySemGrupo, [firebirdStartDate, firebirdEndDate, ...empresaParams]);
+      result = await executeQuery(querySemGrupo, [firebirdStartDate, firebirdEndDate]);
+    }
+
+    // Infere empresa quando CLIENTES.ID_EMPRESA está NULL no cadastro:
+    // usa o nome do grupo (...GROTT... => 3) como fallback, senão empresa 1.
+    const inferEmpresa = (row) => {
+      const direct = Number(row.ID_EMPRESA);
+      if (Number.isFinite(direct) && [1, 3].includes(direct)) return direct;
+      const grupo = String(row.GRUPO_CLIENTE || '').toUpperCase();
+      if (grupo.includes('GROTT')) return 3;
+      return 1;
+    };
+
+    if (Array.isArray(result) && empresaIds.length > 0) {
+      result = result.filter(row => empresaIds.includes(inferEmpresa(row)));
     }
     
     if (!result || result.length === 0) {
