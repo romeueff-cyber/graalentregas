@@ -154,7 +154,7 @@ app.get('/api/orders/analytics', authenticate, async (req, res) => {
       clientName: row.NOME_CLIENTE || row.NOME_COMPLETO || '',
       clientId: row.ID_CLIENTE,
       grupoCliente: row.GRUPO_CLIENTE || null,
-      id_empresa: row.ID_EMPRESA || null,
+      id_empresa: inferEmpresa(row),
     }));
     
     res.json(orders);
