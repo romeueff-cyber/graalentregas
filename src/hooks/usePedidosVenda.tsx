@@ -17,6 +17,9 @@ export interface PedidoVendaItem {
   produto: string;
   quantidade: number;
   observacao: string | null;
+  preco_unitario?: number | null;
+  desconto?: number | null;
+  tipo?: string | null;
 }
 
 export interface PedidoVenda {
