@@ -194,8 +194,8 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
             <div>
               <Label>Quantidade*</Label>
               {(() => {
-                const isBarril = mode === 'equipamento' || isChoppProduct(selected?.descricao || '');
-                const step = isBarril ? 10 : 1;
+                const isChoppBarril = mode === 'produto' && isChoppProduct(selected?.descricao || '');
+                const step = isChoppBarril ? 10 : 1;
                 const current = Number(qty) || 0;
                 const dec = () => setQty(Math.max(0, current - step) || '');
                 const inc = () => setQty(current + step);
@@ -235,7 +235,7 @@ export function AddItemSheet({ open, mode, onOpenChange, onAdd, clientErpId }: P
                   </div>
                 );
               })()}
-              {(mode === 'equipamento' || isChoppProduct(selected?.descricao || '')) && (
+              {mode === 'produto' && isChoppProduct(selected?.descricao || '') && (
                 <p className="text-xs text-muted-foreground mt-1">Incremento de 10 em 10</p>
               )}
             </div>

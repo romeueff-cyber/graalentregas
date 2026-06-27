@@ -87,19 +87,38 @@ function PedidoCard({
 
       <div className="text-sm">{pedido.endereco_entrega}</div>
 
-      {pedido.itens && pedido.itens.length > 0 && (
-        <div className="text-sm">
-          <div className="text-xs text-muted-foreground mb-1">Itens:</div>
-          <ul className="list-disc pl-5">
-            {pedido.itens.map((it) => (
-              <li key={it.id}>
-                {it.quantidade}× {it.produto}
-                {it.observacao && <span className="text-muted-foreground"> — {it.observacao}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {pedido.itens && pedido.itens.length > 0 && (() => {
+        const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        let total = 0;
+        pedido.itens.forEach((it) => {
+          const preco = Number(it.preco_unitario ?? 0);
+          const desc = Number(it.desconto ?? 0);
+          if (preco > 0) total += it.quantidade * preco - desc;
+        });
+        return (
+          <div className="text-sm">
+            <div className="text-xs text-muted-foreground mb-1">Itens:</div>
+            <ul className="list-disc pl-5 space-y-0.5">
+              {pedido.itens.map((it) => {
+                const preco = Number(it.preco_unitario ?? 0);
+                const sub = preco > 0 ? it.quantidade * preco - Number(it.desconto ?? 0) : null;
+                return (
+                  <li key={it.id}>
+                    {it.quantidade}× {it.produto}
+                    {preco > 0 && (
+                      <span className="text-muted-foreground"> — {fmt(preco)}{sub != null && ` = ${fmt(sub)}`}</span>
+                    )}
+                    {it.observacao && <span className="text-muted-foreground"> — {it.observacao}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            {total > 0 && (
+              <div className="mt-2 text-right font-semibold">Total: {fmt(total)}</div>
+            )}
+          </div>
+        );
+      })()}
 
       {pedido.observacoes && (
         <div className="text-sm text-muted-foreground">Obs: {pedido.observacoes}</div>

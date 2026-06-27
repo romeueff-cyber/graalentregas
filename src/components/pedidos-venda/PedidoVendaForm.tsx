@@ -596,13 +596,15 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
               onRemove={(idx) => setEquipamentos((a) => a.filter((_, i) => i !== idx))}
               emptyLabel="Nenhum equipamento adicionado"
               extraAction={
-                produtos.some((p) => /\bchopp?\b/i.test(p.descricao)) ? (
+                produtos.some((p) => /\bchopp?\b/i.test(p.descricao) && !/\b(growler|garrafa)\b/i.test(p.descricao)) ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const choppItems = produtos.filter((p) => /\bchopp?\b/i.test(p.descricao));
+                      const choppItems = produtos.filter(
+                        (p) => /\bchopp?\b/i.test(p.descricao) && !/\b(growler|garrafa)\b/i.test(p.descricao),
+                      );
                       if (!choppItems.length) return;
                       const sizes = [50, 30, 10];
                       const sugeridos: Item[] = [];
@@ -627,7 +629,6 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
                           }
                         }
                         if (rem > 0) {
-                          // resto < 10L: arredonda para 1 barril de 10L
                           sugeridos.push({
                             tipo: 'equipamento',
                             id_erp: '',
