@@ -1135,7 +1135,7 @@ app.get('/api/allocations', authenticate, async (req, res) => {
     if (empresas) {
       const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
       if (ids.length > 0) {
-        where.push(`cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`);
+        where.push(`(cl.ID_EMPRESA IS NULL OR cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')}))`);
         params.push(...ids);
       }
     }
