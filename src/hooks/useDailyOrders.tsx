@@ -198,7 +198,7 @@ export function useDailyOrders() {
     if (!empresasFilter.length) return all;
     // Server já filtra por empresa. No cliente, mantemos os pedidos cujo id_empresa
     // bate OU está ausente (legado/JOIN nulo), evitando "sumir" pedidos válidos.
-    return all.filter(o => o.id_empresa != null && empresasFilter.includes(Number(o.id_empresa) as any));
+    return all.filter(o => o.id_empresa == null || empresasFilter.includes(Number(o.id_empresa) as any));
   }, [orders, empresasFilter]);
 
 

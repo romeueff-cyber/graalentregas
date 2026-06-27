@@ -48,7 +48,9 @@ function buildMessage(
   const equipamentos = itens.filter((i) => i.tipo === 'equipamento');
 
   const lines: string[] = [];
-  lines.push('🧾 *Novo pedido de venda*');
+  const numero = (pedido as { numero_pedido?: number | null }).numero_pedido;
+  const numeroFmt = numero != null ? `APP-${String(numero).padStart(3, '0')}` : null;
+  lines.push(`🧾 *Novo pedido de venda${numeroFmt ? ` #${numeroFmt}` : ''}*`);
   lines.push('');
   lines.push(`👤 *Cliente:* ${pedido.nome_cliente ?? '-'}`);
   if (vendedorNome) lines.push(`🧑‍💼 *Vendedor:* ${vendedorNome}`);

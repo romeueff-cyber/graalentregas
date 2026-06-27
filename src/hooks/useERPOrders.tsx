@@ -141,7 +141,7 @@ export function useERPOrders({ date, enabled = true }: UseERPOrdersOptions = {})
     const all = orders || [];
     if (!empresasFilter.length) return all;
     // Server já filtra; aqui aceitamos id_empresa ausente para não esconder legado.
-    return all.filter(o => o.id_empresa != null && empresasFilter.includes(Number(o.id_empresa) as any));
+    return all.filter(o => o.id_empresa == null || empresasFilter.includes(Number(o.id_empresa) as any));
   }, [orders, empresasFilter]);
 
   return {
