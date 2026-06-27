@@ -371,7 +371,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
     if (empresasParam) {
       const ids = String(empresasParam).split(',').map(s => parseInt(s.trim())).filter(Boolean);
       if (ids.length > 0) {
-        empresaWhere = ` AND cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`;
+        empresaWhere = ` AND (cl.ID_EMPRESA IS NULL OR cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')}))`;
         empresaParams.push(...ids);
       }
     }
