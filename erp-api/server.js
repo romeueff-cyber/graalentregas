@@ -938,10 +938,12 @@ app.get('/api/clients', authenticate, async (req, res) => {
       params.push(term, term, `%${search}%`);
     }
     // Filtro multi-empresa: ?empresas=1,3
+    // Importante: inclui clientes com ID_EMPRESA NULL (cadastro incompleto no ERP);
+    // a empresa final é inferida pela edge function/JS a partir do grupo/produtos.
     if (empresas) {
       const ids = String(empresas).split(',').map(s => parseInt(s.trim())).filter(Boolean);
       if (ids.length > 0) {
-        where.push(`cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')})`);
+        where.push(`(cl.ID_EMPRESA IS NULL OR cl.ID_EMPRESA IN (${ids.map(() => '?').join(',')}))`);
         params.push(...ids);
       }
     }
