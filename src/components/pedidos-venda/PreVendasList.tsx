@@ -66,7 +66,7 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
   });
 
   const convert = useMutation({
-    mutationFn: async (pv: PreVenda) => {
+    mutationFn: async ({ pv, openPedido }: { pv: PreVenda; openPedido: boolean }) => {
       if (!pv.nome || !pv.cpf_cnpj || !pv.endereco_cadastro) throw new Error('Pré-cadastro incompleto');
       const { data: cli, error: e1 } = await supabase
         .from('clientes_vendedor')
@@ -94,11 +94,15 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
         .update({ status: 'convertido', converted_at: new Date().toISOString(), cliente_vendedor_id: cli.id })
         .eq('id', pv.id);
       if (e2) throw e2;
+      return { cliente: cli as ClienteVendedor, pv, openPedido };
     },
-    onSuccess: () => {
+    onSuccess: ({ cliente, pv, openPedido }) => {
       toast.success('Cliente cadastrado a partir do pré-cadastro');
       qc.invalidateQueries({ queryKey: ['pre-vendas'] });
       qc.invalidateQueries({ queryKey: ['clientes-vendedor'] });
+      if (openPedido && onCreatePedido) {
+        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes);
+      }
     },
     onError: (e: any) => toast.error(e?.message || 'Erro ao converter'),
   });
