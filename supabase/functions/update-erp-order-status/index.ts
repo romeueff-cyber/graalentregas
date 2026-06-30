@@ -14,6 +14,20 @@ serve(async (req) => {
       return authResult.error;
     }
 
+    // Restrict ERP order status mutations to admin/entregador
+    const { data: roleRow } = await authResult.supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', authResult.userId)
+      .in('role', ['admin', 'entregador'])
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log(`[update-erp-order-status] Authenticated user: ${authResult.userId}`);
     
     const erpApiUrl = Deno.env.get('ERP_API_URL');
