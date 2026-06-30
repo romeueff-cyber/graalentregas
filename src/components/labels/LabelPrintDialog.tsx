@@ -123,7 +123,10 @@ export function LabelPrintDialog({ open, onOpenChange, template }: LabelPrintDia
           }
           return `<div style="${style}; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 8pt; color: #999;">Logo</div>`;
         }
-        return `<div style="${style}">${resolved}</div>`;
+        const safeResolved = String(resolved ?? '').replace(/[&<>"']/g, (m) => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] || m
+        ));
+        return `<div style="${style}">${safeResolved}</div>`;
       }).join('');
 
       labelsHtml.push(`<div style="position:relative;width:${widthMm}mm;height:${heightMm}mm;overflow:hidden;box-sizing:border-box;">${elHtml}</div>`);
