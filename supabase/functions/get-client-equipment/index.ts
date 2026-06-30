@@ -33,9 +33,9 @@ serve(async (req) => {
 
     // Parse request body
     const { clientId } = await req.json();
-    if (!clientId) {
+    if (!clientId || !/^[A-Za-z0-9_-]+$/.test(String(clientId))) {
       return new Response(
-        JSON.stringify({ error: 'clientId é obrigatório' }),
+        JSON.stringify({ error: 'clientId inválido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -54,7 +54,7 @@ serve(async (req) => {
       );
     }
 
-    const proxyUrl = `${erpApiUrl}/api/clients/${clientId}/equipment`;
+    const proxyUrl = `${erpApiUrl}/api/clients/${encodeURIComponent(String(clientId))}/equipment`;
     console.log(`[get-client-equipment] Calling proxy: ${proxyUrl}`);
 
     const proxyResponse = await fetch(proxyUrl, {

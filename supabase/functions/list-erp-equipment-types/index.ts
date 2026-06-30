@@ -1,7 +1,11 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { verifyAuth } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const authResult = await verifyAuth(req);
+  if ('error' in authResult) return authResult.error;
 
   try {
     const ERP_API_URL = Deno.env.get('ERP_API_URL');
@@ -20,8 +24,6 @@ Deno.serve(async (req) => {
     }
 
     const target = `${ERP_API_URL.replace(/\/$/, '')}/api/equipment-types?${qs.toString()}`;
-    console.log('[list-erp-equipment-types] GET', target);
-
     const r = await fetch(target, { headers: { 'x-api-key': ERP_API_KEY } });
     const text = await r.text();
     return new Response(text, {

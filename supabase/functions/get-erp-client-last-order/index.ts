@@ -1,7 +1,11 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { verifyAuth } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const authResult = await verifyAuth(req);
+  if ('error' in authResult) return authResult.error;
 
   try {
     const ERP_API_URL = Deno.env.get('ERP_API_URL');
@@ -13,8 +17,8 @@ Deno.serve(async (req) => {
     }
 
     const { clientId } = await req.json();
-    if (!clientId) {
-      return new Response(JSON.stringify({ error: 'clientId required' }), {
+    if (!clientId || !/^[A-Za-z0-9_-]+$/.test(String(clientId))) {
+      return new Response(JSON.stringify({ error: 'clientId inválido' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -22,9 +26,7 @@ Deno.serve(async (req) => {
     const base = ERP_API_URL.replace(/\/$/, '');
     const headers = { 'x-api-key': ERP_API_KEY };
 
-    // 1) Último pedido do cliente
-    const lastTarget = `${base}/api/clients/${encodeURIComponent(clientId)}/last-order`;
-    console.log('[get-erp-client-last-order] GET', lastTarget);
+    const lastTarget = `${base}/api/clients/${encodeURIComponent(String(clientId))}/last-order`;
     const lastResp = await fetch(lastTarget, { headers });
     const lastText = await lastResp.text();
     if (!lastResp.ok) {
@@ -39,12 +41,10 @@ Deno.serve(async (req) => {
       return new Response('null', { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 2) Buscar detalhes do pedido (que já contém o endereço completo, mesmo na API antiga)
     const orderNumber = (lastJson as { order_number?: string | number }).order_number;
     if (orderNumber) {
       try {
         const detailTarget = `${base}/api/orders/${encodeURIComponent(String(orderNumber))}`;
-        console.log('[get-erp-client-last-order] GET', detailTarget);
         const detResp = await fetch(detailTarget, { headers });
         if (detResp.ok) {
           const det = await detResp.json();
