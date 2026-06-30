@@ -102,7 +102,7 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
       qc.invalidateQueries({ queryKey: ['pre-vendas'] });
       qc.invalidateQueries({ queryKey: ['clientes-vendedor'] });
       if (openPedido && onCreatePedido) {
-        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes);
+        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes, pv.data_entrega);
       }
     },
     onError: (e: any) => toast.error(e?.message || 'Erro ao converter'),
