@@ -44,6 +44,21 @@ export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
         <DialogHeader>
           <DialogTitle>Novo cliente</DialogTitle>
         </DialogHeader>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => setShowShare(true)}
+        >
+          <Share2 className="w-4 h-4 mr-2" />
+          Compartilhar link de pré-cadastro
+        </Button>
+        <div className="relative my-1">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">ou preencha manualmente</span>
+          </div>
+        </div>
         <div className="space-y-3">
           <div>
             <Label>Nome / Razão social *</Label>
