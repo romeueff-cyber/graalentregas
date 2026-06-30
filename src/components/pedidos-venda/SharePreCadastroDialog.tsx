@@ -61,11 +61,10 @@ export function SharePreCadastroDialog({ open, onOpenChange }: Props) {
 
   const buildMessage = () => {
     return (
-      `Olá! Tudo bem? 👋\n\n` +
-      `Para concluirmos seu pedido, precisamos finalizar seu cadastro. ` +
+      `Para concluirmos seu pedido, preciso só finalizar seu cadastro. ` +
       `É rapidinho — leva menos de 2 minutos pelo celular.\n\n` +
-      `👉 Clique no link abaixo para preencher seus dados:\n${url}\n\n` +
-      `Qualquer dúvida, estou à disposição!`
+      `👉 Preencha seus dados aqui:\n${url}\n\n` +
+      `Qualquer dúvida, é só me chamar!`
     );
   };
 
