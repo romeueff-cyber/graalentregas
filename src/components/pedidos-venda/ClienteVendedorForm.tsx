@@ -107,6 +107,7 @@ export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
           </Button>
         </DialogFooter>
       </DialogContent>
+      <SharePreCadastroDialog open={showShare} onOpenChange={setShowShare} />
     </Dialog>
   );
 }
