@@ -62,6 +62,7 @@ export function PreVendaDetailDialog({ prevenda, open, onOpenChange }: Props) {
           usar_mesmo_endereco: !!form.usar_mesmo_endereco,
           horario_entrega: form.horario_entrega,
           tolerancia_min: form.tolerancia_min,
+          data_entrega: form.data_entrega,
           observacoes: form.observacoes,
         })
         .eq('id', form.id);
