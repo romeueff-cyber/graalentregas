@@ -560,7 +560,14 @@ export default function PedidosVendaPage() {
           </TabsContent>
 
           <TabsContent value="pre-vendas" className="space-y-3 mt-4">
-            <PreVendasList />
+            <PreVendasList
+              onCreatePedido={(cliente, horario, obs) => {
+                setInitialCliente({ tipo: 'app', cliente });
+                setInitialHorario(horario);
+                setInitialObservacoes(obs);
+                setShowForm(true);
+              }}
+            />
           </TabsContent>
 
         </Tabs>
@@ -570,9 +577,15 @@ export default function PedidosVendaPage() {
         open={showForm}
         onOpenChange={(o) => {
           setShowForm(o);
-          if (!o) setInitialCliente(null);
+          if (!o) {
+            setInitialCliente(null);
+            setInitialHorario(null);
+            setInitialObservacoes(null);
+          }
         }}
         initialCliente={initialCliente}
+        initialHorario={initialHorario}
+        initialObservacoes={initialObservacoes}
       />
       <ClienteVendedorForm open={showCliente} onOpenChange={setShowCliente} />
 
