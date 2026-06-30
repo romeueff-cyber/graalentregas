@@ -319,8 +319,10 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHor
     if (initialCliente && !clienteSel) {
       handleClienteChange(initialCliente);
     }
+    if (initialHorario) setHorario(initialHorario);
+    if (initialObservacoes) setObservacoes((prev) => prev ? prev : initialObservacoes);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCliente]);
+  }, [open, initialCliente, initialHorario, initialObservacoes]);
 
 
 
