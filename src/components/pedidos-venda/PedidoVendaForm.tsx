@@ -21,11 +21,13 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialCliente?: ClienteSelecionado | null;
+  initialHorario?: string | null;
+  initialObservacoes?: string | null;
 }
 
 type Item = AddedItem & { observacao?: string };
 
-export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
+export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHorario, initialObservacoes }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
@@ -317,8 +319,10 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente }: Props) {
     if (initialCliente && !clienteSel) {
       handleClienteChange(initialCliente);
     }
+    if (initialHorario) setHorario(initialHorario);
+    if (initialObservacoes) setObservacoes((prev) => prev ? prev : initialObservacoes);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCliente]);
+  }, [open, initialCliente, initialHorario, initialObservacoes]);
 
 
 

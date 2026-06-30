@@ -7,9 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Clock, CheckCircle2, UserPlus, Trash2, Eye } from 'lucide-react';
+import { Clock, CheckCircle2, UserPlus, Trash2, Eye, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { PreVendaDetailDialog } from './PreVendaDetailDialog';
+import type { ClienteVendedor } from '@/hooks/useClientesVendedor';
 
 interface PreVenda {
   id: string;
@@ -35,7 +36,11 @@ interface PreVenda {
   created_at: string;
 }
 
-export function PreVendasList() {
+interface PreVendasListProps {
+  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null) => void;
+}
+
+export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
   const { user } = useAuth();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const qc = useQueryClient();
@@ -61,7 +66,7 @@ export function PreVendasList() {
   });
 
   const convert = useMutation({
-    mutationFn: async (pv: PreVenda) => {
+    mutationFn: async ({ pv, openPedido }: { pv: PreVenda; openPedido: boolean }) => {
       if (!pv.nome || !pv.cpf_cnpj || !pv.endereco_cadastro) throw new Error('Pré-cadastro incompleto');
       const { data: cli, error: e1 } = await supabase
         .from('clientes_vendedor')
@@ -89,11 +94,15 @@ export function PreVendasList() {
         .update({ status: 'convertido', converted_at: new Date().toISOString(), cliente_vendedor_id: cli.id })
         .eq('id', pv.id);
       if (e2) throw e2;
+      return { cliente: cli as ClienteVendedor, pv, openPedido };
     },
-    onSuccess: () => {
+    onSuccess: ({ cliente, pv, openPedido }) => {
       toast.success('Cliente cadastrado a partir do pré-cadastro');
       qc.invalidateQueries({ queryKey: ['pre-vendas'] });
       qc.invalidateQueries({ queryKey: ['clientes-vendedor'] });
+      if (openPedido && onCreatePedido) {
+        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes);
+      }
     },
     onError: (e: any) => toast.error(e?.message || 'Erro ao converter'),
   });
@@ -165,8 +174,23 @@ export function PreVendasList() {
                     <Button size="sm" variant="outline" onClick={() => setDetail(pv)} title="Conferir / editar">
                       <Eye className="w-4 h-4 mr-1" /> Conferir
                     </Button>
-                    <Button size="sm" onClick={() => convert.mutate(pv)} disabled={convert.isPending}>
-                      <UserPlus className="w-4 h-4 mr-1" /> Cadastrar
+                    {onCreatePedido && (
+                      <Button
+                        size="sm"
+                        onClick={() => convert.mutate({ pv, openPedido: true })}
+                        disabled={convert.isPending}
+                        title="Confirmar cadastro e abrir pedido de venda"
+                      >
+                        <FileText className="w-4 h-4 mr-1" /> Confirmar e criar pedido
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => convert.mutate({ pv, openPedido: false })}
+                      disabled={convert.isPending}
+                    >
+                      <UserPlus className="w-4 h-4 mr-1" /> Só cadastrar
                     </Button>
                   </>
                 )}
