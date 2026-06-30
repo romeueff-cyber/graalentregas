@@ -153,6 +153,21 @@ serve(async (req) => {
     const { userId, supabase: adminSupabase } = authResult;
     console.log(`[SyncBoletos] Authenticated user: ${userId}`);
 
+    // Restrict sync to admin/financeiro
+    const { data: roleRow } = await adminSupabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['admin', 'financeiro'])
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado. Somente admin/financeiro.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+
     // Get all non-paid boletos (including CANCELLED to detect payments on cancelled boletos)
     const { data: pendingBoletos, error: fetchError } = await adminSupabase
       .from('boletos')
