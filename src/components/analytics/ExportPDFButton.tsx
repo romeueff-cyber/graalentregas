@@ -12,7 +12,7 @@ const escapeHtml = (value: unknown): string => {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] || m
   ));
 };
-const e = escapeHtml;
+const esc = escapeHtml;
 
 
 interface ExportPDFButtonProps {
@@ -155,7 +155,7 @@ function generateDeliveryReport(metrics: DeliveryMetrics, date: string, days: nu
           <tbody>
             ${metrics.deliveriesPerDay.map(d => `
               <tr>
-                <td>${e(d.label)} (${e(d.date)})</td>
+                <td>${esc(d.label)} (${esc(d.date)})</td>
                 <td>${d.count}</td>
               </tr>
             `).join('')}
@@ -175,7 +175,7 @@ function generateDeliveryReport(metrics: DeliveryMetrics, date: string, days: nu
           <tbody>
             ${metrics.statusDistribution.map(s => `
               <tr>
-                <td>${e(s.status)}</td>
+                <td>${esc(s.status)}</td>
                 <td>${s.count}</td>
               </tr>
             `).join('')}
@@ -260,7 +260,7 @@ function generateClientsReport(metrics: ClientMetrics, date: string, days: numbe
             ${metrics.topClients.map((c, i) => `
               <tr>
                 <td>${i + 1}</td>
-                <td>${e(c.clientName)}</td>
+                <td>${esc(c.clientName)}</td>
                 <td>${c.orderCount}</td>
               </tr>
             `).join('')}
@@ -280,7 +280,7 @@ function generateClientsReport(metrics: ClientMetrics, date: string, days: numbe
           <tbody>
             ${metrics.frequencyDistribution.map(f => `
               <tr>
-                <td>${e(f.range)}</td>
+                <td>${esc(f.range)}</td>
                 <td>${f.count}</td>
               </tr>
             `).join('')}
@@ -366,7 +366,7 @@ function generateDriversReport(metrics: DriverMetrics[], date: string, days: num
             ${sortedDrivers.map((d, i) => `
               <tr>
                 <td>${i + 1}</td>
-                <td>${e(d.userName)}</td>
+                <td>${esc(d.userName)}</td>
                 <td>${d.totalDeliveries}</td>
                 <td>${d.confirmationRate}%</td>
                 <td>${d.avgCollectionDays}d</td>
@@ -448,7 +448,7 @@ function generateHygieneReport(metrics: HygieneMetrics, date: string, days: numb
           <tbody>
             ${metrics.cleaningsByDay.map(d => `
               <tr>
-                <td>${e(d.label)} (${e(d.date)})</td>
+                <td>${esc(d.label)} (${esc(d.date)})</td>
                 <td>${d.count}</td>
               </tr>
             `).join('')}
@@ -468,7 +468,7 @@ function generateHygieneReport(metrics: HygieneMetrics, date: string, days: numb
           <tbody>
             ${metrics.equipmentByType.map(e => `
               <tr>
-                <td>${e.type}</td>
+                <td>${esc(e.type)}</td>
                 <td>${e.count}</td>
               </tr>
             `).join('')}
@@ -488,7 +488,7 @@ function generateHygieneReport(metrics: HygieneMetrics, date: string, days: numb
           <tbody>
             ${metrics.servicesByType.map(s => `
               <tr>
-                <td>${s.type}</td>
+                <td>${esc(s.type)}</td>
                 <td>${s.count}</td>
               </tr>
             `).join('')}
