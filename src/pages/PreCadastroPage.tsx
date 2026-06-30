@@ -214,9 +214,29 @@ export default function PreCadastroPage() {
                 setEndCadastro(r.formatted);
                 setEndCadastroLat(r.lat ?? null);
                 setEndCadastroLng(r.lng ?? null);
+                if (r.numero) setNumeroCadastro(r.numero);
               }}
-              placeholder="Digite o endereço"
+              placeholder="Rua, bairro, cidade"
             />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <Label>Número *</Label>
+                <Input
+                  value={numeroCadastro}
+                  onChange={(e) => setNumeroCadastro(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="123"
+                />
+              </div>
+              <div>
+                <Label>Complemento</Label>
+                <Input
+                  value={complementoCadastro}
+                  onChange={(e) => setComplementoCadastro(e.target.value)}
+                  placeholder="Sala, bloco..."
+                />
+              </div>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -234,9 +254,29 @@ export default function PreCadastroPage() {
                   setEndEntrega(r.formatted);
                   setEndEntregaLat(r.lat ?? null);
                   setEndEntregaLng(r.lng ?? null);
+                  if (r.numero) setNumeroEntrega(r.numero);
                 }}
-                placeholder="Digite o endereço de entrega"
+                placeholder="Rua, bairro, cidade"
               />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <Label>Número</Label>
+                  <Input
+                    value={numeroEntrega}
+                    onChange={(e) => setNumeroEntrega(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="123"
+                  />
+                </div>
+                <div>
+                  <Label>Complemento</Label>
+                  <Input
+                    value={complementoEntrega}
+                    onChange={(e) => setComplementoEntrega(e.target.value)}
+                    placeholder="Sala, bloco..."
+                  />
+                </div>
+              </div>
             </div>
           )}
 
