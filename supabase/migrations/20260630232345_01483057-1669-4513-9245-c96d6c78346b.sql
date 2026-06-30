@@ -1,0 +1,1 @@
+ALTER TABLE public.pre_vendas ADD COLUMN IF NOT EXISTS data_entrega DATE;
