@@ -7,9 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Clock, CheckCircle2, UserPlus, Trash2, Eye } from 'lucide-react';
+import { Clock, CheckCircle2, UserPlus, Trash2, Eye, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { PreVendaDetailDialog } from './PreVendaDetailDialog';
+import type { ClienteVendedor } from '@/hooks/useClientesVendedor';
 
 interface PreVenda {
   id: string;
