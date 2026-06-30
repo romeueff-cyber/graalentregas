@@ -39,6 +39,7 @@ export function PreVendasList() {
   const { user } = useAuth();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const qc = useQueryClient();
+  const [detail, setDetail] = useState<PreVenda | null>(null);
 
   const empresas = selectedEmpresa ? [selectedEmpresa] : allowedEmpresas;
 
