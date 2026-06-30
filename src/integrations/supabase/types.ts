@@ -724,6 +724,7 @@ export type Database = {
           converted_at: string | null
           cpf_cnpj: string | null
           created_at: string
+          data_entrega: string | null
           email: string | null
           endereco_cadastro: string | null
           endereco_cadastro_lat: number | null
@@ -752,6 +753,7 @@ export type Database = {
           converted_at?: string | null
           cpf_cnpj?: string | null
           created_at?: string
+          data_entrega?: string | null
           email?: string | null
           endereco_cadastro?: string | null
           endereco_cadastro_lat?: number | null
@@ -780,6 +782,7 @@ export type Database = {
           converted_at?: string | null
           cpf_cnpj?: string | null
           created_at?: string
+          data_entrega?: string | null
           email?: string | null
           endereco_cadastro?: string | null
           endereco_cadastro_lat?: number | null

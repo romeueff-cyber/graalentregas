@@ -43,6 +43,7 @@ export default function PreCadastroPage() {
   const [endEntregaLng, setEndEntregaLng] = useState<number | null>(null);
   const [numeroEntrega, setNumeroEntrega] = useState('');
   const [complementoEntrega, setComplementoEntrega] = useState('');
+  const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [tolerancia, setTolerancia] = useState(30);
   const [observacoes, setObservacoes] = useState('');
@@ -128,6 +129,7 @@ export default function PreCadastroPage() {
           endereco_entrega_lng: usarMesmo ? endCadastroLng : endEntregaLng,
           horario_entrega: horario || null,
           tolerancia_min: tolerancia,
+          data_entrega: dataEntrega || null,
           observacoes,
         },
       });
@@ -279,6 +281,16 @@ export default function PreCadastroPage() {
               </div>
             </div>
           )}
+
+          <div>
+            <Label>Data de entrega desejada</Label>
+            <Input
+              type="date"
+              value={dataEntrega}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setDataEntrega(e.target.value)}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>

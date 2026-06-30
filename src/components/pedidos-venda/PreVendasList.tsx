@@ -32,12 +32,13 @@ interface PreVenda {
   endereco_entrega_lng: number | null;
   horario_entrega: string | null;
   tolerancia_min: number | null;
+  data_entrega: string | null;
   observacoes: string | null;
   created_at: string;
 }
 
 interface PreVendasListProps {
-  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null) => void;
+  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null, dataEntrega: string | null) => void;
 }
 
 export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
@@ -101,7 +102,7 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
       qc.invalidateQueries({ queryKey: ['pre-vendas'] });
       qc.invalidateQueries({ queryKey: ['clientes-vendedor'] });
       if (openPedido && onCreatePedido) {
-        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes);
+        onCreatePedido(cliente, pv.horario_entrega, pv.observacoes, pv.data_entrega);
       }
     },
     onError: (e: any) => toast.error(e?.message || 'Erro ao converter'),
@@ -160,6 +161,11 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
                     {pv.telefone}
                     {pv.telefone && pv.horario_entrega ? ' • ' : ''}
                     {pv.horario_entrega && `${pv.horario_entrega} (±${pv.tolerancia_min ?? 30} min)`}
+                  </div>
+                )}
+                {pv.data_entrega && (
+                  <div className="text-xs text-muted-foreground">
+                    Entrega: {new Date(pv.data_entrega + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </div>
                 )}
                 <div className="text-[11px] text-muted-foreground mt-1">

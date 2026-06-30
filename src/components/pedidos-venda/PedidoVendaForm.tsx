@@ -23,11 +23,12 @@ interface Props {
   initialCliente?: ClienteSelecionado | null;
   initialHorario?: string | null;
   initialObservacoes?: string | null;
+  initialDataEntrega?: string | null;
 }
 
 type Item = AddedItem & { observacao?: string };
 
-export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHorario, initialObservacoes }: Props) {
+export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHorario, initialObservacoes, initialDataEntrega }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
@@ -321,8 +322,9 @@ export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHor
     }
     if (initialHorario) setHorario(initialHorario);
     if (initialObservacoes) setObservacoes((prev) => prev ? prev : initialObservacoes);
+    if (initialDataEntrega) setDataEntrega(initialDataEntrega);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCliente, initialHorario, initialObservacoes]);
+  }, [open, initialCliente, initialHorario, initialObservacoes, initialDataEntrega]);
 
 
 

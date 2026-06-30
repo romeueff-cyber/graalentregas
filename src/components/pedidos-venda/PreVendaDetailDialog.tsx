@@ -21,6 +21,7 @@ interface PreVendaRow {
   usar_mesmo_endereco?: boolean | null;
   horario_entrega: string | null;
   tolerancia_min: number | null;
+  data_entrega: string | null;
   observacoes: string | null;
   status: string;
 }
@@ -61,6 +62,7 @@ export function PreVendaDetailDialog({ prevenda, open, onOpenChange }: Props) {
           usar_mesmo_endereco: !!form.usar_mesmo_endereco,
           horario_entrega: form.horario_entrega,
           tolerancia_min: form.tolerancia_min,
+          data_entrega: form.data_entrega,
           observacoes: form.observacoes,
         })
         .eq('id', form.id);
@@ -125,6 +127,14 @@ export function PreVendaDetailDialog({ prevenda, open, onOpenChange }: Props) {
               />
             </div>
           )}
+          <div>
+            <Label>Data de entrega</Label>
+            <Input
+              type="date"
+              value={form.data_entrega ?? ''}
+              onChange={(e) => set('data_entrega', e.target.value)}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Horário</Label>
