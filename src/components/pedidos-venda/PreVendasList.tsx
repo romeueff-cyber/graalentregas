@@ -32,12 +32,13 @@ interface PreVenda {
   endereco_entrega_lng: number | null;
   horario_entrega: string | null;
   tolerancia_min: number | null;
+  data_entrega: string | null;
   observacoes: string | null;
   created_at: string;
 }
 
 interface PreVendasListProps {
-  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null) => void;
+  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null, dataEntrega: string | null) => void;
 }
 
 export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
