@@ -21,6 +21,7 @@ interface PreVendaRow {
   usar_mesmo_endereco?: boolean | null;
   horario_entrega: string | null;
   tolerancia_min: number | null;
+  data_entrega: string | null;
   observacoes: string | null;
   status: string;
 }
