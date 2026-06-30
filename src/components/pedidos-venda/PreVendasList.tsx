@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,8 +7,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Clock, CheckCircle2, UserPlus, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle2, UserPlus, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { PreVendaDetailDialog } from './PreVendaDetailDialog';
 
 interface PreVenda {
   id: string;
