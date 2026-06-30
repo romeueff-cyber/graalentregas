@@ -35,10 +35,14 @@ export default function PreCadastroPage() {
   const [endCadastro, setEndCadastro] = useState('');
   const [endCadastroLat, setEndCadastroLat] = useState<number | null>(null);
   const [endCadastroLng, setEndCadastroLng] = useState<number | null>(null);
+  const [numeroCadastro, setNumeroCadastro] = useState('');
+  const [complementoCadastro, setComplementoCadastro] = useState('');
   const [usarMesmo, setUsarMesmo] = useState(true);
   const [endEntrega, setEndEntrega] = useState('');
   const [endEntregaLat, setEndEntregaLat] = useState<number | null>(null);
   const [endEntregaLng, setEndEntregaLng] = useState<number | null>(null);
+  const [numeroEntrega, setNumeroEntrega] = useState('');
+  const [complementoEntrega, setComplementoEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [tolerancia, setTolerancia] = useState(30);
   const [observacoes, setObservacoes] = useState('');
