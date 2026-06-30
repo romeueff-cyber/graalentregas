@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Share2 } from 'lucide-react';
 import { useClientesVendedor, NovoClienteInput, ClienteVendedor } from '@/hooks/useClientesVendedor';
 import { AddressAutocomplete } from './AddressAutocomplete';
+import { SharePreCadastroDialog } from './SharePreCadastroDialog';
 
 interface Props {
   open: boolean;
