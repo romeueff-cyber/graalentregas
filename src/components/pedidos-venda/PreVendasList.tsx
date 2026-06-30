@@ -36,7 +36,11 @@ interface PreVenda {
   created_at: string;
 }
 
-export function PreVendasList() {
+interface PreVendasListProps {
+  onCreatePedido?: (cliente: ClienteVendedor, horario: string | null, observacoes: string | null) => void;
+}
+
+export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
   const { user } = useAuth();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
   const qc = useQueryClient();
