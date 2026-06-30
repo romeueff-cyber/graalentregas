@@ -163,6 +163,7 @@ export default function PedidosVendaPage() {
   const [initialCliente, setInitialCliente] = useState<ClienteSelecionado | null>(null);
   const [initialHorario, setInitialHorario] = useState<string | null>(null);
   const [initialObservacoes, setInitialObservacoes] = useState<string | null>(null);
+  const [initialDataEntrega, setInitialDataEntrega] = useState<string | null>(null);
 
   const meusScope = canApprovePedidoVenda ? 'todos' : 'meus';
   const { pedidos: meus, isLoading: loadingMeus, cancelPedido } = usePedidosVenda({ scope: meusScope });
