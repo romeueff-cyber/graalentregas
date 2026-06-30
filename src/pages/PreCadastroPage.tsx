@@ -129,6 +129,7 @@ export default function PreCadastroPage() {
           endereco_entrega_lng: usarMesmo ? endCadastroLng : endEntregaLng,
           horario_entrega: horario || null,
           tolerancia_min: tolerancia,
+          data_entrega: dataEntrega || null,
           observacoes,
         },
       });
