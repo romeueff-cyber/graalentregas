@@ -282,6 +282,16 @@ export default function PreCadastroPage() {
             </div>
           )}
 
+          <div>
+            <Label>Data de entrega desejada</Label>
+            <Input
+              type="date"
+              value={dataEntrega}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setDataEntrega(e.target.value)}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Horário preferido</Label>
