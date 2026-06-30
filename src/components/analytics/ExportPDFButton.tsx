@@ -6,6 +6,15 @@ import type { DeliveryMetrics, HygieneMetrics, ClientMetrics, DriverMetrics } fr
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const escapeHtml = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[&<>"']/g, (m) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] || m
+  ));
+};
+const e = escapeHtml;
+
+
 interface ExportPDFButtonProps {
   deliveryMetrics: DeliveryMetrics;
   hygieneMetrics: HygieneMetrics;
