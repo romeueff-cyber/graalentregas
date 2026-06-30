@@ -163,6 +163,11 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
                     {pv.horario_entrega && `${pv.horario_entrega} (±${pv.tolerancia_min ?? 30} min)`}
                   </div>
                 )}
+                {pv.data_entrega && (
+                  <div className="text-xs text-muted-foreground">
+                    Entrega: {new Date(pv.data_entrega + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </div>
+                )}
                 <div className="text-[11px] text-muted-foreground mt-1">
                   {isSubmitted && pv.submitted_at
                     ? `Recebido em ${new Date(pv.submitted_at).toLocaleString('pt-BR')}`
