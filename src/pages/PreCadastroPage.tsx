@@ -35,10 +35,14 @@ export default function PreCadastroPage() {
   const [endCadastro, setEndCadastro] = useState('');
   const [endCadastroLat, setEndCadastroLat] = useState<number | null>(null);
   const [endCadastroLng, setEndCadastroLng] = useState<number | null>(null);
+  const [numeroCadastro, setNumeroCadastro] = useState('');
+  const [complementoCadastro, setComplementoCadastro] = useState('');
   const [usarMesmo, setUsarMesmo] = useState(true);
   const [endEntrega, setEndEntrega] = useState('');
   const [endEntregaLat, setEndEntregaLat] = useState<number | null>(null);
   const [endEntregaLng, setEndEntregaLng] = useState<number | null>(null);
+  const [numeroEntrega, setNumeroEntrega] = useState('');
+  const [complementoEntrega, setComplementoEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [tolerancia, setTolerancia] = useState(30);
   const [observacoes, setObservacoes] = useState('');
@@ -78,13 +82,36 @@ export default function PreCadastroPage() {
     })();
   }, [token]);
 
+  const composeAddress = (base: string, numero: string, complemento: string) => {
+    let s = base.trim();
+    if (numero.trim()) {
+      // try to insert número after the street (before first comma)
+      if (s.includes(',')) {
+        const [street, ...rest] = s.split(',');
+        s = `${street.trim()}, ${numero.trim()}${rest.length ? ',' + rest.join(',') : ''}`;
+      } else {
+        s = `${s}, ${numero.trim()}`;
+      }
+    }
+    if (complemento.trim()) s += ` - ${complemento.trim()}`;
+    return s;
+  };
+
   const submit = async () => {
     if (!nome.trim() || !cpfCnpj.trim() || !endCadastro.trim()) {
       toast.error('Preencha nome, CPF/CNPJ e endereço.');
       return;
     }
+    if (!numeroCadastro.trim()) {
+      toast.error('Informe o número do endereço.');
+      return;
+    }
     setSubmitting(true);
     try {
+      const enderecoCadastroFinal = composeAddress(endCadastro, numeroCadastro, complementoCadastro);
+      const enderecoEntregaFinal = usarMesmo
+        ? enderecoCadastroFinal
+        : composeAddress(endEntrega, numeroEntrega, complementoEntrega);
       const { data, error } = await supabase.functions.invoke('submit-prevenda', {
         body: {
           token,
@@ -92,11 +119,11 @@ export default function PreCadastroPage() {
           cpf_cnpj: cpfCnpj,
           telefone,
           email,
-          endereco_cadastro: endCadastro,
+          endereco_cadastro: enderecoCadastroFinal,
           endereco_cadastro_lat: endCadastroLat,
           endereco_cadastro_lng: endCadastroLng,
           usar_mesmo_endereco: usarMesmo,
-          endereco_entrega: usarMesmo ? endCadastro : endEntrega,
+          endereco_entrega: enderecoEntregaFinal,
           endereco_entrega_lat: usarMesmo ? endCadastroLat : endEntregaLat,
           endereco_entrega_lng: usarMesmo ? endCadastroLng : endEntregaLng,
           horario_entrega: horario || null,
@@ -187,9 +214,29 @@ export default function PreCadastroPage() {
                 setEndCadastro(r.formatted);
                 setEndCadastroLat(r.lat ?? null);
                 setEndCadastroLng(r.lng ?? null);
+                if (r.numero) setNumeroCadastro(r.numero);
               }}
-              placeholder="Digite o endereço"
+              placeholder="Rua, bairro, cidade"
             />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <Label>Número *</Label>
+                <Input
+                  value={numeroCadastro}
+                  onChange={(e) => setNumeroCadastro(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="123"
+                />
+              </div>
+              <div>
+                <Label>Complemento</Label>
+                <Input
+                  value={complementoCadastro}
+                  onChange={(e) => setComplementoCadastro(e.target.value)}
+                  placeholder="Sala, bloco..."
+                />
+              </div>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -207,9 +254,29 @@ export default function PreCadastroPage() {
                   setEndEntrega(r.formatted);
                   setEndEntregaLat(r.lat ?? null);
                   setEndEntregaLng(r.lng ?? null);
+                  if (r.numero) setNumeroEntrega(r.numero);
                 }}
-                placeholder="Digite o endereço de entrega"
+                placeholder="Rua, bairro, cidade"
               />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <Label>Número</Label>
+                  <Input
+                    value={numeroEntrega}
+                    onChange={(e) => setNumeroEntrega(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="123"
+                  />
+                </div>
+                <div>
+                  <Label>Complemento</Label>
+                  <Input
+                    value={complementoEntrega}
+                    onChange={(e) => setComplementoEntrega(e.target.value)}
+                    placeholder="Sala, bloco..."
+                  />
+                </div>
+              </div>
             </div>
           )}
 

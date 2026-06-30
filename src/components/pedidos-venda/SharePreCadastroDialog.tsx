@@ -59,9 +59,19 @@ export function SharePreCadastroDialog({ open, onOpenChange }: Props) {
     }
   };
 
+  const buildMessage = () => {
+    return (
+      `Olá! Tudo bem? 👋\n\n` +
+      `Para concluirmos seu pedido, precisamos finalizar seu cadastro. ` +
+      `É rapidinho — leva menos de 2 minutos pelo celular.\n\n` +
+      `👉 Clique no link abaixo para preencher seus dados:\n${url}\n\n` +
+      `Qualquer dúvida, estou à disposição!`
+    );
+  };
+
   const share = async () => {
     if (!url) return;
-    const text = `Olá! Por favor preencha seu pré-cadastro neste link: ${url}`;
+    const text = buildMessage();
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Pré-cadastro', text, url });
@@ -73,8 +83,7 @@ export function SharePreCadastroDialog({ open, onOpenChange }: Props) {
 
   const whatsapp = () => {
     if (!url) return;
-    const text = `Olá! Por favor preencha seu pré-cadastro neste link: ${url}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(buildMessage())}`, '_blank');
   };
 
   return (
