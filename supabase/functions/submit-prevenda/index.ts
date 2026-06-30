@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
         endereco_entrega_lng: lngEntrega,
         horario_entrega: body.horario_entrega ?? null,
         tolerancia_min: body.tolerancia_min ?? 30,
+        data_entrega: body.data_entrega ?? null,
         observacoes: body.observacoes?.trim() || null,
         status: 'enviado',
         submitted_at: new Date().toISOString(),
