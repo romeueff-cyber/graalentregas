@@ -30,6 +30,7 @@ import ClientHealthPage from "./pages/ClientHealthPage";
 import AlocacoesPage from "./pages/AlocacoesPage";
 import EtiquetasPage from "./pages/EtiquetasPage";
 import PedidosVendaPage from "./pages/PedidosVendaPage";
+import PreCadastroPage from "./pages/PreCadastroPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
@@ -90,6 +91,7 @@ const App = () => {
                   <Route path="/alocacoes" element={<AlocacoesPage />} />
                   <Route path="/etiquetas" element={<EtiquetasPage />} />
                   <Route path="/pedidos-venda" element={<PedidosVendaPage />} />
+                  <Route path="/pre-cadastro/:token" element={<PreCadastroPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </ErrorBoundary>

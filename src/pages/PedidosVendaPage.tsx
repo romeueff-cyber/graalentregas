@@ -13,6 +13,7 @@ import { usePedidosVenda, PedidoVenda, PedidoVendaStatus } from '@/hooks/usePedi
 import { useClientesVendedor, ClienteVendedor } from '@/hooks/useClientesVendedor';
 import { PedidoVendaForm } from '@/components/pedidos-venda/PedidoVendaForm';
 import { ClienteVendedorForm } from '@/components/pedidos-venda/ClienteVendedorForm';
+import { PreVendasList } from '@/components/pedidos-venda/PreVendasList';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ClienteSelecionado } from '@/components/pedidos-venda/ClienteCombobox';
 import { supabase } from '@/integrations/supabase/client';
@@ -413,6 +414,7 @@ export default function PedidosVendaPage() {
               </TabsTrigger>
             )}
             <TabsTrigger value="clientes" className="flex-1">Clientes</TabsTrigger>
+            <TabsTrigger value="pre-vendas" className="flex-1">Pré-cadastros</TabsTrigger>
           </TabsList>
 
           <TabsContent value="meus" className="space-y-3 mt-4">
@@ -553,6 +555,10 @@ export default function PedidosVendaPage() {
                 )}
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="pre-vendas" className="space-y-3 mt-4">
+            <PreVendasList />
           </TabsContent>
 
         </Tabs>

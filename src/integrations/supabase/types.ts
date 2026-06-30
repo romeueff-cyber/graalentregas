@@ -718,6 +718,101 @@ export type Database = {
           },
         ]
       }
+      pre_vendas: {
+        Row: {
+          cliente_vendedor_id: string | null
+          converted_at: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          endereco_cadastro: string | null
+          endereco_cadastro_lat: number | null
+          endereco_cadastro_lng: number | null
+          endereco_entrega: string | null
+          endereco_entrega_lat: number | null
+          endereco_entrega_lng: number | null
+          expires_at: string
+          horario_entrega: string | null
+          id: string
+          id_empresa: number
+          nome: string | null
+          observacoes: string | null
+          status: string
+          submitted_at: string | null
+          telefone: string | null
+          token: string
+          tolerancia_min: number | null
+          updated_at: string
+          usar_mesmo_endereco: boolean | null
+          vendedor_id: string
+          vendedor_nome: string | null
+        }
+        Insert: {
+          cliente_vendedor_id?: string | null
+          converted_at?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          endereco_cadastro?: string | null
+          endereco_cadastro_lat?: number | null
+          endereco_cadastro_lng?: number | null
+          endereco_entrega?: string | null
+          endereco_entrega_lat?: number | null
+          endereco_entrega_lng?: number | null
+          expires_at: string
+          horario_entrega?: string | null
+          id?: string
+          id_empresa: number
+          nome?: string | null
+          observacoes?: string | null
+          status?: string
+          submitted_at?: string | null
+          telefone?: string | null
+          token: string
+          tolerancia_min?: number | null
+          updated_at?: string
+          usar_mesmo_endereco?: boolean | null
+          vendedor_id: string
+          vendedor_nome?: string | null
+        }
+        Update: {
+          cliente_vendedor_id?: string | null
+          converted_at?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          endereco_cadastro?: string | null
+          endereco_cadastro_lat?: number | null
+          endereco_cadastro_lng?: number | null
+          endereco_entrega?: string | null
+          endereco_entrega_lat?: number | null
+          endereco_entrega_lng?: number | null
+          expires_at?: string
+          horario_entrega?: string | null
+          id?: string
+          id_empresa?: number
+          nome?: string | null
+          observacoes?: string | null
+          status?: string
+          submitted_at?: string | null
+          telefone?: string | null
+          token?: string
+          tolerancia_min?: number | null
+          updated_at?: string
+          usar_mesmo_endereco?: boolean | null
+          vendedor_id?: string
+          vendedor_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pre_vendas_cliente_vendedor_id_fkey"
+            columns: ["cliente_vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_vendedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
