@@ -82,13 +82,36 @@ export default function PreCadastroPage() {
     })();
   }, [token]);
 
+  const composeAddress = (base: string, numero: string, complemento: string) => {
+    let s = base.trim();
+    if (numero.trim()) {
+      // try to insert número after the street (before first comma)
+      if (s.includes(',')) {
+        const [street, ...rest] = s.split(',');
+        s = `${street.trim()}, ${numero.trim()}${rest.length ? ',' + rest.join(',') : ''}`;
+      } else {
+        s = `${s}, ${numero.trim()}`;
+      }
+    }
+    if (complemento.trim()) s += ` - ${complemento.trim()}`;
+    return s;
+  };
+
   const submit = async () => {
     if (!nome.trim() || !cpfCnpj.trim() || !endCadastro.trim()) {
       toast.error('Preencha nome, CPF/CNPJ e endereço.');
       return;
     }
+    if (!numeroCadastro.trim()) {
+      toast.error('Informe o número do endereço.');
+      return;
+    }
     setSubmitting(true);
     try {
+      const enderecoCadastroFinal = composeAddress(endCadastro, numeroCadastro, complementoCadastro);
+      const enderecoEntregaFinal = usarMesmo
+        ? enderecoCadastroFinal
+        : composeAddress(endEntrega, numeroEntrega, complementoEntrega);
       const { data, error } = await supabase.functions.invoke('submit-prevenda', {
         body: {
           token,
@@ -96,11 +119,11 @@ export default function PreCadastroPage() {
           cpf_cnpj: cpfCnpj,
           telefone,
           email,
-          endereco_cadastro: endCadastro,
+          endereco_cadastro: enderecoCadastroFinal,
           endereco_cadastro_lat: endCadastroLat,
           endereco_cadastro_lng: endCadastroLng,
           usar_mesmo_endereco: usarMesmo,
-          endereco_entrega: usarMesmo ? endCadastro : endEntrega,
+          endereco_entrega: enderecoEntregaFinal,
           endereco_entrega_lat: usarMesmo ? endCadastroLat : endEntregaLat,
           endereco_entrega_lng: usarMesmo ? endCadastroLng : endEntregaLng,
           horario_entrega: horario || null,
