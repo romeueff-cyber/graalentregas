@@ -323,6 +323,23 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { action, ...params } = requestBody;
 
+    // Only admin/financeiro can create or cancel boletos
+    if (action === 'create' || action === 'cancel') {
+      const { data: roleRow } = await authResult.supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authResult.userId)
+        .in('role', ['admin', 'financeiro'])
+        .maybeSingle();
+      if (!roleRow) {
+        return new Response(
+          JSON.stringify({ error: 'Acesso negado. Somente admin/financeiro.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+
     // Use stage by default, production only when explicitly set
     const isProduction = params.production === true;
     console.log(`[Cora] Using ${isProduction ? 'PRODUCTION' : 'STAGE'} environment`);

@@ -202,6 +202,20 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // Restrict to admin / financeiro / vendedor
+    const { data: roleRow } = await admin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['admin', 'financeiro', 'vendedor'])
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data: pedido, error: pErr } = await admin
       .from('pedidos_venda')
       .select('*, itens:pedidos_venda_itens(*)')

@@ -1,7 +1,11 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { verifyAuth } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const authResult = await verifyAuth(req);
+  if ('error' in authResult) return authResult.error;
 
   try {
     const ERP_API_URL = Deno.env.get('ERP_API_URL');
@@ -13,8 +17,13 @@ Deno.serve(async (req) => {
     }
 
     const { productId, clientId } = await req.json();
-    if (!productId) {
-      return new Response(JSON.stringify({ error: 'productId required' }), {
+    if (!productId || !/^[A-Za-z0-9_-]+$/.test(String(productId))) {
+      return new Response(JSON.stringify({ error: 'productId inválido' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (clientId && !/^[A-Za-z0-9_-]+$/.test(String(clientId))) {
+      return new Response(JSON.stringify({ error: 'clientId inválido' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -22,7 +31,6 @@ Deno.serve(async (req) => {
     const base = ERP_API_URL.replace(/\/$/, '');
     const qs = clientId ? `?clientId=${encodeURIComponent(String(clientId))}` : '';
     const target = `${base}/api/products/${encodeURIComponent(String(productId))}/price${qs}`;
-    console.log('[get-erp-product-price] GET', target);
 
     const resp = await fetch(target, { headers: { 'x-api-key': ERP_API_KEY } });
     const text = await resp.text();
