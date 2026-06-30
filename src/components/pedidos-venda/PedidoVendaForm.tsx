@@ -23,11 +23,12 @@ interface Props {
   initialCliente?: ClienteSelecionado | null;
   initialHorario?: string | null;
   initialObservacoes?: string | null;
+  initialDataEntrega?: string | null;
 }
 
 type Item = AddedItem & { observacao?: string };
 
-export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHorario, initialObservacoes }: Props) {
+export function PedidoVendaForm({ open, onOpenChange, initialCliente, initialHorario, initialObservacoes, initialDataEntrega }: Props) {
   const { createPedido } = usePedidosVenda();
   const { clientes } = useClientesVendedor();
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
