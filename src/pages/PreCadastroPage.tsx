@@ -43,6 +43,7 @@ export default function PreCadastroPage() {
   const [endEntregaLng, setEndEntregaLng] = useState<number | null>(null);
   const [numeroEntrega, setNumeroEntrega] = useState('');
   const [complementoEntrega, setComplementoEntrega] = useState('');
+  const [dataEntrega, setDataEntrega] = useState('');
   const [horario, setHorario] = useState('');
   const [tolerancia, setTolerancia] = useState(30);
   const [observacoes, setObservacoes] = useState('');
