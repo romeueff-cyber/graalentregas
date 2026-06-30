@@ -557,6 +557,10 @@ export default function PedidosVendaPage() {
             )}
           </TabsContent>
 
+          <TabsContent value="pre-vendas" className="space-y-3 mt-4">
+            <PreVendasList />
+          </TabsContent>
+
         </Tabs>
       </div>
 
