@@ -161,9 +161,14 @@ export function PreVendasList() {
               </div>
               <div className="flex flex-col gap-1 shrink-0">
                 {isSubmitted && (
-                  <Button size="sm" onClick={() => convert.mutate(pv)} disabled={convert.isPending}>
-                    <UserPlus className="w-4 h-4 mr-1" /> Cadastrar
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setDetail(pv)} title="Conferir / editar">
+                      <Eye className="w-4 h-4 mr-1" /> Conferir
+                    </Button>
+                    <Button size="sm" onClick={() => convert.mutate(pv)} disabled={convert.isPending}>
+                      <UserPlus className="w-4 h-4 mr-1" /> Cadastrar
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => cancel.mutate(pv.id)} title="Remover">
                   <Trash2 className="w-4 h-4" />
@@ -173,6 +178,11 @@ export function PreVendasList() {
           </Card>
         );
       })}
+      <PreVendaDetailDialog
+        prevenda={detail as any}
+        open={!!detail}
+        onOpenChange={(o) => !o && setDetail(null)}
+      />
     </div>
   );
 }
