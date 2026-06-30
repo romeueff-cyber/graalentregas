@@ -127,6 +127,14 @@ export function PreVendaDetailDialog({ prevenda, open, onOpenChange }: Props) {
               />
             </div>
           )}
+          <div>
+            <Label>Data de entrega</Label>
+            <Input
+              type="date"
+              value={form.data_entrega ?? ''}
+              onChange={(e) => set('data_entrega', e.target.value)}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Horário</Label>
