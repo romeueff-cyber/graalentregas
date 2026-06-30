@@ -174,8 +174,23 @@ export function PreVendasList({ onCreatePedido }: PreVendasListProps = {}) {
                     <Button size="sm" variant="outline" onClick={() => setDetail(pv)} title="Conferir / editar">
                       <Eye className="w-4 h-4 mr-1" /> Conferir
                     </Button>
-                    <Button size="sm" onClick={() => convert.mutate(pv)} disabled={convert.isPending}>
-                      <UserPlus className="w-4 h-4 mr-1" /> Cadastrar
+                    {onCreatePedido && (
+                      <Button
+                        size="sm"
+                        onClick={() => convert.mutate({ pv, openPedido: true })}
+                        disabled={convert.isPending}
+                        title="Confirmar cadastro e abrir pedido de venda"
+                      >
+                        <FileText className="w-4 h-4 mr-1" /> Confirmar e criar pedido
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => convert.mutate({ pv, openPedido: false })}
+                      disabled={convert.isPending}
+                    >
+                      <UserPlus className="w-4 h-4 mr-1" /> Só cadastrar
                     </Button>
                   </>
                 )}
