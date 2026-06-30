@@ -17,6 +17,7 @@ interface Props {
 
 export function ClienteVendedorForm({ open, onOpenChange, onCreated }: Props) {
   const { createCliente } = useClientesVendedor();
+  const [showShare, setShowShare] = useState(false);
   const [form, setForm] = useState<NovoClienteInput>({
     nome: '',
     nome_fantasia: '',
