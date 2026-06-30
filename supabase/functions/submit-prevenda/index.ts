@@ -16,6 +16,7 @@ interface Payload {
   endereco_entrega_lng?: number | null;
   horario_entrega?: string;
   tolerancia_min?: number;
+  data_entrega?: string | null;
   observacoes?: string;
 }
 
