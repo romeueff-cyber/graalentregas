@@ -127,6 +127,10 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           if (data.customer.email) {
             setEmail(data.customer.email);
           }
+
+          if (data.address_details?.zip_code) {
+            setZipCode(data.address_details.zip_code.replace(/\D/g, '').substring(0, 8));
+          }
           
           // Initialize installment statuses
           setInstallmentStatuses(
@@ -280,6 +284,26 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       return;
     }
 
+    const erpAddress = erpData?.address_details;
+    const zipFromERP = erpAddress?.zip_code?.replace(/\D/g, '') || '';
+    const boletoZipCode = (zipCode || zipFromERP).replace(/\D/g, '').substring(0, 8);
+    const boletoAddress = {
+      street: erpAddress?.street || order.address.street || '',
+      number: erpAddress?.number || order.address.number || 'S/N',
+      district: erpAddress?.neighborhood || order.address.neighborhood || 'Centro',
+      city: erpAddress?.city || order.address.city || '',
+      state: erpAddress?.state || order.address.state || '',
+      complement: erpAddress?.complement || order.address.complement || '',
+      zipCode: boletoZipCode,
+    };
+    const hasUsableAddress = Boolean(
+      boletoAddress.street &&
+      boletoAddress.city &&
+      boletoAddress.state &&
+      boletoAddress.zipCode.length === 8 &&
+      boletoAddress.zipCode !== '00000000'
+    );
+
     setIsGenerating(true);
     const results: GeneratedBoleto[] = [];
 
@@ -300,15 +324,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           document: document,
           documentType: erpData?.customer.document_type,
           email: email || undefined,
-          address: order.address.street ? {
-            street: order.address.street,
-            number: order.address.number || 'S/N',
-            district: order.address.neighborhood || 'Centro',
-            city: order.address.city || 'Cidade',
-            state: order.address.state || 'SP',
-            complement: order.address.complement || '',
-            zipCode: zipCode || '00000000',
-          } : undefined,
+          address: hasUsableAddress ? boletoAddress : undefined,
         },
         services: [{
           name: numInstallments > 1 

@@ -11,6 +11,17 @@ export interface ERPBoletoData {
     document_type: 'CPF' | 'CNPJ';
     email: string | null;
   };
+  address?: string | null;
+  location?: string | null;
+  address_details?: {
+    street: string;
+    number: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zip_code?: string | null;
+  } | null;
   payment: {
     method_id: number;
     method_description: string;
