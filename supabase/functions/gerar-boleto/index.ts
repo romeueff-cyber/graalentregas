@@ -187,8 +187,13 @@ async function createBoleto(
     (cleanDocument.length <= 11 ? 'CPF' : 'CNPJ');
 
   // Build the request body according to Cora API spec
+  // Append a short unique suffix to the code to avoid CIP conflicts when a
+  // previous boleto with the same code was cancelled (Cora REC-0030).
+  const uniqueSuffix = Date.now().toString(36).slice(-5).toUpperCase();
+  const uniqueCode = `${request.orderNumber}-${uniqueSuffix}`.substring(0, 40);
+
   const body: Record<string, unknown> = {
-    code: request.orderNumber,
+    code: uniqueCode,
     customer: {
       name: request.customer.name.substring(0, 60),
       document: {
@@ -292,7 +297,14 @@ async function createBoleto(
         cachedToken = null;
         throw new Error('Token de acesso expirado. Tente novamente.');
       }
-      
+
+      // Friendly message for CIP registration failure (REC-0030)
+      if (errorText.includes('REC-0030') || errorText.includes('not registered in CIP')) {
+        throw new Error(
+          'A Cora não conseguiu registrar o boleto no CIP no momento. Isso costuma ser temporário (instabilidade do CIP) ou por conflito de código de pedido já usado. Aguarde alguns minutos e tente novamente.'
+        );
+      }
+
       throw new Error(`Erro ao criar boleto: ${response.status} - ${errorText}`);
     }
 
