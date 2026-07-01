@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,6 +32,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  emptyBoletoAddressFields,
+  getMissingCoraBoletoAddressFields,
+  normalizeBoletoAddressFields,
+  toCoraBoletoAddress,
+  type BoletoAddressFields,
+} from '@/lib/boleto-address';
 
 interface ManualBoletoDialogProps {
   open: boolean;
@@ -88,12 +95,14 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   const [manualDueDate, setManualDueDate] = useState(() => format(addDays(new Date(), 7), 'yyyy-MM-dd'));
   const [manualDescription, setManualDescription] = useState('');
   const [manualIdEmpresa, setManualIdEmpresa] = useState<number | null>(null);
+  const [manualAddress, setManualAddress] = useState<BoletoAddressFields>(() => ({ ...emptyBoletoAddressFields }));
   
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedOrderNumber, setSelectedOrderNumber] = useState<string | null>(null);
   const [editableAmount, setEditableAmount] = useState('');
   const [editableDueDate, setEditableDueDate] = useState('');
+  const [selectedOrderAddress, setSelectedOrderAddress] = useState<BoletoAddressFields>(() => ({ ...emptyBoletoAddressFields }));
   
   // Reset state when dialog closes
   useEffect(() => {
@@ -111,10 +120,95 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       setManualAmount('');
       setManualDueDate(format(addDays(new Date(), 7), 'yyyy-MM-dd'));
       setManualDescription('');
+      setManualAddress({ ...emptyBoletoAddressFields });
       setEditableAmount('');
       setEditableDueDate('');
+      setSelectedOrderAddress({ ...emptyBoletoAddressFields });
     }
   }, [open]);
+
+  const updateAddressField = (
+    setter: Dispatch<SetStateAction<BoletoAddressFields>>,
+    field: keyof BoletoAddressFields,
+    value: string,
+  ) => {
+    setter((prev) => ({
+      ...prev,
+      [field]: field === 'zipCode'
+        ? value.replace(/\D/g, '').substring(0, 8)
+        : field === 'state'
+          ? value.toUpperCase().substring(0, 2)
+          : value,
+    }));
+  };
+
+  const renderAddressFields = (
+    address: BoletoAddressFields,
+    setter: Dispatch<SetStateAction<BoletoAddressFields>>,
+    prefix: string,
+  ) => (
+    <div className="space-y-3 rounded-lg border p-3">
+      <Label>Endereço para registro</Label>
+      <div className="grid grid-cols-[1fr_96px] gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-street`} className="text-xs">Rua *</Label>
+          <Input
+            id={`${prefix}-street`}
+            value={address.street}
+            onChange={(e) => updateAddressField(setter, 'street', e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-number`} className="text-xs">Número</Label>
+          <Input
+            id={`${prefix}-number`}
+            value={address.number}
+            onChange={(e) => updateAddressField(setter, 'number', e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-district`} className="text-xs">Bairro *</Label>
+          <Input
+            id={`${prefix}-district`}
+            value={address.district}
+            onChange={(e) => updateAddressField(setter, 'district', e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-city`} className="text-xs">Cidade *</Label>
+          <Input
+            id={`${prefix}-city`}
+            value={address.city}
+            onChange={(e) => updateAddressField(setter, 'city', e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-[88px_1fr] gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-state`} className="text-xs">UF *</Label>
+          <Input
+            id={`${prefix}-state`}
+            value={address.state}
+            maxLength={2}
+            onChange={(e) => updateAddressField(setter, 'state', e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${prefix}-zip`} className="text-xs">CEP *</Label>
+          <Input
+            id={`${prefix}-zip`}
+            value={address.zipCode}
+            maxLength={8}
+            inputMode="numeric"
+            placeholder="00000000"
+            onChange={(e) => updateAddressField(setter, 'zipCode', e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   // Search clients in ERP (mock for now - would need ERP endpoint)
   const handleSearchClients = async () => {
@@ -205,6 +299,21 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
     setSelectedOrderNumber(order.order_number);
     setEditableAmount((order.total_amount / 100).toFixed(2).replace('.', ','));
     setEditableDueDate(format(addDays(new Date(), 7), 'yyyy-MM-dd'));
+    setSelectedOrderAddress({ ...emptyBoletoAddressFields });
+
+    fetchBoletoData(order.order_number).then((data) => {
+      if (data?.address_details) {
+        setSelectedOrderAddress(normalizeBoletoAddressFields({
+          street: data.address_details.street,
+          number: data.address_details.number,
+          neighborhood: data.address_details.neighborhood,
+          city: data.address_details.city,
+          state: data.address_details.state,
+          complement: data.address_details.complement,
+          zip_code: data.address_details.zip_code,
+        }));
+      }
+    });
   };
 
   // Generate boleto for selected order
@@ -225,6 +334,13 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       toast.error('Data de vencimento inválida');
       return;
     }
+
+    const normalizedAddress = normalizeBoletoAddressFields(selectedOrderAddress);
+    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
+    if (missingAddressFields.length > 0) {
+      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
+      return;
+    }
     
     setIsGenerating(true);
     try {
@@ -235,6 +351,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           document: selectedClient.document,
           documentType: selectedClient.documentType,
           email: selectedClient.email,
+          address: toCoraBoletoAddress(normalizedAddress),
         },
         services: [{
           name: `Pedido ${selectedOrderNumber}`,
@@ -286,6 +403,13 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       toast.error('Data de vencimento inválida');
       return;
     }
+
+    const normalizedAddress = normalizeBoletoAddressFields(manualAddress);
+    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
+    if (missingAddressFields.length > 0) {
+      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
+      return;
+    }
     
     setIsGenerating(true);
     try {
@@ -297,6 +421,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           document: cleanDoc,
           documentType: cleanDoc.length > 11 ? 'CNPJ' : 'CPF',
           email: manualEmail || undefined,
+          address: toCoraBoletoAddress(normalizedAddress),
         },
         services: [{
           name: `Pedido ${manualOrderNumber}`,
@@ -344,6 +469,17 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
         setManualAmount(Number(data.total_amount).toFixed(2).replace('.', ','));
       }
       setManualIdEmpresa(data.id_empresa ?? null);
+      if (data.address_details) {
+        setManualAddress(normalizeBoletoAddressFields({
+          street: data.address_details.street,
+          number: data.address_details.number,
+          neighborhood: data.address_details.neighborhood,
+          city: data.address_details.city,
+          state: data.address_details.state,
+          complement: data.address_details.complement,
+          zip_code: data.address_details.zip_code,
+        }));
+      }
       toast.success('Dados carregados do ERP');
     } else {
       toast.error('Pedido não encontrado no ERP');
@@ -540,6 +676,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
                         />
                       </div>
                     </div>
+                    {renderAddressFields(selectedOrderAddress, setSelectedOrderAddress, 'selected-order-address')}
                     <Button
                       className="w-full"
                       onClick={handleGenerateFromOrder}
@@ -612,6 +749,8 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
                     placeholder="email@exemplo.com"
                   />
                 </div>
+
+                {renderAddressFields(manualAddress, setManualAddress, 'manual-address')}
 
                 {/* Amount */}
                 <div className="space-y-1">

@@ -18,6 +18,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { parseDateInSaoPaulo, getNowSaoPaulo, toSaoPauloDateString } from '@/lib/date-utils';
+import {
+  emptyBoletoAddressFields,
+  getMissingCoraBoletoAddressFields,
+  normalizeBoletoAddressFields,
+  toCoraBoletoAddress,
+  type BoletoAddressFields,
+} from '@/lib/boleto-address';
 
 interface Order {
   order_number: string;
@@ -84,7 +91,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   // Form state
   const [document, setDocument] = useState('');
   const [email, setEmail] = useState('');
-  const [zipCode, setZipCode] = useState('');
+  const [addressFields, setAddressFields] = useState<BoletoAddressFields>(() => ({ ...emptyBoletoAddressFields }));
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
   const [erpIdEmpresa, setErpIdEmpresa] = useState<number | null>(null);
 
@@ -93,6 +100,14 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     if (open && order && !hasLoadedERP) {
       setHasLoadedERP(true);
       setStep('checking');
+      setAddressFields(normalizeBoletoAddressFields({
+        street: order.address.street,
+        number: order.address.number,
+        neighborhood: order.address.neighborhood,
+        city: order.address.city,
+        state: order.address.state,
+        complement: order.address.complement,
+      }));
       
       // Check for all boletos (including cancelled for history)
       getAllBoletos(order.order_number).then((allBoletos) => {
@@ -128,9 +143,15 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
             setEmail(data.customer.email);
           }
 
-          if (data.address_details?.zip_code) {
-            setZipCode(data.address_details.zip_code.replace(/\D/g, '').substring(0, 8));
-          }
+          setAddressFields(normalizeBoletoAddressFields({
+            street: data.address_details?.street || order.address.street,
+            number: data.address_details?.number || order.address.number,
+            neighborhood: data.address_details?.neighborhood || order.address.neighborhood,
+            city: data.address_details?.city || order.address.city,
+            state: data.address_details?.state || order.address.state,
+            complement: data.address_details?.complement || order.address.complement,
+            zip_code: data.address_details?.zip_code,
+          }));
           
           // Initialize installment statuses
           setInstallmentStatuses(
@@ -154,9 +175,21 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       setIsGenerating(false);
       setIsCanceling(false);
       setPreviewUrl(null);
+      setAddressFields({ ...emptyBoletoAddressFields });
       resetERP();
     }
   }, [open, resetERP]);
+
+  const updateAddressField = (field: keyof BoletoAddressFields, value: string) => {
+    setAddressFields((prev) => ({
+      ...prev,
+      [field]: field === 'zipCode'
+        ? value.replace(/\D/g, '').substring(0, 8)
+        : field === 'state'
+          ? value.toUpperCase().substring(0, 2)
+          : value,
+    }));
+  };
 
   const handleRegenerate = async () => {
     if (!order) return;
@@ -284,25 +317,15 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       return;
     }
 
-    const erpAddress = erpData?.address_details;
-    const zipFromERP = erpAddress?.zip_code?.replace(/\D/g, '') || '';
-    const boletoZipCode = (zipCode || zipFromERP).replace(/\D/g, '').substring(0, 8);
-    const boletoAddress = {
-      street: erpAddress?.street || order.address.street || '',
-      number: erpAddress?.number || order.address.number || 'S/N',
-      district: erpAddress?.neighborhood || order.address.neighborhood || 'Centro',
-      city: erpAddress?.city || order.address.city || '',
-      state: erpAddress?.state || order.address.state || '',
-      complement: erpAddress?.complement || order.address.complement || '',
-      zipCode: boletoZipCode,
-    };
-    const hasUsableAddress = Boolean(
-      boletoAddress.street &&
-      boletoAddress.city &&
-      boletoAddress.state &&
-      boletoAddress.zipCode.length === 8 &&
-      boletoAddress.zipCode !== '00000000'
-    );
+    const normalizedAddress = normalizeBoletoAddressFields(addressFields);
+    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
+
+    if (missingAddressFields.length > 0) {
+      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
+      return;
+    }
+
+    const boletoAddress = toCoraBoletoAddress(normalizedAddress);
 
     setIsGenerating(true);
     const results: GeneratedBoleto[] = [];
@@ -324,7 +347,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           document: document,
           documentType: erpData?.customer.document_type,
           email: email || undefined,
-          address: hasUsableAddress ? boletoAddress : undefined,
+          address: boletoAddress,
         },
         services: [{
           name: numInstallments > 1 
@@ -378,7 +401,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
     setGeneratedBoletos([]);
     setDocument('');
     setEmail('');
-    setZipCode('');
+    setAddressFields({ ...emptyBoletoAddressFields });
     setInstallmentStatuses([]);
     onOpenChange(false);
   };
@@ -591,17 +614,73 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
                 />
               </div>
 
-              {/* ZIP Code */}
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">CEP (opcional)</Label>
-                <Input
-                  id="zipCode"
-                  placeholder="00000-000"
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').substring(0, 8))}
-                  maxLength={9}
-                  disabled={isGenerating}
-                />
+              {/* Address */}
+              <div className="space-y-3 rounded-lg border p-3">
+                <Label>Endereço para registro</Label>
+                <div className="grid grid-cols-[1fr_96px] gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoStreet" className="text-xs">Rua *</Label>
+                    <Input
+                      id="boletoStreet"
+                      value={addressFields.street}
+                      onChange={(e) => updateAddressField('street', e.target.value)}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoNumber" className="text-xs">Número</Label>
+                    <Input
+                      id="boletoNumber"
+                      value={addressFields.number}
+                      onChange={(e) => updateAddressField('number', e.target.value)}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoDistrict" className="text-xs">Bairro *</Label>
+                    <Input
+                      id="boletoDistrict"
+                      value={addressFields.district}
+                      onChange={(e) => updateAddressField('district', e.target.value)}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoCity" className="text-xs">Cidade *</Label>
+                    <Input
+                      id="boletoCity"
+                      value={addressFields.city}
+                      onChange={(e) => updateAddressField('city', e.target.value)}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-[88px_1fr] gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoState" className="text-xs">UF *</Label>
+                    <Input
+                      id="boletoState"
+                      value={addressFields.state}
+                      onChange={(e) => updateAddressField('state', e.target.value)}
+                      maxLength={2}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="boletoZipCode" className="text-xs">CEP *</Label>
+                    <Input
+                      id="boletoZipCode"
+                      placeholder="00000000"
+                      value={addressFields.zipCode}
+                      onChange={(e) => updateAddressField('zipCode', e.target.value)}
+                      maxLength={8}
+                      inputMode="numeric"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Installments List */}
