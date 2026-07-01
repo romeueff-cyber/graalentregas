@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { parseDateInSaoPaulo, getNowSaoPaulo, toSaoPauloDateString } from '@/lib/date-utils';
 import {
   emptyBoletoAddressFields,
@@ -92,6 +93,8 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [addressFields, setAddressFields] = useState<BoletoAddressFields>(() => ({ ...emptyBoletoAddressFields }));
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
   const [erpIdEmpresa, setErpIdEmpresa] = useState<number | null>(null);
+  const { selectedEmpresa, allowedEmpresas } = useEmpresa();
+  const fallbackEmpresa = selectedEmpresa ?? (allowedEmpresas.length > 0 ? allowedEmpresas[0] : null);
 
   // Check for existing boletos and load ERP data when dialog opens
   useEffect(() => {
@@ -345,7 +348,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
         }],
         dueDate: inst.dueDate,
         ...buildBoletoPaymentTerms(boletoSettings),
-        idEmpresa: erpIdEmpresa,
+        idEmpresa: erpIdEmpresa ?? fallbackEmpresa,
         notification: email ? {
           name: order.client_name,
           email: email,

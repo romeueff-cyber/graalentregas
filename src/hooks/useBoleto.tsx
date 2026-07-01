@@ -277,6 +277,7 @@ export function useBoleto() {
 
       if (insertError) {
         console.error('[Boleto] Error saving to database:', insertError);
+        toast.error(`Boleto criado na Cora, mas não salvo no app: ${insertError.message}`);
       } else {
         console.log('[Boleto] Saved to database successfully');
       }
