@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { parseDateInSaoPaulo, getNowSaoPaulo, toSaoPauloDateString } from '@/lib/date-utils';
 import {
   emptyBoletoAddressFields,
