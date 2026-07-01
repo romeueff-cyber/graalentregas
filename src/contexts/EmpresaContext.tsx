@@ -23,7 +23,7 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const { user, isAdmin } = useAuth();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['user-empresas', user?.id],
+    queryKey: ['user-empresas', user?.id, isAdmin],
     enabled: !!user,
     staleTime: 0,
     queryFn: async (): Promise<EmpresaId[]> => {
