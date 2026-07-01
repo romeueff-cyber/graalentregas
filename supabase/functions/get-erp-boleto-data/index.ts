@@ -9,6 +9,30 @@ function tryParseJson(text: string): unknown | null {
   }
 }
 
+function hasAnyAddressDetails(data: any): boolean {
+  const address = data?.address_details;
+  return Boolean(address && (address.street || address.neighborhood || address.city || address.state || address.zip_code));
+}
+
+function mergeOrderAddressDetails(data: any, orderData: any) {
+  const orderAddress = orderData?.address_details || orderData?.address || {};
+
+  return {
+    ...data,
+    address: data?.address || orderData?.address || null,
+    location: data?.location || orderData?.location || null,
+    address_details: {
+      street: data?.address_details?.street || orderAddress.street || '',
+      number: data?.address_details?.number || orderAddress.number || '',
+      complement: data?.address_details?.complement || orderAddress.complement || '',
+      neighborhood: data?.address_details?.neighborhood || orderAddress.neighborhood || '',
+      city: data?.address_details?.city || orderAddress.city || '',
+      state: data?.address_details?.state || orderAddress.state || '',
+      zip_code: data?.address_details?.zip_code || orderAddress.zip_code || orderAddress.zipCode || '',
+    },
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -127,7 +151,32 @@ serve(async (req) => {
       );
     }
 
-    const data = await response.json();
+    let data = await response.json();
+
+    // Some deployed ERP proxies still return the boleto payload without address.
+    // Query the regular order endpoint as fallback so the frontend can send a
+    // complete customer address to Cora and avoid REC-0030.
+    if (!hasAnyAddressDetails(data)) {
+      try {
+        const orderResponse = await fetch(`${erpApiUrl}/api/orders/${encodeURIComponent(orderNumber)}`, {
+          method: 'GET',
+          headers: {
+            'x-api-key': erpApiKey,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (orderResponse.ok) {
+          const orderData = await orderResponse.json();
+          data = mergeOrderAddressDetails(data, orderData);
+        } else {
+          await orderResponse.text();
+        }
+      } catch (fallbackError) {
+        console.warn('[ERP Boleto] Address fallback failed:', fallbackError instanceof Error ? fallbackError.message : fallbackError);
+      }
+    }
+
     console.log('[ERP Boleto] Data received:', JSON.stringify(data));
 
     return new Response(

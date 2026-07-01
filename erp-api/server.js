@@ -183,6 +183,7 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
         ov.OBS,
         ov.NUMERO,
         ov.COMPLEMENTO,
+        ov.CEP,
         p.NOME,
         p.APELIDO,
         e.NOME AS ESTADO,
@@ -337,7 +338,8 @@ app.get('/api/orders/:orderNumber', authenticate, async (req, res) => {
         complement: order.COMPLEMENTO || '',
         neighborhood: order.BAIRRO || '',
         city: order.CIDADE || '',
-        state: order.UF || ''
+        state: order.UF || '',
+        zip_code: order.CEP || ''
       },
       items: items,
       equipments: equipments
@@ -396,6 +398,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
         r.NOME AS RUA,
         ov.NUMERO,
         ov.COMPLEMENTO,
+        ov.CEP,
         s.DESCRICAO AS STATUS_DESCRICAO
       FROM ORDENS_VENDA ov
       LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
@@ -524,7 +527,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
           complement: order.COMPLEMENTO || '',
           neighborhood: order.BAIRRO || '',
           city: order.CIDADE || '',
-          state: order.UF || ''
+          state: order.UF || '',
+          zip_code: order.CEP || ''
         },
         items: items,
         equipments: equipments
@@ -1038,6 +1042,7 @@ app.get('/api/clients', authenticate, async (req, res) => {
         r.NOME AS RUA,
         ov_addr.NUMERO,
         ov_addr.COMPLEMENTO,
+        ov_addr.CEP,
         b.NOME AS BAIRRO,
         ci.NOME AS CIDADE,
         e.SIGLA AS UF
@@ -1071,6 +1076,7 @@ app.get('/api/clients', authenticate, async (req, res) => {
       street: r.RUA || '',
       number: r.NUMERO || '',
       complement: r.COMPLEMENTO || '',
+      zip_code: r.CEP || '',
       neighborhood: r.BAIRRO || '',
       city: r.CIDADE || '',
       state: r.UF || '',

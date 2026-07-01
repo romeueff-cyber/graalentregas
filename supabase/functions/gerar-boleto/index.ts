@@ -218,39 +218,41 @@ async function createBoleto(
     (body.customer as Record<string, unknown>).email = request.customer.email.substring(0, 60);
   }
 
-  // Only add address if all bank-slip address fields are usable. The Cora API
-  // treats address as optional, but when present it must be complete.
-  if (request.customer.address) {
-    const cleanZipCode = request.customer.address.zipCode.replace(/\D/g, '');
-    const isValidZipCode = cleanZipCode.length === 8 && cleanZipCode !== '00000000';
-    const street = request.customer.address.street?.trim();
-    const number = request.customer.address.number?.trim();
-    const district = request.customer.address.district?.trim();
-    const city = request.customer.address.city?.trim();
-    const state = request.customer.address.state?.trim().substring(0, 2).toUpperCase();
-    const hasFullAddress = Boolean(street && number && district && city && state && isValidZipCode);
-    
-    if (hasFullAddress) {
-      (body.customer as Record<string, unknown>).address = {
-        street,
-        number,
-        district,
-        city,
-        state,
-        complement: request.customer.address.complement || '',
-        zip_code: cleanZipCode,
-      };
-    } else {
-      console.log('[Cora] Skipping incomplete address:', {
-        hasStreet: Boolean(street),
-        hasNumber: Boolean(number),
-        hasDistrict: Boolean(district),
-        hasCity: Boolean(city),
-        hasState: Boolean(state),
-        zipCodeLength: cleanZipCode.length,
-      });
-    }
+  // CIP registration has failed when the invoice is created without customer
+  // address. Require a complete bank-slip address before calling Cora instead
+  // of sending a payload that will later fail with REC-0030.
+  if (!request.customer.address) {
+    throw new Error('Endereço completo do cliente é obrigatório para registrar boleto na Cora. Informe rua, bairro, cidade, UF e CEP.');
   }
+
+  const cleanZipCode = request.customer.address.zipCode.replace(/\D/g, '');
+  const isValidZipCode = cleanZipCode.length === 8 && cleanZipCode !== '00000000';
+  const street = request.customer.address.street?.trim();
+  const number = request.customer.address.number?.trim() || 'S/N';
+  const district = request.customer.address.district?.trim();
+  const city = request.customer.address.city?.trim();
+  const state = request.customer.address.state?.trim().substring(0, 2).toUpperCase();
+  const missingAddressFields = [
+    !street ? 'rua' : null,
+    !district ? 'bairro' : null,
+    !city ? 'cidade' : null,
+    !state || state.length !== 2 ? 'UF' : null,
+    !isValidZipCode ? 'CEP' : null,
+  ].filter(Boolean);
+
+  if (missingAddressFields.length > 0) {
+    throw new Error(`Endereço incompleto para registrar boleto na Cora. Complete: ${missingAddressFields.join(', ')}.`);
+  }
+
+  (body.customer as Record<string, unknown>).address = {
+    street,
+    number,
+    district,
+    city,
+    state,
+    complement: request.customer.address.complement || '',
+    zip_code: cleanZipCode,
+  };
 
   // Add optional payment terms
   const paymentTerms = body.payment_terms as Record<string, unknown>;
