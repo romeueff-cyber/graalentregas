@@ -23,7 +23,9 @@ const DEFAULT_BOLETO_SETTINGS: BoletoSettings = {
   boleto_desconto_tipo: 'FIXED',
   boleto_desconto_valor: 0,
   boleto_desconto_ativo: false,
-  boleto_producao: false,
+  // Segurança/RLS não pode derrubar o boleto para ambiente de testes: se a
+  // configuração não carregar, mantém a emissão na Cora produção.
+  boleto_producao: true,
 };
 
 export function useBoletoSettings() {

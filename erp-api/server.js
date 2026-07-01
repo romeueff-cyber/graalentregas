@@ -720,9 +720,10 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
     console.log(`Buscando dados de boleto para pedido: ${orderNumber}`);
     
     const query = `
-      SELECT 
+      SELECT FIRST 1
         ov.ID_ORDENS_VENDA AS ORDER_ID,
         ov.N_PEDIDO AS ORDER_NUMBER,
+        ov.ID_CLIENTE,
         p.NOME AS CUSTOMER_NAME,
         p.CPF_CNPJ AS CUSTOMER_DOCUMENT,
         CASE WHEN p.JURIDICA = 1 THEN 'CNPJ' ELSE 'CPF' END AS DOCUMENT_TYPE,
@@ -734,14 +735,26 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
         fpgto.CODIGO AS PAYMENT_TERMS_CODE,
         fpgto.DESCRICAO AS PAYMENT_TERMS_DESCRIPTION,
         ov.VALOR_PEDIDO AS TOTAL_AMOUNT,
-        cl.ID_EMPRESA AS ID_EMPRESA
+        cl.ID_EMPRESA AS ID_EMPRESA,
+        ov.NUMERO,
+        ov.COMPLEMENTO,
+        ov.CEP,
+        e.SIGLA AS UF,
+        c.NOME AS CIDADE,
+        b.NOME AS BAIRRO,
+        r.NOME AS RUA
       FROM ORDENS_VENDA ov
       INNER JOIN CLIENTES cl ON cl.ID_CLIENTE = ov.ID_CLIENTE
       INNER JOIN PESSOAS p ON p.ID_PESSOA = cl.ID_PESSOA
       LEFT JOIN FORMA_PAGAMENTO fp ON fp.ID_FORMA_PAGAMENTO = ov.ID_FORMA_PAGAMENTO
       LEFT JOIN FPGTO fpgto ON fpgto.ID_FPGTO = ov.ID_FPGTO
+      LEFT JOIN ESTADO e ON ov.ID_ESTADO = e.ID_ESTADO
+      LEFT JOIN CIDADE c ON ov.ID_CIDADE = c.ID_CIDADE
+      LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
+      LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
       WHERE ov.N_PEDIDO = ?
         AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+      ORDER BY ov.DATE_CAD DESC
     `;
     
     const result = await executeQuery(query, [parseInt(orderNumber)]);
@@ -751,6 +764,49 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
     }
     
     const order = result[0];
+
+    // Quando o pedido atual não possui endereço completo, busca o último
+    // endereço cadastrado/usado para o mesmo cliente no ERP. Isso evita enviar
+    // boleto sem dados suficientes para registro bancário/CIP.
+    if (!order.RUA || !order.BAIRRO || !order.CIDADE || !order.UF || !order.CEP) {
+      try {
+        const fallbackAddressQuery = `
+          SELECT FIRST 1
+            ov.NUMERO,
+            ov.COMPLEMENTO,
+            ov.CEP,
+            e.SIGLA AS UF,
+            c.NOME AS CIDADE,
+            b.NOME AS BAIRRO,
+            r.NOME AS RUA
+          FROM ORDENS_VENDA ov
+          LEFT JOIN ESTADO e ON ov.ID_ESTADO = e.ID_ESTADO
+          LEFT JOIN CIDADE c ON ov.ID_CIDADE = c.ID_CIDADE
+          LEFT JOIN BAIRRO b ON ov.ID_BAIRRO = b.ID_BAIRRO
+          LEFT JOIN RUA r ON ov.ID_RUA = r.ID_RUA
+          WHERE ov.ID_CLIENTE = ?
+            AND ov.ID_ORDENS_VENDA <> ?
+            AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+            AND ov.ID_RUA IS NOT NULL
+          ORDER BY ov.DATE_CAD DESC
+        `;
+
+        const fallbackResult = await executeQuery(fallbackAddressQuery, [order.ID_CLIENTE, order.ORDER_ID]);
+        const fallbackAddress = fallbackResult && fallbackResult.length > 0 ? fallbackResult[0] : null;
+
+        if (fallbackAddress) {
+          order.RUA = order.RUA || fallbackAddress.RUA;
+          order.NUMERO = order.NUMERO || fallbackAddress.NUMERO;
+          order.COMPLEMENTO = order.COMPLEMENTO || fallbackAddress.COMPLEMENTO;
+          order.BAIRRO = order.BAIRRO || fallbackAddress.BAIRRO;
+          order.CIDADE = order.CIDADE || fallbackAddress.CIDADE;
+          order.UF = order.UF || fallbackAddress.UF;
+          order.CEP = order.CEP || fallbackAddress.CEP;
+        }
+      } catch (addressError) {
+        console.warn('Não foi possível buscar endereço alternativo do cliente:', addressError.message);
+      }
+    }
     
     // Buscar email do cliente (ID_TIPO_CONTATO = 3 é email)
     const emailQuery = `
@@ -768,6 +824,16 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
     const paymentCode = order.PAYMENT_TERMS_CODE || '0';
     const dueDays = paymentCode.split(';').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d));
     
+    const addressParts = [];
+    if (order.RUA) addressParts.push(order.RUA);
+    if (order.NUMERO) addressParts.push(order.NUMERO);
+    if (order.COMPLEMENTO) addressParts.push(order.COMPLEMENTO);
+
+    const locationParts = [];
+    if (order.BAIRRO) locationParts.push(order.BAIRRO);
+    if (order.CIDADE) locationParts.push(order.CIDADE);
+    if (order.UF) locationParts.push(order.UF);
+
     res.json({
       order_id: order.ORDER_ID,
       order_number: order.ORDER_NUMBER?.toString() || orderNumber,
@@ -787,7 +853,18 @@ app.get('/api/orders/:orderNumber/boleto', authenticate, async (req, res) => {
         due_days: dueDays.length > 0 ? dueDays : [0]
       },
       total_amount: order.TOTAL_AMOUNT,
-      id_empresa: order.ID_EMPRESA || null
+      id_empresa: order.ID_EMPRESA || null,
+      address: addressParts.join(', '),
+      location: locationParts.join(' - '),
+      address_details: {
+        street: order.RUA || '',
+        number: order.NUMERO || '',
+        complement: order.COMPLEMENTO || '',
+        neighborhood: order.BAIRRO || '',
+        city: order.CIDADE || '',
+        state: order.UF || '',
+        zip_code: order.CEP || ''
+      }
     });
     
   } catch (error) {

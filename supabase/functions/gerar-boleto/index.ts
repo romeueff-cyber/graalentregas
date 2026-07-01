@@ -55,8 +55,9 @@ interface CoraTokenResponse {
   token_type: string;
 }
 
-// Cache for access token
-let cachedToken: { token: string; expiresAt: number } | null = null;
+// Cache for access token. The token is environment-specific: a staging token
+// cannot be reused against the production mTLS API (and vice versa).
+let cachedToken: { token: string; expiresAt: number; isProduction: boolean } | null = null;
 
 // Normalize PEM content (handle various formats from secrets)
 function normalizePEM(content: string, type: 'CERTIFICATE' | 'RSA PRIVATE KEY'): string {
@@ -118,7 +119,7 @@ function getCredentials(): { clientId: string; certificate: string; privateKey: 
 
 async function getAccessToken(isProduction: boolean): Promise<string> {
   // Check if we have a valid cached token
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
+  if (cachedToken && cachedToken.isProduction === isProduction && Date.now() < cachedToken.expiresAt - 60000) {
     console.log('[Cora] Using cached access token');
     return cachedToken.token;
   }
@@ -157,6 +158,7 @@ async function getAccessToken(isProduction: boolean): Promise<string> {
     cachedToken = {
       token: data.access_token,
       expiresAt: Date.now() + (data.expires_in * 1000),
+      isProduction,
     };
 
     console.log('[Cora] Access token obtained successfully');
@@ -216,23 +218,37 @@ async function createBoleto(
     (body.customer as Record<string, unknown>).email = request.customer.email.substring(0, 60);
   }
 
-  // Only add address if zipCode is valid (not all zeros and has 8 digits)
+  // Only add address if all bank-slip address fields are usable. The Cora API
+  // treats address as optional, but when present it must be complete.
   if (request.customer.address) {
     const cleanZipCode = request.customer.address.zipCode.replace(/\D/g, '');
     const isValidZipCode = cleanZipCode.length === 8 && cleanZipCode !== '00000000';
+    const street = request.customer.address.street?.trim();
+    const number = request.customer.address.number?.trim();
+    const district = request.customer.address.district?.trim();
+    const city = request.customer.address.city?.trim();
+    const state = request.customer.address.state?.trim().substring(0, 2).toUpperCase();
+    const hasFullAddress = Boolean(street && number && district && city && state && isValidZipCode);
     
-    if (isValidZipCode) {
+    if (hasFullAddress) {
       (body.customer as Record<string, unknown>).address = {
-        street: request.customer.address.street,
-        number: request.customer.address.number,
-        district: request.customer.address.district,
-        city: request.customer.address.city,
-        state: request.customer.address.state.substring(0, 2).toUpperCase(),
+        street,
+        number,
+        district,
+        city,
+        state,
         complement: request.customer.address.complement || '',
         zip_code: cleanZipCode,
       };
     } else {
-      console.log('[Cora] Skipping address - invalid zipCode:', cleanZipCode);
+      console.log('[Cora] Skipping incomplete address:', {
+        hasStreet: Boolean(street),
+        hasNumber: Boolean(number),
+        hasDistrict: Boolean(district),
+        hasCity: Boolean(city),
+        hasState: Boolean(state),
+        zipCodeLength: cleanZipCode.length,
+      });
     }
   }
 
@@ -335,25 +351,37 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { action, ...params } = requestBody;
 
-    // Only admin/financeiro can create or cancel boletos
+    // Security hardening must not block the operational boleto flow:
+    // vendedores/entregadores can generate boletos during sales/delivery,
+    // while cancellation remains restricted to admin/financeiro.
     if (action === 'create' || action === 'cancel') {
+      const allowedRoles = action === 'create'
+        ? ['admin', 'financeiro', 'vendedor', 'entregador']
+        : ['admin', 'financeiro'];
+
       const { data: roleRow } = await authResult.supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', authResult.userId)
-        .in('role', ['admin', 'financeiro'])
-        .maybeSingle();
-      if (!roleRow) {
+        .in('role', allowedRoles)
+        .limit(1);
+
+      if (!roleRow || roleRow.length === 0) {
         return new Response(
-          JSON.stringify({ error: 'Acesso negado. Somente admin/financeiro.' }),
+          JSON.stringify({
+            error: action === 'create'
+              ? 'Acesso negado. Seu perfil não tem permissão para gerar boletos.'
+              : 'Acesso negado. Somente admin/financeiro pode cancelar boletos.',
+          }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
 
 
-    // Use stage by default, production only when explicitly set
-    const isProduction = params.production === true;
+    // In production deployments the Cora credentials are production mTLS
+    // credentials. Use production unless staging is explicitly requested.
+    const isProduction = params.production !== false;
     console.log(`[Cora] Using ${isProduction ? 'PRODUCTION' : 'STAGE'} environment`);
 
     if (action === 'create') {
