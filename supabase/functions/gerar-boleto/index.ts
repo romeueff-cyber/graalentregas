@@ -189,13 +189,8 @@ async function createBoleto(
     (cleanDocument.length <= 11 ? 'CPF' : 'CNPJ');
 
   // Build the request body according to Cora API spec
-  // Append a short unique suffix to the code to avoid CIP conflicts when a
-  // previous boleto with the same code was cancelled (Cora REC-0030).
-  const uniqueSuffix = Date.now().toString(36).slice(-5).toUpperCase();
-  const uniqueCode = `${request.orderNumber}-${uniqueSuffix}`.substring(0, 40);
-
   const body: Record<string, unknown> = {
-    code: uniqueCode,
+    code: request.orderNumber.substring(0, 40),
     customer: {
       name: request.customer.name.substring(0, 60),
       document: {
@@ -218,41 +213,9 @@ async function createBoleto(
     (body.customer as Record<string, unknown>).email = request.customer.email.substring(0, 60);
   }
 
-  // CIP registration has failed when the invoice is created without customer
-  // address. Require a complete bank-slip address before calling Cora instead
-  // of sending a payload that will later fail with REC-0030.
-  if (!request.customer.address) {
-    throw new Error('Endereço completo do cliente é obrigatório para registrar boleto na Cora. Informe rua, bairro, cidade, UF e CEP.');
-  }
-
-  const cleanZipCode = request.customer.address.zipCode.replace(/\D/g, '');
-  const isValidZipCode = cleanZipCode.length === 8 && cleanZipCode !== '00000000';
-  const street = request.customer.address.street?.trim();
-  const number = request.customer.address.number?.trim() || 'S/N';
-  const district = request.customer.address.district?.trim();
-  const city = request.customer.address.city?.trim();
-  const state = request.customer.address.state?.trim().substring(0, 2).toUpperCase();
-  const missingAddressFields = [
-    !street ? 'rua' : null,
-    !district ? 'bairro' : null,
-    !city ? 'cidade' : null,
-    !state || state.length !== 2 ? 'UF' : null,
-    !isValidZipCode ? 'CEP' : null,
-  ].filter(Boolean);
-
-  if (missingAddressFields.length > 0) {
-    throw new Error(`Endereço incompleto para registrar boleto na Cora. Complete: ${missingAddressFields.join(', ')}.`);
-  }
-
-  (body.customer as Record<string, unknown>).address = {
-    street,
-    number,
-    district,
-    city,
-    state,
-    complement: request.customer.address.complement || '',
-    zip_code: cleanZipCode,
-  };
+  // Keep the Cora payload compatible with the flow that was working before the
+  // security hardening: address is optional in Cora's invoice API and some CIP
+  // rejections started after we began forcing it into the request.
 
   // Add optional payment terms
   const paymentTerms = body.payment_terms as Record<string, unknown>;
@@ -283,8 +246,12 @@ async function createBoleto(
   // The notification format may need adjustment per Cora's current API spec
   // TODO: Review Cora API documentation for correct notification structure
 
-  // Generate idempotency key from order number
-  const idempotencyKey = crypto.randomUUID();
+  // Deterministic UUID idempotency key prevents duplicate invoices if the app
+  // retries the same order/parcel after a timeout, while still satisfying Cora's
+  // required UUID format.
+  const idempotencyKey = await createDeterministicUUID(
+    `${request.orderNumber}|${request.dueDate}|${request.services.reduce((sum, service) => sum + service.amount, 0)}`
+  );
 
   // Use mTLS for API call too
   const httpClient = Deno.createHttpClient({
@@ -333,6 +300,17 @@ async function createBoleto(
   } finally {
     httpClient.close();
   }
+}
+
+async function createDeterministicUUID(input: string): Promise<string> {
+  const encoded = new TextEncoder().encode(input);
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', encoded));
+
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(hash.slice(0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 serve(async (req) => {

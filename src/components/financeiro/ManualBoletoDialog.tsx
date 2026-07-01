@@ -34,9 +34,7 @@ import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   emptyBoletoAddressFields,
-  getMissingCoraBoletoAddressFields,
   normalizeBoletoAddressFields,
-  toCoraBoletoAddress,
   type BoletoAddressFields,
 } from '@/lib/boleto-address';
 
@@ -335,13 +333,6 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       return;
     }
 
-    const normalizedAddress = normalizeBoletoAddressFields(selectedOrderAddress);
-    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
-    if (missingAddressFields.length > 0) {
-      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
-      return;
-    }
-    
     setIsGenerating(true);
     try {
       const request: CreateBoletoRequest = {
@@ -351,7 +342,6 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           document: selectedClient.document,
           documentType: selectedClient.documentType,
           email: selectedClient.email,
-          address: toCoraBoletoAddress(normalizedAddress),
         },
         services: [{
           name: `Pedido ${selectedOrderNumber}`,
@@ -404,13 +394,6 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
       return;
     }
 
-    const normalizedAddress = normalizeBoletoAddressFields(manualAddress);
-    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
-    if (missingAddressFields.length > 0) {
-      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
-      return;
-    }
-    
     setIsGenerating(true);
     try {
       const cleanDoc = manualDocument.replace(/\D/g, '');
@@ -421,7 +404,6 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
           document: cleanDoc,
           documentType: cleanDoc.length > 11 ? 'CNPJ' : 'CPF',
           email: manualEmail || undefined,
-          address: toCoraBoletoAddress(normalizedAddress),
         },
         services: [{
           name: `Pedido ${manualOrderNumber}`,
