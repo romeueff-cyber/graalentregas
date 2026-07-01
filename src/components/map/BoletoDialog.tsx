@@ -20,9 +20,7 @@ import { toast } from 'sonner';
 import { parseDateInSaoPaulo, getNowSaoPaulo, toSaoPauloDateString } from '@/lib/date-utils';
 import {
   emptyBoletoAddressFields,
-  getMissingCoraBoletoAddressFields,
   normalizeBoletoAddressFields,
-  toCoraBoletoAddress,
   type BoletoAddressFields,
 } from '@/lib/boleto-address';
 
@@ -317,16 +315,6 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
       return;
     }
 
-    const normalizedAddress = normalizeBoletoAddressFields(addressFields);
-    const missingAddressFields = getMissingCoraBoletoAddressFields(normalizedAddress);
-
-    if (missingAddressFields.length > 0) {
-      toast.error(`Complete o endereço para registrar o boleto: ${missingAddressFields.join(', ')}`);
-      return;
-    }
-
-    const boletoAddress = toCoraBoletoAddress(normalizedAddress);
-
     setIsGenerating(true);
     const results: GeneratedBoleto[] = [];
 
@@ -347,7 +335,6 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
           document: document,
           documentType: erpData?.customer.document_type,
           email: email || undefined,
-          address: boletoAddress,
         },
         services: [{
           name: numInstallments > 1 
