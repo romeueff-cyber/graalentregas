@@ -26,22 +26,21 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     queryKey: ['user-empresas', user?.id, isAdmin],
     enabled: !!user,
     staleTime: 0,
-    queryFn: async (): Promise<EmpresaId[]> => {
+    queryFn: async (): Promise<{ ids: EmpresaId[]; source: 'explicit' | 'admin-fallback' | 'none' }> => {
       const { data, error } = await supabase
         .from('user_companies')
         .select('empresa_id')
         .eq('user_id', user!.id);
       if (error) throw error;
       const ids = (data ?? []).map((r: any) => r.empresa_id as EmpresaId);
-      // Admin também respeita as empresas marcadas no cadastro do usuário.
-      // Se um admin antigo ainda não tiver configuração, mantém acesso total para não bloquear o sistema.
-      if (ids.length > 0) return ids;
-      if (isAdmin) return [EMPRESAS.GRAAL, EMPRESAS.GROTT];
-      return [];
+      if (ids.length > 0) return { ids, source: 'explicit' };
+      if (isAdmin) return { ids: [EMPRESAS.GRAAL, EMPRESAS.GROTT], source: 'admin-fallback' };
+      return { ids: [], source: 'none' };
     },
   });
 
-  const allowedEmpresas = useMemo<EmpresaId[]>(() => data ?? [], [data]);
+  const allowedEmpresas = useMemo<EmpresaId[]>(() => data?.ids ?? [], [data]);
+  const empresaSource = data?.source ?? 'none';
 
   const [selectedEmpresa, setSelectedEmpresaState] = useState<EmpresaId | null>(null);
 
@@ -55,10 +54,10 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
       return;
     }
     const signatureKey = `${STORAGE_KEY}__sig`;
-    const currentSig = [...allowedEmpresas].sort().join(',');
+    // Inclui a "origem" do conjunto para diferenciar admin-fallback (sem user_companies)
+    // de configuração explícita — mesmo quando os IDs coincidem.
+    const currentSig = `${empresaSource}:${[...allowedEmpresas].sort().join(',')}`;
     const lastSig = localStorage.getItem(signatureKey);
-    // Se o conjunto de empresas mudou (ex.: admin ganhou acesso a uma nova empresa),
-    // resetamos para "Todas" para evitar continuar filtrando pela anterior.
     if (lastSig !== currentSig) {
       localStorage.setItem(signatureKey, currentSig);
       localStorage.setItem(STORAGE_KEY, 'all');
@@ -76,7 +75,7 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     } else {
       setSelectedEmpresaState(allowedEmpresas.length > 1 ? null : allowedEmpresas[0]);
     }
-  }, [allowedEmpresas]);
+  }, [allowedEmpresas, empresaSource]);
 
   const setSelectedEmpresa = (id: EmpresaId | null) => {
     setSelectedEmpresaState(id);
