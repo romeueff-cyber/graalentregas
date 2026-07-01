@@ -94,7 +94,7 @@ export function BoletoDialog({ order, open, onOpenChange }: BoletoDialogProps) {
   const [isBoleto, setIsBoleto] = useState<boolean | null>(null);
   const [erpIdEmpresa, setErpIdEmpresa] = useState<number | null>(null);
   const { selectedEmpresa, allowedEmpresas } = useEmpresa();
-  const fallbackEmpresa = selectedEmpresa ?? (allowedEmpresas.length === 1 ? allowedEmpresas[0] : null);
+  const fallbackEmpresa = selectedEmpresa ?? (allowedEmpresas.length > 0 ? allowedEmpresas[0] : null);
 
   // Check for existing boletos and load ERP data when dialog opens
   useEffect(() => {
