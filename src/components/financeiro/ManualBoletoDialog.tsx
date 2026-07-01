@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -128,7 +128,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
   }, [open]);
 
   const updateAddressField = (
-    setter: React.Dispatch<React.SetStateAction<BoletoAddressFields>>,
+    setter: Dispatch<SetStateAction<BoletoAddressFields>>,
     field: keyof BoletoAddressFields,
     value: string,
   ) => {
@@ -144,7 +144,7 @@ export function ManualBoletoDialog({ open, onOpenChange, onSuccess }: ManualBole
 
   const renderAddressFields = (
     address: BoletoAddressFields,
-    setter: React.Dispatch<React.SetStateAction<BoletoAddressFields>>,
+    setter: Dispatch<SetStateAction<BoletoAddressFields>>,
     prefix: string,
   ) => (
     <div className="space-y-3 rounded-lg border p-3">
